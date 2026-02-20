@@ -10,8 +10,8 @@ from angie.agents.registry import AgentRegistry, agent
 from angie.agents.teams import TeamResolver, all_teams, get_team, register_team
 from angie.core.tasks import AngieTask
 
-
 # ── Concrete test agent ───────────────────────────────────────────────────────
+
 
 class DummyAgent(BaseAgent):
     name: ClassVar[str] = "Dummy"
@@ -34,6 +34,7 @@ class FailingAgent(BaseAgent):
 
 
 # ── BaseAgent tests ───────────────────────────────────────────────────────────
+
 
 def test_base_agent_can_handle_by_slug():
     agent_obj = DummyAgent()
@@ -125,6 +126,7 @@ async def test_base_agent_execute():
 
 # ── AgentRegistry extended ────────────────────────────────────────────────────
 
+
 def test_registry_load_all():
     registry = AgentRegistry()
     with patch("angie.agents.registry.importlib.import_module") as mock_import:
@@ -154,7 +156,9 @@ def test_registry_load_all():
 
 def test_registry_load_all_import_error():
     registry = AgentRegistry()
-    with patch("angie.agents.registry.importlib.import_module", side_effect=ImportError("no module")):
+    with patch(
+        "angie.agents.registry.importlib.import_module", side_effect=ImportError("no module")
+    ):
         registry.load_all()  # Should not raise
     assert registry._loaded is True
 
@@ -201,6 +205,7 @@ def test_agent_decorator():
 
 
 # ── Teams tests ───────────────────────────────────────────────────────────────
+
 
 def test_team_register_and_get():
     import angie.agents.teams as teams_mod
@@ -327,6 +332,7 @@ async def test_team_resolver_execute_no_match():
 
 # ── System agent tests ────────────────────────────────────────────────────────
 
+
 async def test_task_manager_list():
     from angie.agents.system.task_manager import TaskManagerAgent
 
@@ -340,7 +346,7 @@ async def test_task_manager_cancel():
     from angie.agents.system.task_manager import TaskManagerAgent
 
     a = TaskManagerAgent()
-    with patch("angie.queue.celery_app.celery_app") as mock_app:
+    with patch("angie.queue.celery_app.celery_app"):
         result = await a.execute({"input_data": {"action": "cancel", "task_id": "t123"}})
 
     assert result["cancelled"] is True
@@ -422,14 +428,16 @@ async def test_cron_agent_create():
     mock_engine = MagicMock()
 
     with patch("angie.core.cron.CronEngine", return_value=mock_engine):
-        result = await a.execute({
-            "input_data": {
-                "action": "create",
-                "expression": "0 * * * *",
-                "user_id": "user1",
-                "task_name": "my-task",
+        result = await a.execute(
+            {
+                "input_data": {
+                    "action": "create",
+                    "expression": "0 * * * *",
+                    "user_id": "user1",
+                    "task_name": "my-task",
+                }
             }
-        })
+        )
 
     assert result.get("created") is True
     assert result["expression"] == "0 * * * *"
@@ -439,9 +447,7 @@ async def test_cron_agent_create_missing_expression():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    result = await a.execute({
-        "input_data": {"action": "create", "user_id": "user1"}
-    })
+    result = await a.execute({"input_data": {"action": "create", "user_id": "user1"}})
     assert "error" in result
     assert "expression" in result["error"]
 
@@ -450,9 +456,7 @@ async def test_cron_agent_create_missing_user_id():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    result = await a.execute({
-        "input_data": {"action": "create", "expression": "0 * * * *"}
-    })
+    result = await a.execute({"input_data": {"action": "create", "expression": "0 * * * *"}})
     assert "error" in result
     assert "user_id" in result["error"]
 
@@ -464,9 +468,7 @@ async def test_cron_agent_delete():
     mock_engine = MagicMock()
 
     with patch("angie.core.cron.CronEngine", return_value=mock_engine):
-        result = await a.execute({
-            "input_data": {"action": "delete", "job_id": "job1"}
-        })
+        result = await a.execute({"input_data": {"action": "delete", "job_id": "job1"}})
 
     assert result.get("deleted") is True
     assert result["job_id"] == "job1"
@@ -501,13 +503,15 @@ async def test_cron_agent_create_exception():
     a = CronAgent()
 
     with patch("angie.core.cron.CronEngine", side_effect=RuntimeError("sched error")):
-        result = await a.execute({
-            "input_data": {
-                "action": "create",
-                "expression": "0 * * * *",
-                "user_id": "user1",
+        result = await a.execute(
+            {
+                "input_data": {
+                    "action": "create",
+                    "expression": "0 * * * *",
+                    "user_id": "user1",
+                }
             }
-        })
+        )
 
     assert "error" in result
     assert "sched error" in result["error"]
@@ -519,9 +523,7 @@ async def test_cron_agent_delete_exception():
     a = CronAgent()
 
     with patch("angie.core.cron.CronEngine", side_effect=RuntimeError("del error")):
-        result = await a.execute({
-            "input_data": {"action": "delete", "job_id": "job1"}
-        })
+        result = await a.execute({"input_data": {"action": "delete", "job_id": "job1"}})
 
     assert "error" in result
 

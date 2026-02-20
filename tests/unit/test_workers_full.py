@@ -24,14 +24,16 @@ def _make_session_factory(mock_session):
 
 # ── _update_task_in_db ────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_update_task_in_db_found():
     """_update_task_in_db updates and commits when task exists."""
-    from angie.queue.workers import _update_task_in_db
     from angie.models.task import Task, TaskStatus
+    from angie.queue.workers import _update_task_in_db
 
-    task = Task(id="t1", title="t", user_id="u1", status=TaskStatus.PENDING,
-                input_data={}, output_data={})
+    task = Task(
+        id="t1", title="t", user_id="u1", status=TaskStatus.PENDING, input_data={}, output_data={}
+    )
 
     mock_session = AsyncMock()
     mock_result = MagicMock()
@@ -51,7 +53,6 @@ async def test_update_task_in_db_found():
 async def test_update_task_in_db_not_found():
     """_update_task_in_db does nothing when task doesn't exist."""
     from angie.queue.workers import _update_task_in_db
-    from angie.models.task import TaskStatus
 
     mock_session = AsyncMock()
     mock_result = MagicMock()
@@ -67,6 +68,7 @@ async def test_update_task_in_db_not_found():
 
 # ── execute_task: no agent resolved ───────────────────────────────────────────
 
+
 def test_execute_task_no_agent_resolved():
     """When registry returns None, task raises ValueError which triggers retry."""
     from angie.queue.workers import execute_task
@@ -79,12 +81,17 @@ def test_execute_task_no_agent_resolved():
     mock_registry.resolve.return_value = None
 
     task_dict = {
-        "id": "task-123", "title": "Test",
-        "input_data": {}, "agent_slug": "nonexistent", "user_id": "u1",
+        "id": "task-123",
+        "title": "Test",
+        "input_data": {},
+        "agent_slug": "nonexistent",
+        "user_id": "u1",
     }
 
-    with patch("angie.agents.registry.get_registry", return_value=mock_registry), \
-         patch("asyncio.run", return_value=None):
+    with (
+        patch("angie.agents.registry.get_registry", return_value=mock_registry),
+        patch("asyncio.run", return_value=None),
+    ):
         try:
             execute_task.__wrapped__.__func__(mock_self, task_dict)
         except Exception:
@@ -104,8 +111,11 @@ def test_execute_task_agent_raises_exception():
     mock_registry.get.return_value = mock_agent
 
     task_dict = {
-        "id": "task-456", "title": "Failing",
-        "input_data": {}, "agent_slug": "gmail", "user_id": "u1",
+        "id": "task-456",
+        "title": "Failing",
+        "input_data": {},
+        "agent_slug": "gmail",
+        "user_id": "u1",
     }
 
     def fake_run(coro):
@@ -119,8 +129,10 @@ def test_execute_task_agent_raises_exception():
 
     mock_agent.execute = AsyncMock(side_effect=RuntimeError("agent blew up"))
 
-    with patch("angie.agents.registry.get_registry", return_value=mock_registry), \
-         patch("asyncio.run", side_effect=fake_run):
+    with (
+        patch("angie.agents.registry.get_registry", return_value=mock_registry),
+        patch("asyncio.run", side_effect=fake_run),
+    ):
         try:
             execute_task.__wrapped__.__func__(mock_self, task_dict)
         except Exception:
@@ -140,8 +152,11 @@ def test_execute_task_success_path():
     mock_registry.get.return_value = mock_agent
 
     task_dict = {
-        "id": "task-789", "title": "Success",
-        "input_data": {}, "agent_slug": "gmail", "user_id": "u1",
+        "id": "task-789",
+        "title": "Success",
+        "input_data": {},
+        "agent_slug": "gmail",
+        "user_id": "u1",
     }
 
     def fake_run(coro):
@@ -155,8 +170,10 @@ def test_execute_task_success_path():
         finally:
             loop.close()
 
-    with patch("angie.agents.registry.get_registry", return_value=mock_registry), \
-         patch("asyncio.run", side_effect=fake_run):
+    with (
+        patch("angie.agents.registry.get_registry", return_value=mock_registry),
+        patch("asyncio.run", side_effect=fake_run),
+    ):
         result = execute_task.__wrapped__.__func__(mock_self, task_dict)
 
     assert result["status"] == "success"
@@ -168,8 +185,10 @@ def test_execute_workflow_runs_steps():
 
     mock_self = MagicMock()
 
-    with patch("angie.core.workflows.WorkflowExecutor") as mock_cls, \
-         patch("asyncio.run", return_value={"done": True}):
+    with (
+        patch("angie.core.workflows.WorkflowExecutor") as mock_cls,
+        patch("asyncio.run", return_value={"done": True}),
+    ):
         mock_executor = MagicMock()
         mock_cls.return_value = mock_executor
 
@@ -185,8 +204,10 @@ def test_execute_workflow_exception_path():
     mock_self = MagicMock()
     mock_self.retry.side_effect = Exception("retry called")
 
-    with patch("angie.core.workflows.WorkflowExecutor") as mock_cls, \
-         patch("asyncio.run", side_effect=RuntimeError("db dead")):
+    with (
+        patch("angie.core.workflows.WorkflowExecutor") as mock_cls,
+        patch("asyncio.run", side_effect=RuntimeError("db dead")),
+    ):
         mock_executor = MagicMock()
         mock_cls.return_value = mock_executor
 
@@ -261,4 +282,3 @@ async def test_send_reply_channel_error():
     with patch("angie.channels.base.get_channel_manager", return_value=mock_mgr):
         # Should not raise — exception is caught and logged
         await _send_reply("slack", "user-1", "hello")
-

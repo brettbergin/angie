@@ -24,8 +24,8 @@ async def chat_ws(websocket: WebSocket, token: str):
         user_id: str | None = payload.get("sub")
         if not user_id:
             raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
-    except JWTError:
-        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION)
+    except JWTError as err:
+        raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION) from err
 
     await websocket.accept()
     _web_channel.register_connection(user_id, websocket)
@@ -51,6 +51,7 @@ async def chat_ws(websocket: WebSocket, token: str):
             else:
                 try:
                     from pydantic_ai import Agent
+
                     model = get_llm_model()
                     agent = Agent(model=model, system_prompt=system_prompt)
                     result = await agent.run(user_message)

@@ -50,7 +50,9 @@ def ask(question: str, user_id: str):
     console = Console()
 
     if not is_llm_configured():
-        console.print("[bold red]No LLM configured.[/bold red] Set GITHUB_TOKEN or OPENAI_API_KEY in your .env.")
+        console.print(
+            "[bold red]No LLM configured.[/bold red] Set GITHUB_TOKEN or OPENAI_API_KEY in your .env."
+        )
         raise SystemExit(1)
 
     async def _ask():
@@ -70,4 +72,3 @@ def ask(question: str, user_id: str):
         answer = asyncio.run(_ask())
 
     console.print(Markdown(answer))
-

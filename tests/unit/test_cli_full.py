@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
-import sys
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -17,11 +14,11 @@ os.environ.setdefault("DB_PASSWORD", "test-password")
 
 # ── cli/main.py: daemon command ───────────────────────────────────────────────
 
+
 def test_cli_daemon_command():
     from angie.cli.main import cli
 
-    with patch("asyncio.run") as mock_run, \
-         patch("angie.core.loop.AngieLoop") as mock_loop_cls:
+    with patch("asyncio.run") as mock_run, patch("angie.core.loop.AngieLoop") as mock_loop_cls:
         mock_loop = MagicMock()
         mock_loop_cls.return_value = mock_loop
 
@@ -36,7 +33,7 @@ def test_cli_daemon_already_running(tmp_path):
     """If pid file exists with live process, show running message."""
     from angie.cli.main import cli
 
-    with patch("asyncio.run") as mock_run:
+    with patch("asyncio.run"):
         runner = CliRunner()
         result = runner.invoke(cli, ["daemon"])
     # Should not crash
@@ -44,6 +41,7 @@ def test_cli_daemon_already_running(tmp_path):
 
 
 # ── cli/main.py: ask command ───────────────────────────────────────────────────
+
 
 def test_cli_ask_command_success():
     from angie.cli.main import cli
@@ -57,10 +55,12 @@ def test_cli_ask_command_success():
     mock_agent = MagicMock()
     mock_agent.run = fake_run
 
-    with patch("angie.llm.is_llm_configured", return_value=True), \
-         patch("angie.core.prompts.get_prompt_manager") as mock_pm, \
-         patch("angie.llm.get_llm_model") as mock_llm, \
-         patch("pydantic_ai.Agent", return_value=mock_agent):
+    with (
+        patch("angie.llm.is_llm_configured", return_value=True),
+        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch("angie.llm.get_llm_model") as mock_llm,
+        patch("pydantic_ai.Agent", return_value=mock_agent),
+    ):
         mock_pm.return_value.compose_for_user.return_value = "system prompt"
         mock_llm.return_value = MagicMock()
 
@@ -81,6 +81,7 @@ def test_cli_ask_command_not_configured():
 
 
 # ── cli/chat.py ───────────────────────────────────────────────────────────────
+
 
 def test_chat_with_agent_slug():
     """Cover cli/chat.py with --agent flag."""
@@ -108,9 +109,11 @@ def test_chat_no_agent_slug():
     mock_registry.get.return_value = None
     mock_registry.resolve.return_value = None
 
-    with patch("angie.agents.registry.get_registry", return_value=mock_registry), \
-         patch("angie.core.prompts.get_prompt_manager") as mock_pm, \
-         patch("angie.agents.base.BaseAgent.ask_llm", new_callable=AsyncMock, return_value="Hello!"):
+    with (
+        patch("angie.agents.registry.get_registry", return_value=mock_registry),
+        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch("angie.agents.base.BaseAgent.ask_llm", new_callable=AsyncMock, return_value="Hello!"),
+    ):
         mock_pm.return_value.compose_for_user.return_value = "system"
 
         runner = CliRunner()
@@ -121,12 +124,12 @@ def test_chat_no_agent_slug():
 
 # ── cli/prompts.py ────────────────────────────────────────────────────────────
 
+
 def test_prompts_list_no_prompts(tmp_path):
     from angie.cli.prompts import prompts
 
     with patch("angie.core.prompts.get_prompt_manager") as mock_pm:
         mock_manager = MagicMock()
-        nonexistent = tmp_path / "nouser"
         mock_manager.user_prompts_dir = tmp_path
         mock_pm.return_value = mock_manager
 
@@ -162,8 +165,10 @@ def test_prompts_edit(tmp_path):
     prompt_file = user_dir / "personality.md"
     prompt_file.write_text("# Personality\nBe helpful.", encoding="utf-8")
 
-    with patch("angie.core.prompts.get_prompt_manager") as mock_pm, \
-         patch("click.edit") as mock_edit:
+    with (
+        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch("click.edit") as mock_edit,
+    ):
         mock_manager = MagicMock()
         mock_manager.user_prompts_dir = tmp_path
         mock_pm.return_value = mock_manager
@@ -209,6 +214,7 @@ def test_prompts_reset_no_dir(tmp_path):
 
 # ── cli/setup.py ─────────────────────────────────────────────────────────────
 
+
 def test_setup_command_basic():
     from angie.cli.setup import setup
 
@@ -218,13 +224,16 @@ def test_setup_command_basic():
         mock_pm.return_value = mock_manager
 
         runner = CliRunner()
-        answers = "\n".join(["casual", "tech", "9am-5pm", "code", "slack", "smart home", "eng", "concise"])
+        answers = "\n".join(
+            ["casual", "tech", "9am-5pm", "code", "slack", "smart home", "eng", "concise"]
+        )
         result = runner.invoke(setup, [], input=answers)
 
     assert result.exit_code == 0
 
 
 # ── cli/status.py ─────────────────────────────────────────────────────────────
+
 
 def test_status_command_celery_running():
     from angie.cli.status import status
@@ -241,8 +250,10 @@ def test_status_command_celery_running():
     mock_agent.description = "Gmail agent"
     mock_registry.list_all.return_value = [mock_agent]
 
-    with patch("angie.queue.celery_app.celery_app", mock_celery_app), \
-         patch("angie.agents.registry.get_registry", return_value=mock_registry):
+    with (
+        patch("angie.queue.celery_app.celery_app", mock_celery_app),
+        patch("angie.agents.registry.get_registry", return_value=mock_registry),
+    ):
         runner = CliRunner()
         result = runner.invoke(status, [])
 
@@ -252,8 +263,10 @@ def test_status_command_celery_running():
 def test_status_command_celery_not_running():
     from angie.cli.status import status
 
-    with patch("angie.queue.celery_app.celery_app", side_effect=RuntimeError("no celery")), \
-         patch("angie.agents.registry.get_registry", side_effect=RuntimeError("no registry")):
+    with (
+        patch("angie.queue.celery_app.celery_app", side_effect=RuntimeError("no celery")),
+        patch("angie.agents.registry.get_registry", side_effect=RuntimeError("no registry")),
+    ):
         runner = CliRunner()
         result = runner.invoke(status, [])
 
@@ -271,8 +284,10 @@ def test_status_command_active_tasks_none():
     mock_registry = MagicMock()
     mock_registry.list_all.return_value = []
 
-    with patch("angie.queue.celery_app.celery_app", mock_celery_app), \
-         patch("angie.agents.registry.get_registry", return_value=mock_registry):
+    with (
+        patch("angie.queue.celery_app.celery_app", mock_celery_app),
+        patch("angie.agents.registry.get_registry", return_value=mock_registry),
+    ):
         runner = CliRunner()
         result = runner.invoke(status, [])
 
@@ -280,6 +295,7 @@ def test_status_command_active_tasks_none():
 
 
 # ── cli/_env_utils.py: blank value line ───────────────────────────────────────
+
 
 def test_write_env_blank_value_unchanged(tmp_path):
     """Cover the 'new_lines.append(line)' path when new value is also empty."""
@@ -296,6 +312,7 @@ def test_write_env_blank_value_unchanged(tmp_path):
 
 # ── cli/config.py: _write_env when file exists ───────────────────────────────
 
+
 def test_config_write_env_existing_file(tmp_path, monkeypatch):
     """cli/config.py _write_env appends to an existing file."""
     env_file = tmp_path / ".env"
@@ -304,6 +321,7 @@ def test_config_write_env_existing_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     from angie.cli.config import _write_env
+
     _write_env({"NEW_KEY": "new_value"})
 
     content = env_file.read_text(encoding="utf-8")
@@ -312,6 +330,7 @@ def test_config_write_env_existing_file(tmp_path, monkeypatch):
 
 
 # ── cli/configure.py: _seed_db ────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_seed_db_creates_user_and_agent():
@@ -336,8 +355,10 @@ async def test_seed_db_creates_user_and_agent():
     mock_session_factory = MagicMock(return_value=async_ctx)
     mock_get_factory = MagicMock(return_value=mock_session_factory)
 
-    with patch("angie.db.session.get_session_factory", mock_get_factory), \
-         patch("angie.api.auth.hash_password", return_value="hashed-password"):
+    with (
+        patch("angie.db.session.get_session_factory", mock_get_factory),
+        patch("angie.api.auth.hash_password", return_value="hashed-password"),
+    ):
         await _seed_db()
 
     assert mock_session.add.called
@@ -364,8 +385,10 @@ async def test_seed_db_user_already_exists():
     mock_session_factory = MagicMock(return_value=async_ctx)
     mock_get_factory = MagicMock(return_value=mock_session_factory)
 
-    with patch("angie.db.session.get_session_factory", mock_get_factory), \
-         patch("angie.api.auth.hash_password", return_value="hashed-password"):
+    with (
+        patch("angie.db.session.get_session_factory", mock_get_factory),
+        patch("angie.api.auth.hash_password", return_value="hashed-password"),
+    ):
         await _seed_db()
 
     assert not mock_session.add.called
@@ -385,14 +408,13 @@ def test_configure_seed_command():
 
 # ── cli/status.py: active tasks table branch (lines 43-44) ───────────────────
 
+
 def test_status_command_with_active_tasks():
     """Cover the else branch (table has rows) in status command."""
     from angie.cli.status import status
 
     mock_inspect = MagicMock()
-    mock_inspect.active.return_value = {
-        "worker@host": [{"id": "tid1", "name": "angie.task"}]
-    }
+    mock_inspect.active.return_value = {"worker@host": [{"id": "tid1", "name": "angie.task"}]}
     mock_celery_app = MagicMock()
     mock_celery_app.control.inspect.return_value = mock_inspect
 
@@ -402,8 +424,10 @@ def test_status_command_with_active_tasks():
     mock_agent.description = "Gmail agent"
     mock_registry.list_all.return_value = [mock_agent]
 
-    with patch("angie.queue.celery_app.celery_app", mock_celery_app), \
-         patch("angie.agents.registry.get_registry", return_value=mock_registry):
+    with (
+        patch("angie.queue.celery_app.celery_app", mock_celery_app),
+        patch("angie.agents.registry.get_registry", return_value=mock_registry),
+    ):
         runner = CliRunner()
         result = runner.invoke(status, [])
 
@@ -411,6 +435,7 @@ def test_status_command_with_active_tasks():
 
 
 # ── cli/prompts.py: new file creation path (line 49) ──────────────────────────
+
 
 def test_prompts_edit_creates_new_file(tmp_path):
     """Cover line 49: path.write_text when prompt file doesn't exist yet."""
@@ -420,8 +445,7 @@ def test_prompts_edit_creates_new_file(tmp_path):
     user_dir.mkdir()
     # Do NOT create the prompt file — test the creation path
 
-    with patch("angie.core.prompts.get_prompt_manager") as mock_pm, \
-         patch("click.edit"):
+    with patch("angie.core.prompts.get_prompt_manager") as mock_pm, patch("click.edit"):
         mock_manager = MagicMock()
         mock_manager.user_prompts_dir = tmp_path
         mock_manager.invalidate_cache = MagicMock()
@@ -437,14 +461,17 @@ def test_prompts_edit_creates_new_file(tmp_path):
 def test_status_command_celery_exception():
     """Cover status.py lines 43-44: exception in Celery inspect."""
     from click.testing import CliRunner
+
     from angie.cli.main import cli
 
     runner = CliRunner()
     mock_app = MagicMock()
     mock_app.control.inspect.side_effect = Exception("broker unreachable")
 
-    with patch("angie.queue.celery_app.celery_app", mock_app), \
-         patch("angie.agents.registry.get_registry") as mock_reg:
+    with (
+        patch("angie.queue.celery_app.celery_app", mock_app),
+        patch("angie.agents.registry.get_registry") as mock_reg,
+    ):
         mock_reg.return_value.list_agents.return_value = []
         result = runner.invoke(cli, ["status"])
 
@@ -454,9 +481,11 @@ def test_status_command_celery_exception():
 
 # ── main.py __main__ guard ──────────────────────────────────────────────────
 
+
 def test_main_entry_point():
     """Cover main.py lines 3-8: if __name__ == '__main__' guard."""
     import runpy
+
     with patch("asyncio.run") as mock_run:
         runpy.run_module("angie.main", run_name="__main__")
     mock_run.assert_called_once()

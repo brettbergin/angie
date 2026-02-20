@@ -18,6 +18,7 @@ def _make_task(action: str, **extra):
 
 # ── Gmail agent ────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_gmail_agent_list():
     from angie.agents.email.gmail import GmailAgent
@@ -48,7 +49,9 @@ async def test_gmail_agent_send():
 
     agent = GmailAgent()
     mock_service = MagicMock()
-    mock_service.users.return_value.messages.return_value.send.return_value.execute.return_value = {"id": "msg-1"}
+    mock_service.users.return_value.messages.return_value.send.return_value.execute.return_value = {
+        "id": "msg-1"
+    }
     with patch.object(agent, "_build_service", return_value=mock_service):
         result = await agent.execute(
             _make_task("send", to="test@example.com", subject="hi", body="hello")
@@ -58,12 +61,15 @@ async def test_gmail_agent_send():
 
 # ── Spam agent ─────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_spam_agent_scan():
     from angie.agents.email.spam import SpamAgent
 
     agent = SpamAgent()
-    with patch.object(agent, "_scan", new_callable=AsyncMock, return_value={"spam_found": 0, "items": []}):
+    with patch.object(
+        agent, "_scan", new_callable=AsyncMock, return_value={"spam_found": 0, "items": []}
+    ):
         result = await agent.execute(_make_task("scan"))
     assert "spam_found" in result or "error" in result
 
@@ -73,7 +79,12 @@ async def test_spam_agent_delete():
     from angie.agents.email.spam import SpamAgent
 
     agent = SpamAgent()
-    with patch.object(agent, "_delete_spam", new_callable=AsyncMock, return_value={"trashed": 0, "message_ids": []}):
+    with patch.object(
+        agent,
+        "_delete_spam",
+        new_callable=AsyncMock,
+        return_value={"trashed": 0, "message_ids": []},
+    ):
         result = await agent.execute(_make_task("delete_spam"))
     assert "trashed" in result or "error" in result
 
@@ -89,12 +100,15 @@ async def test_spam_agent_unknown_action():
 
 # ── Correspondence agent ───────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_correspondence_agent_draft():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
 
     agent = EmailCorrespondenceAgent()
-    with patch.object(agent, "_draft_reply", new_callable=AsyncMock, return_value={"draft": "Dear..."}):
+    with patch.object(
+        agent, "_draft_reply", new_callable=AsyncMock, return_value={"draft": "Dear..."}
+    ):
         result = await agent.execute(_make_task("draft_reply", email_body="Hello", context="reply"))
     assert "draft" in result or "reply" in result or "error" in result
 
@@ -109,6 +123,7 @@ async def test_correspondence_agent_unknown():
 
 
 # ── GitHub agent ───────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_github_agent_list_issues():
@@ -128,6 +143,7 @@ async def test_github_agent_list_issues():
     mock_gh_module.Github.return_value = mock_gh_instance
 
     import importlib
+
     import angie.agents.dev
 
     with patch.dict("sys.modules", {"github": mock_gh_module}):
@@ -147,6 +163,7 @@ async def test_github_agent_no_token():
     mock_gh_module.Github.side_effect = Exception("no token")
 
     import importlib
+
     import angie.agents.dev
 
     with patch.dict("sys.modules", {"github": mock_gh_module}):
@@ -161,6 +178,7 @@ async def test_github_agent_no_token():
 
 
 # ── Gcal agent ─────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_gcal_agent_list():
@@ -186,6 +204,7 @@ async def test_gcal_agent_no_creds():
 
 # ── Spotify agent ──────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_spotify_agent_current():
     mock_sp = MagicMock()
@@ -203,9 +222,12 @@ async def test_spotify_agent_current():
     mock_spotipy.oauth2 = MagicMock()
 
     import importlib
+
     import angie.agents.media
 
-    with patch.dict("sys.modules", {"spotipy": mock_spotipy, "spotipy.oauth2": mock_spotipy.oauth2}):
+    with patch.dict(
+        "sys.modules", {"spotipy": mock_spotipy, "spotipy.oauth2": mock_spotipy.oauth2}
+    ):
         sys.modules.pop("angie.agents.media.spotify", None)
         if hasattr(angie.agents.media, "spotify"):
             delattr(angie.agents.media, "spotify")
@@ -219,6 +241,7 @@ async def test_spotify_agent_current():
 @pytest.mark.asyncio
 async def test_spotify_agent_import_error():
     import importlib
+
     import angie.agents.media
 
     with patch.dict("sys.modules", {"spotipy": None}):  # type: ignore[dict-item]
@@ -233,6 +256,7 @@ async def test_spotify_agent_import_error():
 
 
 # ── Philips Hue agent ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_hue_agent_no_bridge_ip():
@@ -260,8 +284,10 @@ async def test_hue_agent_list_lights():
 
     with patch.dict("sys.modules", {"phue": mock_phue}):
         os.environ["HUE_BRIDGE_IP"] = "192.168.1.10"
-        from angie.agents.smart_home import hue as _hue_mod
         import importlib
+
+        from angie.agents.smart_home import hue as _hue_mod
+
         importlib.reload(_hue_mod)
         agent = _hue_mod.HueAgent()
         result = await agent.execute(_make_task("list"))
@@ -271,6 +297,7 @@ async def test_hue_agent_list_lights():
 
 
 # ── Home Assistant agent ───────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_home_assistant_agent_no_config():
@@ -308,8 +335,10 @@ async def test_home_assistant_agent_states():
     os.environ["HOME_ASSISTANT_TOKEN"] = "test-token"
 
     with patch.dict("sys.modules", {"aiohttp": mock_aiohttp}):
-        from angie.agents.smart_home import home_assistant as _ha_mod
         import importlib
+
+        from angie.agents.smart_home import home_assistant as _ha_mod
+
         importlib.reload(_ha_mod)
         agent = _ha_mod.HomeAssistantAgent()
         result = await agent.execute(_make_task("states"))

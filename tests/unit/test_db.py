@@ -13,10 +13,18 @@ os.environ.setdefault("DB_PASSWORD", "test-password")
 
 # ── Settings properties ────────────────────────────────────────────────────────
 
+
 def test_database_url():
     from angie.config import Settings
 
-    s = Settings(secret_key="k", db_password="pass", db_host="db", db_port=3307, db_name="mydb", db_user="user")  # type: ignore[call-arg]
+    s = Settings(
+        secret_key="k",
+        db_password="pass",
+        db_host="db",
+        db_port=3307,
+        db_name="mydb",
+        db_user="user",
+    )  # type: ignore[call-arg]
     assert s.database_url == "mysql+aiomysql://user:pass@db:3307/mydb"
 
 
@@ -30,7 +38,9 @@ def test_database_url_sync():
 def test_redis_url_no_password():
     from angie.config import Settings
 
-    s = Settings(secret_key="k", db_password="pass", redis_host="redis", redis_port=6380, redis_db=1)  # type: ignore[call-arg]
+    s = Settings(
+        secret_key="k", db_password="pass", redis_host="redis", redis_port=6380, redis_db=1
+    )  # type: ignore[call-arg]
     assert s.redis_url == "redis://redis:6380/1"
 
 
@@ -64,13 +74,14 @@ def test_celery_backend_custom():
 
 # ── DB session ─────────────────────────────────────────────────────────────────
 
+
 def test_get_session_factory_returns_callable():
     from angie.db import session as db_session
 
     # Mock the engine creation to avoid needing actual DB
     with (
         patch("angie.config.get_settings") as mock_gs,
-        patch("angie.db.session.create_async_engine") as mock_engine,
+        patch("angie.db.session.create_async_engine"),
         patch("angie.db.session.async_sessionmaker") as mock_sm,
     ):
         s = MagicMock()
@@ -91,7 +102,7 @@ def test_get_session_factory_caches():
 
     with (
         patch("angie.config.get_settings") as mock_gs,
-        patch("angie.db.session.create_async_engine") as mock_engine,
+        patch("angie.db.session.create_async_engine"),
         patch("angie.db.session.async_sessionmaker") as mock_sm,
     ):
         s = MagicMock()
@@ -109,6 +120,7 @@ def test_get_session_factory_caches():
 
 
 # ── DB repository ──────────────────────────────────────────────────────────────
+
 
 async def test_repository_get():
     from angie.db.repository import Repository
@@ -181,7 +193,7 @@ async def test_repository_update():
     mock_obj = MagicMock()
 
     repo = Repository(MagicMock, mock_session)
-    result = await repo.update(mock_obj, status="done")
+    await repo.update(mock_obj, status="done")
 
     assert mock_obj.status == "done"
     mock_session.flush.assert_called_once()

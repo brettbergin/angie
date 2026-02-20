@@ -41,7 +41,7 @@ def test_add_cron_invalid_expression():
         engine = CronEngine()
         try:
             engine.add_cron("job1", "invalid", "user1")
-            assert False, "Should have raised ValueError"
+            raise AssertionError("Should have raised ValueError")
         except ValueError as e:
             assert "Invalid cron expression" in str(e)
 

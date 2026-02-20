@@ -18,9 +18,11 @@ def _task(action: str, **kw):
 
 # ── Outlook + Yahoo (not_implemented stubs) ────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_outlook_agent_not_implemented():
     from angie.agents.email.outlook import OutlookAgent
+
     result = await OutlookAgent().execute({"title": "t"})
     assert result["status"] == "not_implemented"
 
@@ -28,11 +30,13 @@ async def test_outlook_agent_not_implemented():
 @pytest.mark.asyncio
 async def test_yahoo_agent_not_implemented():
     from angie.agents.email.yahoo import YahooMailAgent
+
     result = await YahooMailAgent().execute({"title": "t"})
     assert result["status"] == "not_implemented"
 
 
 # ── Gmail _build_service (mock google libs) ────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_gmail_build_service_success(tmp_path):
@@ -63,8 +67,8 @@ async def test_gmail_build_service_success(tmp_path):
     # Remove cached module so fresh import picks up mocks
     sys.modules.pop("angie.agents.email.gmail", None)
     with patch.dict("sys.modules", modules_to_mock):
-        import importlib
         import angie.agents.email.gmail as _gmail_mod
+
         agent = _gmail_mod.GmailAgent()
         result = await agent.execute(_task("list"))
     os.environ.pop("GMAIL_TOKEN_FILE", None)
@@ -91,6 +95,7 @@ async def test_gmail_build_service_no_token():
     sys.modules.pop("angie.agents.email.gmail", None)
     with patch.dict("sys.modules", modules_to_mock):
         import angie.agents.email.gmail as _gmail_mod
+
         agent = _gmail_mod.GmailAgent()
         result = await agent.execute(_task("list"))
     os.environ.pop("GMAIL_TOKEN_FILE", None)
@@ -100,6 +105,7 @@ async def test_gmail_build_service_no_token():
 
 
 # ── GCal _build_service ────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_gcal_build_service_success(tmp_path):
@@ -127,6 +133,7 @@ async def test_gcal_build_service_success(tmp_path):
     sys.modules.pop("angie.agents.calendar.gcal", None)
     with patch.dict("sys.modules", modules_to_mock):
         import angie.agents.calendar.gcal as _gcal_mod
+
         agent = _gcal_mod.GoogleCalendarAgent()
         result = await agent.execute(_task("list"))
     os.environ.pop("GCAL_TOKEN_FILE", None)
@@ -152,6 +159,7 @@ async def test_gcal_build_service_no_token():
     sys.modules.pop("angie.agents.calendar.gcal", None)
     with patch.dict("sys.modules", modules_to_mock):
         import angie.agents.calendar.gcal as _gcal_mod
+
         agent = _gcal_mod.GoogleCalendarAgent()
         result = await agent.execute(_task("list"))
     os.environ.pop("GCAL_TOKEN_FILE", None)
@@ -162,16 +170,19 @@ async def test_gcal_build_service_no_token():
 
 # ── GitHub ImportError ─────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_github_import_error():
     sys.modules.pop("angie.agents.dev.github", None)
     with patch.dict("sys.modules", {"github": None}):  # type: ignore[dict-item]
         import angie.agents.dev.github as _gh_mod
+
         agent = _gh_mod.GitHubAgent()
         result = await agent.execute(_task("list_repos"))
     sys.modules.pop("angie.agents.dev.github", None)
     # Restore: ensure next tests can freshly import the module
     import angie.agents.dev
+
     if hasattr(angie.agents.dev, "github"):
         delattr(angie.agents.dev, "github")
 
@@ -179,6 +190,7 @@ async def test_github_import_error():
 
 
 # ── Spotify exception path ─────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_spotify_generic_exception():
@@ -189,11 +201,13 @@ async def test_spotify_generic_exception():
     sys.modules.pop("angie.agents.media.spotify", None)
     with patch.dict("sys.modules", {"spotipy": mock_spotipy, "spotipy.oauth2": mock_oauth2}):
         import angie.agents.media.spotify as _sp_mod
+
         agent = _sp_mod.SpotifyAgent()
         result = await agent.execute(_task("current"))
     sys.modules.pop("angie.agents.media.spotify", None)
     # Restore: ensure next tests can freshly import the module
     import angie.agents.media
+
     if hasattr(angie.agents.media, "spotify"):
         delattr(angie.agents.media, "spotify")
 
@@ -202,9 +216,11 @@ async def test_spotify_generic_exception():
 
 # ── Registry module load exception ────────────────────────────────────────────
 
+
 def test_registry_load_exception():
     """When a module raises ImportError during load_all, it's logged and skipped."""
     from angie.agents.registry import AgentRegistry
+
     registry = AgentRegistry()
     # Inject a bad module path into AGENT_MODULES temporarily
     with patch("angie.agents.registry.AGENT_MODULES", ["nonexistent.module.path"]):
@@ -215,6 +231,7 @@ def test_registry_load_exception():
 
 # ── HomeAssistant ImportError + generic exception ─────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_home_assistant_import_error():
     os.environ["HOME_ASSISTANT_URL"] = "http://ha.local:8123"
@@ -222,6 +239,7 @@ async def test_home_assistant_import_error():
     sys.modules.pop("angie.agents.smart_home.home_assistant", None)
     with patch.dict("sys.modules", {"aiohttp": None}):  # type: ignore[dict-item]
         import angie.agents.smart_home.home_assistant as _ha_mod
+
         agent = _ha_mod.HomeAssistantAgent()
         result = await agent.execute(_task("states"))
     os.environ.pop("HOME_ASSISTANT_URL", None)
@@ -242,6 +260,7 @@ async def test_home_assistant_generic_exception():
     sys.modules.pop("angie.agents.smart_home.home_assistant", None)
     with patch.dict("sys.modules", {"aiohttp": mock_aiohttp}):
         import angie.agents.smart_home.home_assistant as _ha_mod
+
         agent = _ha_mod.HomeAssistantAgent()
         result = await agent.execute(_task("states"))
     sys.modules.pop("angie.agents.smart_home.home_assistant", None)
@@ -253,12 +272,14 @@ async def test_home_assistant_generic_exception():
 
 # ── Hue: ImportError + dispatch branches ──────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_hue_import_error():
     os.environ["HUE_BRIDGE_IP"] = "192.168.1.100"
     sys.modules.pop("angie.agents.smart_home.hue", None)
     with patch.dict("sys.modules", {"phue": None}):  # type: ignore[dict-item]
         import angie.agents.smart_home.hue as _hue_mod
+
         agent = _hue_mod.HueAgent()
         result = await agent.execute(_task("list"))
     os.environ.pop("HUE_BRIDGE_IP", None)
@@ -278,8 +299,9 @@ async def test_hue_on_group_fallback():
     sys.modules.pop("angie.agents.smart_home.hue", None)
     with patch.dict("sys.modules", {"phue": mock_phue}):
         import angie.agents.smart_home.hue as _hue_mod
+
         agent = _hue_mod.HueAgent()
-        result = await agent.execute(_task("on"))  # no light= kwarg
+        await agent.execute(_task("on"))  # no light= kwarg
     os.environ.pop("HUE_BRIDGE_IP", None)
     sys.modules.pop("angie.agents.smart_home.hue", None)
     mock_bridge.set_group.assert_called_with(0, "on", True)
@@ -295,8 +317,9 @@ async def test_hue_off_named_light():
     sys.modules.pop("angie.agents.smart_home.hue", None)
     with patch.dict("sys.modules", {"phue": mock_phue}):
         import angie.agents.smart_home.hue as _hue_mod
+
         agent = _hue_mod.HueAgent()
-        result = await agent.execute(_task("off", light="Bedroom"))
+        await agent.execute(_task("off", light="Bedroom"))
     os.environ.pop("HUE_BRIDGE_IP", None)
     sys.modules.pop("angie.agents.smart_home.hue", None)
     mock_bridge.set_light.assert_called_with("Bedroom", "on", False)
@@ -312,8 +335,9 @@ async def test_hue_brightness_named():
     sys.modules.pop("angie.agents.smart_home.hue", None)
     with patch.dict("sys.modules", {"phue": mock_phue}):
         import angie.agents.smart_home.hue as _hue_mod
+
         agent = _hue_mod.HueAgent()
-        result = await agent.execute(_task("brightness", brightness=128, light="Kitchen"))
+        await agent.execute(_task("brightness", brightness=128, light="Kitchen"))
     os.environ.pop("HUE_BRIDGE_IP", None)
     sys.modules.pop("angie.agents.smart_home.hue", None)
     mock_bridge.set_light.assert_called_with("Kitchen", "bri", 128)
@@ -329,14 +353,16 @@ async def test_hue_color_named():
     sys.modules.pop("angie.agents.smart_home.hue", None)
     with patch.dict("sys.modules", {"phue": mock_phue}):
         import angie.agents.smart_home.hue as _hue_mod
+
         agent = _hue_mod.HueAgent()
-        result = await agent.execute(_task("color", hue=10000, saturation=200, light="Living Room"))
+        await agent.execute(_task("color", hue=10000, saturation=200, light="Living Room"))
     os.environ.pop("HUE_BRIDGE_IP", None)
     sys.modules.pop("angie.agents.smart_home.hue", None)
     mock_bridge.set_light.assert_called_with("Living Room", {"hue": 10000, "sat": 200})
 
 
 # ── Spam: _delete_spam with message IDs ───────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_spam_delete_with_ids():
@@ -354,6 +380,7 @@ async def test_spam_delete_with_ids():
 
 # ── Correspondence: send_reply returns draft error early ─────────────────────
 
+
 @pytest.mark.asyncio
 async def test_correspondence_send_reply_returns_draft_error():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
@@ -366,9 +393,11 @@ async def test_correspondence_send_reply_returns_draft_error():
 
 # ── Registry generic exception (lines 62-63) ──────────────────────────────────
 
+
 def test_registry_generic_exception():
     """When a module raises a non-ImportError, it's logged and skipped."""
     from angie.agents.registry import AgentRegistry
+
     registry = AgentRegistry()
 
     # Use a module path that will raise a generic Exception during import
@@ -381,6 +410,7 @@ def test_registry_generic_exception():
 
 
 # ── Spam agent _delete_spam exception path (lines 56-57) ─────────────────────
+
 
 @pytest.mark.asyncio
 async def test_spam_delete_exception():

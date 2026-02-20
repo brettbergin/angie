@@ -35,19 +35,17 @@ class GmailAgent(BaseAgent):
         from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
 
-        creds_file = os.environ.get("GMAIL_CREDENTIALS_FILE", "gmail_credentials.json")
+        creds_file = os.environ.get("GMAIL_CREDENTIALS_FILE", "gmail_credentials.json")  # noqa: F841
         token_file = os.environ.get("GMAIL_TOKEN_FILE", "gmail_token.json")
         scopes = ["https://www.googleapis.com/auth/gmail.modify"]
 
-        import json
         from pathlib import Path
 
         if Path(token_file).exists():
             creds = Credentials.from_authorized_user_file(token_file, scopes)
         else:
             raise RuntimeError(
-                f"Gmail token not found at {token_file}. "
-                "Run 'angie config gmail' to authenticate."
+                f"Gmail token not found at {token_file}. Run 'angie config gmail' to authenticate."
             )
         return build("gmail", "v1", credentials=creds)
 
@@ -71,14 +69,18 @@ class GmailAgent(BaseAgent):
             messages = results.get("messages", [])
             items = []
             for m in messages[:10]:
-                msg = svc.users().messages().get(userId=user, id=m["id"], format="metadata").execute()
+                msg = (
+                    svc.users().messages().get(userId=user, id=m["id"], format="metadata").execute()
+                )
                 headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
-                items.append({
-                    "id": m["id"],
-                    "from": headers.get("From", ""),
-                    "subject": headers.get("Subject", ""),
-                    "date": headers.get("Date", ""),
-                })
+                items.append(
+                    {
+                        "id": m["id"],
+                        "from": headers.get("From", ""),
+                        "subject": headers.get("Subject", ""),
+                        "date": headers.get("Date", ""),
+                    }
+                )
             return {"messages": items, "total": results.get("resultSizeEstimate", 0)}
 
         if action == "send":
@@ -99,8 +101,9 @@ class GmailAgent(BaseAgent):
 
         if action == "mark_read":
             mid = data.get("message_id", "")
-            svc.users().messages().modify(userId=user, id=mid, body={"removeLabelIds": ["UNREAD"]}).execute()
+            svc.users().messages().modify(
+                userId=user, id=mid, body={"removeLabelIds": ["UNREAD"]}
+            ).execute()
             return {"marked_read": True, "message_id": mid}
 
         return {"error": f"Unknown action: {action}"}
-

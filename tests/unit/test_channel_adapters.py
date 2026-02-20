@@ -11,6 +11,7 @@ os.environ.setdefault("DB_PASSWORD", "test-password")
 
 def _make_settings(**kwargs):
     from angie.config import Settings
+
     defaults = {"secret_key": "test-secret", "db_password": "testpass"}
     defaults.update(kwargs)
     return Settings(**defaults)
@@ -18,14 +19,17 @@ def _make_settings(**kwargs):
 
 # ── WebChatChannel ─────────────────────────────────────────────────────────────
 
+
 async def test_web_chat_start():
     from angie.channels.web_chat import WebChatChannel
+
     ch = WebChatChannel()
     await ch.start()  # just logs, no error
 
 
 async def test_web_chat_stop():
     from angie.channels.web_chat import WebChatChannel
+
     ch = WebChatChannel()
     ch._connections = {"user1": MagicMock(), "user2": MagicMock()}
     await ch.stop()
@@ -34,6 +38,7 @@ async def test_web_chat_stop():
 
 def test_web_chat_register_unregister():
     from angie.channels.web_chat import WebChatChannel
+
     ch = WebChatChannel()
     ws = MagicMock()
     ch.register_connection("u1", ws)
@@ -44,12 +49,14 @@ def test_web_chat_register_unregister():
 
 def test_web_chat_unregister_missing():
     from angie.channels.web_chat import WebChatChannel
+
     ch = WebChatChannel()
     ch.unregister_connection("nonexistent")  # should not raise
 
 
 async def test_web_chat_send_connected():
     from angie.channels.web_chat import WebChatChannel
+
     ch = WebChatChannel()
     mock_ws = AsyncMock()
     ch.register_connection("user1", mock_ws)
@@ -59,12 +66,14 @@ async def test_web_chat_send_connected():
 
 async def test_web_chat_send_not_connected():
     from angie.channels.web_chat import WebChatChannel
+
     ch = WebChatChannel()
     await ch.send("nobody", "Hello!")  # Should not raise
 
 
 async def test_web_chat_send_failure():
     from angie.channels.web_chat import WebChatChannel
+
     ch = WebChatChannel()
     mock_ws = AsyncMock()
     mock_ws.send_text.side_effect = Exception("connection closed")
@@ -76,6 +85,7 @@ async def test_web_chat_send_failure():
 
 async def test_web_chat_mention_user():
     from angie.channels.web_chat import WebChatChannel
+
     ch = WebChatChannel()
     mock_ws = AsyncMock()
     ch.register_connection("user1", mock_ws)
@@ -84,6 +94,7 @@ async def test_web_chat_mention_user():
 
 
 # ── SlackChannel ───────────────────────────────────────────────────────────────
+
 
 async def test_slack_start():
     from angie.channels.slack import SlackChannel
@@ -171,6 +182,7 @@ async def test_slack_stop():
 
 
 # ── DiscordChannel ─────────────────────────────────────────────────────────────
+
 
 async def test_discord_start_no_token():
     from angie.channels.discord import DiscordChannel
@@ -287,6 +299,7 @@ async def test_discord_dispatch_event():
 
 # ── EmailChannel ───────────────────────────────────────────────────────────────
 
+
 async def test_email_start_no_imap():
     from angie.channels.email import EmailChannel
 
@@ -375,8 +388,9 @@ async def test_email_mention_user():
 
 
 def test_email_extract_body_plain():
-    from angie.channels.email import EmailChannel
     import email as email_lib
+
+    from angie.channels.email import EmailChannel
 
     mock_settings = _make_settings()
     with patch("angie.channels.email.get_settings", return_value=mock_settings):
@@ -399,6 +413,7 @@ async def test_email_dispatch_event():
 
 
 # ── IMessageChannel ────────────────────────────────────────────────────────────
+
 
 async def test_imessage_start():
     from angie.channels.imessage import IMessageChannel

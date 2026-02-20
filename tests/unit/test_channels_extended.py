@@ -15,7 +15,8 @@ os.environ.setdefault("DB_PASSWORD", "test-password")
 
 def _make_settings(**kwargs):
     from angie.config import Settings
-    defaults = dict(secret_key="k", db_password="pass")
+
+    defaults = {"secret_key": "k", "db_password": "pass"}
     defaults.update(kwargs)
     return Settings(**defaults)  # type: ignore[call-arg]
 
@@ -24,11 +25,13 @@ def _make_settings(**kwargs):
 # DiscordChannel
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestDiscordChannel:
     def _make_channel(self, **kwargs):
         s = _make_settings(**kwargs)
         with patch("angie.config.get_settings", return_value=s):
             from angie.channels.discord import DiscordChannel
+
             return DiscordChannel()
 
     @pytest.mark.asyncio
@@ -145,11 +148,13 @@ class TestDiscordChannel:
 # EmailChannel
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestEmailChannel:
     def _make_channel(self, **kwargs):
         s = _make_settings(**kwargs)
         with patch("angie.config.get_settings", return_value=s):
             from angie.channels.email import EmailChannel
+
             return EmailChannel()
 
     @pytest.mark.asyncio
@@ -222,6 +227,7 @@ class TestEmailChannel:
 
     def test_extract_body_plain(self):
         import email as email_lib
+
         ch = self._make_channel()
         raw = b"From: a@b.com\r\nContent-Type: text/plain\r\n\r\nhello world"
         msg = email_lib.message_from_bytes(raw)
@@ -264,11 +270,13 @@ class TestEmailChannel:
 # IMessageChannel
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestIMessageChannel:
     def _make_channel(self, **kwargs):
         s = _make_settings(**kwargs)
         with patch("angie.config.get_settings", return_value=s):
             from angie.channels.imessage import IMessageChannel
+
             return IMessageChannel()
 
     def test_base_url_property(self):

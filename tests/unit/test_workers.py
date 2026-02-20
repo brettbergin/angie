@@ -114,8 +114,8 @@ def test_execute_task_success():
     with (
         patch("angie.queue.workers._resolve_agent", return_value=mock_agent),
         patch("angie.queue.workers.asyncio.run") as mock_run,
-        patch("angie.queue.workers._update_task_in_db") as mock_db,
-        patch("angie.queue.workers._send_reply") as mock_reply,
+        patch("angie.queue.workers._update_task_in_db"),
+        patch("angie.queue.workers._send_reply"),
     ):
         mock_run.side_effect = lambda coro: _run_sync(coro)
         result = execute_task(task_dict)

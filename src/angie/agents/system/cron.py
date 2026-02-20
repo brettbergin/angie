@@ -49,7 +49,12 @@ class CronAgent(BaseAgent):
                 agent_slug=agent_slug,
                 payload={"task_name": task_name},
             )
-            return {"created": True, "job_id": job_id, "expression": expression, "task_name": task_name}
+            return {
+                "created": True,
+                "job_id": job_id,
+                "expression": expression,
+                "task_name": task_name,
+            }
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("Failed to create cron")
             return {"error": str(exc)}

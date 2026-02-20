@@ -77,9 +77,9 @@ def email():
 @config.command()
 def channels():
     """Show the status of all configured channels."""
-    from angie.config import get_settings
-
     from rich.table import Table
+
+    from angie.config import get_settings
 
     s = get_settings()
     table = Table(title="Channel Status", show_header=True)

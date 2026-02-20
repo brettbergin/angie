@@ -2,8 +2,8 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-
 # ── GmailAgent tests ──────────────────────────────────────────────────────────
+
 
 async def test_gmail_execute_error():
     from angie.agents.email.gmail import GmailAgent
@@ -25,11 +25,13 @@ async def test_gmail_dispatch_list():
         "resultSizeEstimate": 1,
     }
     msg_detail = {
-        "payload": {"headers": [
-            {"name": "From", "value": "sender@example.com"},
-            {"name": "Subject", "value": "Test"},
-            {"name": "Date", "value": "2025-01-01"},
-        ]}
+        "payload": {
+            "headers": [
+                {"name": "From", "value": "sender@example.com"},
+                {"name": "Subject", "value": "Test"},
+                {"name": "Date", "value": "2025-01-01"},
+            ]
+        }
     }
     mock_svc.users().messages().get().execute.return_value = msg_detail
 
@@ -48,7 +50,9 @@ async def test_gmail_dispatch_send():
     mock_svc.users().messages().send().execute.return_value = {"id": "sent-id-1"}
 
     with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync("send", {"to": "test@example.com", "subject": "Hi", "body": "Hello"})
+        result = agent._dispatch_sync(
+            "send", {"to": "test@example.com", "subject": "Hi", "body": "Hello"}
+        )
 
     assert result["sent"] is True
 
@@ -93,6 +97,7 @@ async def test_gmail_dispatch_unknown():
 
 # ── SpamAgent tests ───────────────────────────────────────────────────────────
 
+
 async def test_spam_agent_scan():
     from angie.agents.email.spam import SpamAgent
 
@@ -104,10 +109,10 @@ async def test_spam_agent_scan():
         ]
     }
 
-    with patch("angie.agents.email.gmail.GmailAgent") as MockGmail:
+    with patch("angie.agents.email.gmail.GmailAgent") as mock_gmail_cls:
         mock_inst = AsyncMock()
         mock_inst.execute.return_value = mock_gmail_result
-        MockGmail.return_value = mock_inst
+        mock_gmail_cls.return_value = mock_inst
 
         result = await agent.execute({"input_data": {"action": "scan"}})
 
@@ -131,14 +136,14 @@ async def test_spam_agent_delete():
 
     agent = SpamAgent()
 
-    with patch("angie.agents.email.gmail.GmailAgent") as MockGmail:
+    with patch("angie.agents.email.gmail.GmailAgent") as mock_gmail_cls:
         mock_inst = AsyncMock()
         mock_inst.execute.return_value = {"trashed": True}
-        MockGmail.return_value = mock_inst
+        mock_gmail_cls.return_value = mock_inst
 
-        result = await agent.execute({
-            "input_data": {"action": "delete_spam", "message_ids": ["msg1", "msg2"]}
-        })
+        result = await agent.execute(
+            {"input_data": {"action": "delete_spam", "message_ids": ["msg1", "msg2"]}}
+        )
 
     assert result["trashed"] == 2
 
@@ -152,6 +157,7 @@ async def test_spam_agent_unknown():
 
 
 # ── EmailCorrespondenceAgent tests ────────────────────────────────────────────
+
 
 async def test_correspondence_draft_no_body():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
@@ -167,7 +173,9 @@ async def test_correspondence_draft_no_llm():
     agent = EmailCorrespondenceAgent()
 
     with patch("angie.llm.is_llm_configured", return_value=False):
-        result = await agent.execute({"input_data": {"action": "draft_reply", "email_body": "Hello"}})
+        result = await agent.execute(
+            {"input_data": {"action": "draft_reply", "email_body": "Hello"}}
+        )
 
     assert "error" in result
 
@@ -181,9 +189,15 @@ async def test_correspondence_draft_success():
         patch("angie.llm.is_llm_configured", return_value=True),
         patch.object(agent, "ask_llm", AsyncMock(return_value="Draft reply text")),
     ):
-        result = await agent.execute({
-            "input_data": {"action": "draft_reply", "email_body": "Original email", "tone": "casual"}
-        })
+        result = await agent.execute(
+            {
+                "input_data": {
+                    "action": "draft_reply",
+                    "email_body": "Original email",
+                    "tone": "casual",
+                }
+            }
+        )
 
     assert result["draft"] == "Draft reply text"
     assert result["tone"] == "casual"
@@ -197,20 +211,22 @@ async def test_correspondence_send_reply():
     with (
         patch("angie.llm.is_llm_configured", return_value=True),
         patch.object(agent, "ask_llm", AsyncMock(return_value="Draft reply")),
-        patch("angie.agents.email.gmail.GmailAgent") as MockGmail,
+        patch("angie.agents.email.gmail.GmailAgent") as mock_gmail_cls,
     ):
         mock_gmail = AsyncMock()
         mock_gmail.execute.return_value = {"sent": True}
-        MockGmail.return_value = mock_gmail
+        mock_gmail_cls.return_value = mock_gmail
 
-        result = await agent.execute({
-            "input_data": {
-                "action": "send_reply",
-                "email_body": "Original",
-                "reply_to": "sender@example.com",
-                "subject": "Test",
+        result = await agent.execute(
+            {
+                "input_data": {
+                    "action": "send_reply",
+                    "email_body": "Original",
+                    "reply_to": "sender@example.com",
+                    "subject": "Test",
+                }
             }
-        })
+        )
 
     assert result["sent"] is True
 
@@ -224,6 +240,7 @@ async def test_correspondence_unknown():
 
 
 # ── SpotifyAgent tests ────────────────────────────────────────────────────────
+
 
 async def test_spotify_execute_import_error():
     from angie.agents.media.spotify import SpotifyAgent
@@ -249,7 +266,7 @@ def test_spotify_dispatch_current_playing():
             "name": "Test Song",
             "artists": [{"name": "Artist 1"}],
             "album": {"name": "Test Album"},
-        }
+        },
     }
 
     result = agent._dispatch(mock_sp, "current", {})
@@ -369,6 +386,7 @@ def test_spotify_dispatch_unknown():
 
 # ── HueAgent tests ────────────────────────────────────────────────────────────
 
+
 async def test_hue_no_bridge_ip():
     from angie.agents.smart_home.hue import HueAgent
 
@@ -459,6 +477,7 @@ def test_hue_dispatch_unknown():
 
 # ── HomeAssistantAgent tests ──────────────────────────────────────────────────
 
+
 async def test_ha_no_config():
     from angie.agents.smart_home.home_assistant import HomeAssistantAgent
 
@@ -502,7 +521,9 @@ async def test_ha_get_entity():
     mock_session = MagicMock()
     mock_session.get.return_value = mock_response
 
-    result = await agent._dispatch(mock_session, "http://ha.local", "get", {"entity_id": "light.bedroom"})
+    result = await agent._dispatch(
+        mock_session, "http://ha.local", "get", {"entity_id": "light.bedroom"}
+    )
     assert result["state"] == "on"
 
 
@@ -518,9 +539,12 @@ async def test_ha_call_service():
     mock_session = MagicMock()
     mock_session.post.return_value = mock_response
 
-    result = await agent._dispatch(mock_session, "http://ha.local", "call_service", {
-        "domain": "light", "service": "turn_on", "entity_id": "light.bedroom"
-    })
+    result = await agent._dispatch(
+        mock_session,
+        "http://ha.local",
+        "call_service",
+        {"domain": "light", "service": "turn_on", "entity_id": "light.bedroom"},
+    )
     assert result["called"] is True
 
 
@@ -536,7 +560,9 @@ async def test_ha_turn_on():
     mock_session = MagicMock()
     mock_session.post.return_value = mock_response
 
-    result = await agent._dispatch(mock_session, "http://ha.local", "turn_on", {"entity_id": "light.x"})
+    result = await agent._dispatch(
+        mock_session, "http://ha.local", "turn_on", {"entity_id": "light.x"}
+    )
     assert result["on"] is True
 
 
@@ -552,7 +578,9 @@ async def test_ha_turn_off():
     mock_session = MagicMock()
     mock_session.post.return_value = mock_response
 
-    result = await agent._dispatch(mock_session, "http://ha.local", "turn_off", {"entity_id": "light.x"})
+    result = await agent._dispatch(
+        mock_session, "http://ha.local", "turn_off", {"entity_id": "light.x"}
+    )
     assert result["off"] is True
 
 
@@ -567,6 +595,7 @@ async def test_ha_unknown():
 
 
 # ── GoogleCalendarAgent tests ─────────────────────────────────────────────────
+
 
 async def test_gcal_execute_error():
     from angie.agents.calendar.gcal import GoogleCalendarAgent
@@ -606,14 +635,20 @@ def test_gcal_dispatch_create():
 
     agent = GoogleCalendarAgent()
     mock_svc = MagicMock()
-    mock_svc.events().insert().execute.return_value = {"id": "new-evt", "htmlLink": "http://cal.link"}
+    mock_svc.events().insert().execute.return_value = {
+        "id": "new-evt",
+        "htmlLink": "http://cal.link",
+    }
 
     with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync("create", {
-            "summary": "New Meeting",
-            "start": "2025-01-01T10:00:00Z",
-            "end": "2025-01-01T11:00:00Z",
-        })
+        result = agent._dispatch_sync(
+            "create",
+            {
+                "summary": "New Meeting",
+                "start": "2025-01-01T10:00:00Z",
+                "end": "2025-01-01T11:00:00Z",
+            },
+        )
 
     assert result["created"] is True
     assert result["event_id"] == "new-evt"
@@ -644,6 +679,7 @@ def test_gcal_dispatch_unknown():
 
 
 # ── GitHubAgent tests ─────────────────────────────────────────────────────────
+
 
 async def test_github_execute_import_error():
     from angie.agents.dev.github import GitHubAgent
@@ -714,9 +750,9 @@ async def test_github_dispatch_create_issue():
     mock_issue.html_url = "http://github.com/issue/10"
     mock_g.get_repo.return_value.create_issue.return_value = mock_issue
 
-    result = await agent._dispatch(mock_g, "create_issue", {
-        "repo": "user/repo", "title": "New issue", "body": "Details"
-    })
+    result = await agent._dispatch(
+        mock_g, "create_issue", {"repo": "user/repo", "title": "New issue", "body": "Details"}
+    )
     assert result["created"] is True
 
 
@@ -749,6 +785,7 @@ async def test_github_dispatch_unknown():
 
 
 # ── UbiquitiAgent tests ───────────────────────────────────────────────────────
+
 
 async def test_ubiquiti_execute():
     from angie.agents.networking.ubiquiti import UbiquitiAgent

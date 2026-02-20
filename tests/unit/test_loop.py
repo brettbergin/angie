@@ -15,6 +15,7 @@ os.environ.setdefault("DB_PASSWORD", "test-password")
 def clear_event_router():
     """Reset global EventRouter state between loop tests to prevent handler accumulation."""
     from angie.core.events import router
+
     # Save original state
     original_catch_all = router._catch_all.copy()
     original_handlers = {k: v.copy() for k, v in router._handlers.items()}
@@ -26,6 +27,7 @@ def clear_event_router():
 
 def _make_settings():
     from angie.config import Settings
+
     return Settings(secret_key="test-secret", db_password="testpass")
 
 
@@ -117,8 +119,8 @@ def test_loop_handle_signal():
 
 async def test_loop_dispatch_channel_message():
     """Test that channel messages get dispatched to the task queue."""
-    from angie.core.loop import AngieLoop
     from angie.core.events import AngieEvent
+    from angie.core.loop import AngieLoop
     from angie.models.event import EventType
 
     mock_cron = MagicMock()
@@ -142,6 +144,7 @@ async def test_loop_dispatch_channel_message():
                 source_channel="slack",
             )
             from angie.core.events import router
+
             await router.dispatch(event)
 
         loop._run_forever = _quick_run
@@ -153,8 +156,8 @@ async def test_loop_dispatch_channel_message():
 
 async def test_loop_dispatch_ignores_task_complete():
     """Test that TASK_COMPLETE events are not dispatched."""
-    from angie.core.loop import AngieLoop
     from angie.core.events import AngieEvent
+    from angie.core.loop import AngieLoop
     from angie.models.event import EventType
 
     mock_cron = MagicMock()
@@ -175,6 +178,7 @@ async def test_loop_dispatch_ignores_task_complete():
                 payload={"result": "done"},
             )
             from angie.core.events import router
+
             await router.dispatch(event)
 
         loop._run_forever = _quick_run

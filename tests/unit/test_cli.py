@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
@@ -14,6 +13,7 @@ os.environ.setdefault("DB_PASSWORD", "test-password")
 
 
 # ── angie config tests ─────────────────────────────────────────────────────────
+
 
 def test_config_slack(tmp_path):
     from angie.cli.config import config
@@ -51,9 +51,17 @@ def test_config_email(tmp_path):
 
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        with patch("rich.prompt.Prompt.ask", side_effect=[
-            "smtp.gmail.com", "587", "imap.gmail.com", "993", "user@gmail.com", "app-pass"
-        ]):
+        with patch(
+            "rich.prompt.Prompt.ask",
+            side_effect=[
+                "smtp.gmail.com",
+                "587",
+                "imap.gmail.com",
+                "993",
+                "user@gmail.com",
+                "app-pass",
+            ],
+        ):
             result = runner.invoke(config, ["email"])
     assert result.exit_code == 0
     assert "Email configured" in result.output
@@ -64,9 +72,7 @@ def test_config_channels(tmp_path):
 
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        Path(".env").write_text(
-            "SECRET_KEY=x\nDB_PASSWORD=x\nSLACK_BOT_TOKEN=xoxb-t\n"
-        )
+        Path(".env").write_text("SECRET_KEY=x\nDB_PASSWORD=x\nSLACK_BOT_TOKEN=xoxb-t\n")
         with patch("angie.config.get_settings") as mock_gs:
             s = MagicMock()
             s.slack_bot_token = "xoxb-test"
@@ -81,6 +87,7 @@ def test_config_channels(tmp_path):
 
 
 # ── angie ask tests ────────────────────────────────────────────────────────────
+
 
 def test_ask_not_configured():
     from angie.cli.main import ask
@@ -107,6 +114,7 @@ def test_ask_success():
 
 # ── angie status tests ─────────────────────────────────────────────────────────
 
+
 def test_status_command():
     from angie.cli.status import status
 
@@ -120,6 +128,7 @@ def test_status_command():
 
 
 # ── angie prompts tests ────────────────────────────────────────────────────────
+
 
 def test_prompts_list(tmp_path):
     from angie.cli.prompts import prompts
@@ -136,6 +145,7 @@ def test_prompts_list(tmp_path):
 
 
 # ── angie chat tests ───────────────────────────────────────────────────────────
+
 
 def test_chat_not_configured():
     from angie.cli.chat import chat

@@ -35,14 +35,18 @@ class HomeAssistantAgent(BaseAgent):
             async with aiohttp.ClientSession(
                 headers={"Authorization": f"Bearer {ha_token}", "Content-Type": "application/json"}
             ) as session:
-                return await self._dispatch(session, ha_url.rstrip("/"), action, task.get("input_data", {}))
+                return await self._dispatch(
+                    session, ha_url.rstrip("/"), action, task.get("input_data", {})
+                )
         except ImportError:
             return {"error": "aiohttp not installed"}
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("HomeAssistantAgent error")
             return {"error": str(exc)}
 
-    async def _dispatch(self, session: Any, base: str, action: str, data: dict[str, Any]) -> dict[str, Any]:
+    async def _dispatch(
+        self, session: Any, base: str, action: str, data: dict[str, Any]
+    ) -> dict[str, Any]:
         if action == "states":
             async with session.get(f"{base}/api/states") as r:
                 states = await r.json()
@@ -79,4 +83,3 @@ class HomeAssistantAgent(BaseAgent):
             return {"off": True, "entity_id": entity_id}
 
         return {"error": f"Unknown action: {action}"}
-

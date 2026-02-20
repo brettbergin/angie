@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,13 +14,16 @@ os.environ.setdefault("DB_PASSWORD", "test-password")
 
 def _make_settings():
     from angie.config import Settings
+
     return Settings(secret_key="k", db_password="pass")  # type: ignore[call-arg]
 
 
 # ── PromptManager: _load_file when path exists ────────────────────────────────
 
+
 def test_load_file_existing(tmp_path):
     from angie.core.prompts import PromptManager
+
     pm = PromptManager(prompts_dir=str(tmp_path))
     pm.user_prompts_dir = tmp_path / "user"
     f = tmp_path / "test.md"
@@ -32,6 +34,7 @@ def test_load_file_existing(tmp_path):
 
 def test_load_file_missing(tmp_path):
     from angie.core.prompts import PromptManager
+
     pm = PromptManager(prompts_dir=str(tmp_path))
     pm.user_prompts_dir = tmp_path / "user"
     result = pm._load_file(tmp_path / "nonexistent.md")
@@ -40,8 +43,10 @@ def test_load_file_missing(tmp_path):
 
 # ── PromptManager exception fallback paths ────────────────────────────────────
 
+
 def test_get_system_prompt_exception_fallback(tmp_path):
     from angie.core.prompts import PromptManager
+
     (tmp_path / "system.md").write_text("system content", encoding="utf-8")
     pm = PromptManager(prompts_dir=str(tmp_path))
     pm.user_prompts_dir = tmp_path / "user"
@@ -53,6 +58,7 @@ def test_get_system_prompt_exception_fallback(tmp_path):
 
 def test_get_angie_prompt_exception_fallback(tmp_path):
     from angie.core.prompts import PromptManager
+
     (tmp_path / "angie.md").write_text("angie content", encoding="utf-8")
     pm = PromptManager(prompts_dir=str(tmp_path))
     pm.user_prompts_dir = tmp_path / "user"
@@ -63,6 +69,7 @@ def test_get_angie_prompt_exception_fallback(tmp_path):
 
 def test_get_agent_prompt_exception_fallback(tmp_path):
     from angie.core.prompts import PromptManager
+
     agents_dir = tmp_path / "agents"
     agents_dir.mkdir()
     (agents_dir / "gmail.md").write_text("gmail agent content", encoding="utf-8")
@@ -75,6 +82,7 @@ def test_get_agent_prompt_exception_fallback(tmp_path):
 
 def test_get_agent_prompt_exception_fallback_missing_file(tmp_path):
     from angie.core.prompts import PromptManager
+
     pm = PromptManager(prompts_dir=str(tmp_path))
     pm.user_prompts_dir = tmp_path / "user"
     with patch.object(pm, "_render", side_effect=Exception("template error")):
@@ -84,6 +92,7 @@ def test_get_agent_prompt_exception_fallback_missing_file(tmp_path):
 
 def test_compose_for_agent(tmp_path):
     from angie.core.prompts import PromptManager
+
     (tmp_path / "system.md").write_text("system content", encoding="utf-8")
     (tmp_path / "angie.md").write_text("angie content", encoding="utf-8")
     agents_dir = tmp_path / "agents"
@@ -99,6 +108,7 @@ def test_compose_for_agent(tmp_path):
 
 def test_compose_for_agent_missing_files(tmp_path):
     from angie.core.prompts import PromptManager
+
     pm = PromptManager(prompts_dir=str(tmp_path))
     pm.user_prompts_dir = tmp_path / "user"
     # All files missing — all prompts empty, result should be empty
@@ -108,9 +118,11 @@ def test_compose_for_agent_missing_files(tmp_path):
 
 # ── AngieLoop: non-CHANNEL_MESSAGE event title fallback ──────────────────────
 
+
 @pytest.fixture(autouse=True)
 def reset_event_router():
     from angie.core.events import router
+
     old_catch_all = router._catch_all.copy()
     old_handlers = {k: v.copy() for k, v in router._handlers.items()}
     yield
@@ -136,7 +148,6 @@ async def test_loop_dispatches_non_channel_message_event():
         patch("angie.channels.base.get_channel_manager", return_value=mock_channel_manager),
     ):
         loop = AngieLoop()
-        calls: list[str] = []
 
         # Override _run_forever to dispatch one non-CHANNEL_MESSAGE event, then stop
         async def fake_run():
@@ -146,6 +157,7 @@ async def test_loop_dispatches_non_channel_message_event():
                 payload={"text": "hello"},
             )
             from angie.core.events import router as _router
+
             await _router.dispatch(event)
 
         loop._run_forever = fake_run
@@ -161,6 +173,7 @@ async def test_loop_dispatches_non_channel_message_event():
 async def test_run_forever_loop():
     """Cover lines 85-86: while self._running: await asyncio.sleep(1)."""
     from angie.core.loop import AngieLoop
+
     with patch("angie.config.get_settings", return_value=_make_settings()):
         loop = AngieLoop()
     loop._running = True
@@ -179,6 +192,7 @@ async def test_run_forever_loop():
 
 # ── db/session.py: get_session async generator ───────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_session_commits_on_success():
     mock_session = AsyncMock()
@@ -189,11 +203,12 @@ async def test_get_session_commits_on_success():
     mock_factory_instance.return_value = mock_session
 
     from angie.db import session as db_session
+
     db_session._session_factory = None
 
     with patch("angie.db.session.get_session_factory", return_value=mock_factory_instance):
         gen = db_session.get_session()
-        session = await gen.__anext__()
+        _ = await gen.__anext__()
         try:
             await gen.aclose()
         except StopAsyncIteration:
@@ -212,6 +227,7 @@ async def test_get_session_rollback_on_exception():
     mock_factory_instance.return_value = mock_session
 
     from angie.db import session as db_session
+
     db_session._session_factory = None
 
     with patch("angie.db.session.get_session_factory", return_value=mock_factory_instance):

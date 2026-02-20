@@ -17,7 +17,6 @@ def test_get_llm_model_cached():
     import angie.llm as llm_mod
 
     mock_model = MagicMock()
-    mock_model2 = MagicMock()
     llm_mod._model_cache = None
     llm_mod._model_expires_at = 0.0
 
@@ -129,7 +128,7 @@ def test_build_model_no_config_raises():
     with patch("angie.config.get_settings", return_value=mock_settings):
         try:
             llm_mod._build_model()
-            assert False, "Should have raised RuntimeError"
+            raise AssertionError("Should have raised RuntimeError")
         except RuntimeError as e:
             assert "No LLM configured" in str(e)
 

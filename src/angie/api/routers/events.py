@@ -38,7 +38,10 @@ async def list_events(
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
-        select(Event).where(Event.user_id == current_user.id).order_by(Event.created_at.desc()).limit(200)
+        select(Event)
+        .where(Event.user_id == current_user.id)
+        .order_by(Event.created_at.desc())
+        .limit(200)
     )
     return result.scalars().all()
 

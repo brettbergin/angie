@@ -75,9 +75,7 @@ async def test_send_no_channel():
     with patch("angie.channels.base.get_channel_manager", return_value=mock_channel_mgr):
         await mgr._send("user1", "Hello", None)
 
-    mock_channel_mgr.send.assert_called_once_with(
-        user_id="user1", text="Hello", channel_type=None
-    )
+    mock_channel_mgr.send.assert_called_once_with(user_id="user1", text="Hello", channel_type=None)
 
 
 def test_get_feedback_singleton():

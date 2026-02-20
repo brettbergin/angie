@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
 
 from angie.agents.base import BaseAgent
@@ -54,8 +54,8 @@ class GoogleCalendarAgent(BaseAgent):
         cal_id = data.get("calendar_id", "primary")
 
         if action == "list":
-            now = datetime.now(timezone.utc).isoformat()
-            end = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+            now = datetime.now(UTC).isoformat()
+            end = (datetime.now(UTC) + timedelta(days=7)).isoformat()
             result = (
                 svc.events()
                 .list(
@@ -95,4 +95,3 @@ class GoogleCalendarAgent(BaseAgent):
             return {"deleted": True, "event_id": event_id}
 
         return {"error": f"Unknown action: {action}"}
-

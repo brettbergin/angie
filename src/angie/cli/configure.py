@@ -79,12 +79,14 @@ _SERVICES: dict[str, list[tuple[str, str, bool]]] = {
 
 # ── configure group ────────────────────────────────────────────────────────────
 
+
 @click.group()
 def configure():
     """Unified Angie configuration wizard."""
 
 
 # ── configure keys ─────────────────────────────────────────────────────────────
+
 
 @configure.command("keys")
 @click.argument("service", type=click.Choice(list(_SERVICES.keys())), metavar="SERVICE")
@@ -117,6 +119,7 @@ def keys(service: str):
 
 # ── configure list ─────────────────────────────────────────────────────────────
 
+
 @configure.command("list")
 def list_keys():
     """Show all configured keys grouped by service."""
@@ -145,6 +148,7 @@ def list_keys():
 
 # ── configure model ────────────────────────────────────────────────────────────
 
+
 @configure.command("model")
 def model():
     """Select the LLM model and optionally set a custom API base."""
@@ -153,9 +157,10 @@ def model():
     current_base = env.get("COPILOT_API_BASE", "https://api.githubcopilot.com")
 
     click.echo("\nLLM Model Configuration\n")
-    click.echo("\n".join(
-        f"  {'>' if m == current_model else ' '} {m}" for m in _KNOWN_MODELS
-    ) + "\n   (or enter custom)")
+    click.echo(
+        "\n".join(f"  {'>' if m == current_model else ' '} {m}" for m in _KNOWN_MODELS)
+        + "\n   (or enter custom)"
+    )
 
     selected = click.prompt("Model", default=current_model)
     api_base = click.prompt("API base URL", default=current_base)
@@ -166,6 +171,7 @@ def model():
 
 
 # ── configure seed ─────────────────────────────────────────────────────────────
+
 
 @configure.command("seed")
 def seed():
@@ -178,8 +184,10 @@ def seed():
         asyncio.run(_seed_db())
     except Exception as exc:
         console.print(f"[bold red]✗ Seed failed:[/bold red] {exc}")
-        console.print("[dim]Make sure the database is running: make docker-up && make migrate[/dim]")
-        raise SystemExit(1)
+        console.print(
+            "[dim]Make sure the database is running: make docker-up && make migrate[/dim]"
+        )
+        raise SystemExit(1) from None
 
 
 async def _seed_db() -> None:
@@ -328,6 +336,4 @@ async def _seed_db() -> None:
     table.add_row("✓", "3 sample tasks inserted")
 
     console.print(table)
-    console.print(
-        "\n[dim]Login at http://localhost:8000/api/v1/auth/token[/dim]"
-    )
+    console.print("\n[dim]Login at http://localhost:8000/api/v1/auth/token[/dim]")

@@ -38,7 +38,6 @@ class SlackChannel(BaseChannel):
         from slack_sdk.socket_mode.request import SocketModeRequest
 
         app_token = self.settings.slack_app_token
-        bot_token = self.settings.slack_bot_token
 
         async def _process(client: SocketModeClient, req: SocketModeRequest) -> None:
             from slack_sdk.socket_mode.response import SocketModeResponse
@@ -104,4 +103,3 @@ class SlackChannel(BaseChannel):
         self, user_id: str, text: str, channel: str | None = None, **kwargs: Any
     ) -> None:
         await self.send(user_id, f"<@{user_id}> {text}", channel=channel)
-

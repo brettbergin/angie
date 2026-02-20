@@ -22,7 +22,9 @@ async def test_run_workflow_not_found():
     mock_session = AsyncMock()
     mock_session.get.return_value = None
 
-    with patch("angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)):
+    with patch(
+        "angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)
+    ):
         executor = WorkflowExecutor()
         result = await executor.run("missing-wf", {})
 
@@ -39,7 +41,9 @@ async def test_run_workflow_disabled():
     mock_session = AsyncMock()
     mock_session.get.return_value = mock_wf
 
-    with patch("angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)):
+    with patch(
+        "angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)
+    ):
         executor = WorkflowExecutor()
         result = await executor.run("wf1", {})
 
@@ -59,7 +63,9 @@ async def test_run_workflow_no_steps_success():
     mock_steps_result.scalars.return_value.all.return_value = []
     mock_session.execute.return_value = mock_steps_result
 
-    with patch("angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)):
+    with patch(
+        "angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)
+    ):
         executor = WorkflowExecutor()
         result = await executor.run("wf1", {})
 
@@ -90,7 +96,9 @@ async def test_run_workflow_with_dict_steps():
     context = {"steps": steps}
 
     with (
-        patch("angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)),
+        patch(
+            "angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)
+        ),
         patch("angie.agents.registry.get_registry", return_value=mock_registry),
     ):
         executor = WorkflowExecutor()
@@ -120,7 +128,9 @@ async def test_run_workflow_agent_not_found_stop():
     context = {"steps": steps}
 
     with (
-        patch("angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)),
+        patch(
+            "angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)
+        ),
         patch("angie.agents.registry.get_registry", return_value=mock_registry),
     ):
         executor = WorkflowExecutor()
@@ -149,7 +159,9 @@ async def test_run_workflow_agent_not_found_continue():
     context = {"steps": steps}
 
     with (
-        patch("angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)),
+        patch(
+            "angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)
+        ),
         patch("angie.agents.registry.get_registry", return_value=mock_registry),
     ):
         executor = WorkflowExecutor()
@@ -181,7 +193,9 @@ async def test_run_workflow_step_exception_stop():
     context = {"steps": steps}
 
     with (
-        patch("angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)),
+        patch(
+            "angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)
+        ),
         patch("angie.agents.registry.get_registry", return_value=mock_registry),
     ):
         executor = WorkflowExecutor()
@@ -214,7 +228,9 @@ async def test_run_workflow_step_exception_continue():
     context = {"steps": steps}
 
     with (
-        patch("angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)),
+        patch(
+            "angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)
+        ),
         patch("angie.agents.registry.get_registry", return_value=mock_registry),
     ):
         executor = WorkflowExecutor()
@@ -250,7 +266,9 @@ async def test_run_workflow_with_model_steps():
     mock_registry.get.return_value = mock_agent
 
     with (
-        patch("angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)),
+        patch(
+            "angie.db.session.get_session_factory", return_value=_make_session_factory(mock_session)
+        ),
         patch("angie.agents.registry.get_registry", return_value=mock_registry),
     ):
         executor = WorkflowExecutor()

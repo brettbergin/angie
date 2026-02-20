@@ -14,6 +14,7 @@ os.environ.setdefault("DB_PASSWORD", "test-password")
 
 # ── App tests ─────────────────────────────────────────────────────────────────
 
+
 def _get_test_client():
     from angie.api.app import create_app
 
@@ -51,7 +52,10 @@ def test_app_has_cors_middleware():
 
     # CORS middleware is in the middleware stack
     middleware_classes = [str(m) for m in app.user_middleware]
-    assert any("cors" in m.lower() or "CORS" in m for m in middleware_classes) or len(app.user_middleware) > 0
+    assert (
+        any("cors" in m.lower() or "CORS" in m for m in middleware_classes)
+        or len(app.user_middleware) > 0
+    )
 
 
 def test_app_routers_registered():
@@ -79,8 +83,6 @@ def test_unhandled_exception_returns_500():
 
         app = create_app()
 
-    from fastapi import Request
-
     @app.get("/raise-error")
     async def raise_error():
         raise RuntimeError("oops")
@@ -91,6 +93,7 @@ def test_unhandled_exception_returns_500():
 
 
 # ── Auth utility tests ────────────────────────────────────────────────────────
+
 
 def _make_settings_for_auth():
     from angie.config import Settings
@@ -190,9 +193,8 @@ async def test_get_current_user_invalid_token():
 
 
 async def test_get_current_user_no_sub():
-    from jose import jwt
-
     from fastapi import HTTPException
+    from jose import jwt
 
     from angie.api.auth import get_current_user
 
@@ -208,9 +210,8 @@ async def test_get_current_user_no_sub():
 
 
 async def test_get_current_user_not_found():
-    from jose import jwt
-
     from fastapi import HTTPException
+    from jose import jwt
 
     from angie.api.auth import get_current_user
 
@@ -228,9 +229,8 @@ async def test_get_current_user_not_found():
 
 
 async def test_get_current_user_inactive():
-    from jose import jwt
-
     from fastapi import HTTPException
+    from jose import jwt
 
     from angie.api.auth import get_current_user
 
@@ -275,6 +275,7 @@ async def test_get_current_superuser_not_super():
 
 
 # ── Auth router tests ─────────────────────────────────────────────────────────
+
 
 def _get_auth_test_client():
     from angie.api.app import create_app

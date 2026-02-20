@@ -2,12 +2,10 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from angie.channels.base import BaseChannel, ChannelManager
 
-
 # ── Concrete test channel ─────────────────────────────────────────────────────
+
 
 class MockChannel(BaseChannel):
     channel_type = "mock"
@@ -42,6 +40,7 @@ class ErrorChannel(BaseChannel):
 
 
 # ── ChannelManager tests ──────────────────────────────────────────────────────
+
 
 def test_channel_manager_register():
     mgr = ChannelManager()
@@ -148,6 +147,7 @@ async def test_channel_manager_send_unknown_channel_type():
 
 # ── get_channel_manager / _build_manager tests ───────────────────────────────
 
+
 def test_get_channel_manager_singleton():
     import angie.channels.base as base_mod
 
@@ -191,7 +191,7 @@ def test_build_manager_with_slack():
 
     with (
         patch("angie.config.get_settings") as mock_gs,
-        patch("angie.channels.slack.SlackChannel") as MockSlack,
+        patch("angie.channels.slack.SlackChannel") as mock_slack_cls,
     ):
         mock_settings = MagicMock()
         mock_settings.slack_bot_token = "xoxb-token"
@@ -202,7 +202,7 @@ def test_build_manager_with_slack():
 
         mock_slack = MagicMock()
         mock_slack.channel_type = "slack"
-        MockSlack.return_value = mock_slack
+        mock_slack_cls.return_value = mock_slack
 
         mgr = base_mod._build_manager()
 

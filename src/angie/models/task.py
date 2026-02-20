@@ -29,7 +29,9 @@ class Task(Base, TimestampMixin):
     celery_task_id: Mapped[str | None] = mapped_column(String(255), index=True)
     status: Mapped[TaskStatus] = mapped_column(
         Enum(TaskStatus, values_callable=lambda obj: [e.value for e in obj]),
-        default=TaskStatus.PENDING, nullable=False, index=True
+        default=TaskStatus.PENDING,
+        nullable=False,
+        index=True,
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     input_data: Mapped[dict] = mapped_column(JSON, default=dict)

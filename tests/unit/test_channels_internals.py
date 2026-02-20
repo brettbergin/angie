@@ -30,6 +30,7 @@ def _make_settings(**kw):
 
 # ── channels/base.py: ChannelManager builder ─────────────────────────────────
 
+
 def test_channel_manager_build_with_slack_discord():
     """_build_manager detects enabled services by settings attributes."""
     mock_settings = _make_settings()
@@ -37,12 +38,15 @@ def test_channel_manager_build_with_slack_discord():
     mock_settings.discord_bot_token = "discord-xxx"
 
     with patch("angie.config.get_settings", return_value=mock_settings):
-        with patch("angie.channels.slack.SlackChannel") as mock_slack_cls, \
-             patch("angie.channels.discord.DiscordChannel") as mock_discord_cls:
+        with (
+            patch("angie.channels.slack.SlackChannel") as mock_slack_cls,
+            patch("angie.channels.discord.DiscordChannel") as mock_discord_cls,
+        ):
             mock_slack_cls.return_value = MagicMock(channel_type="slack")
             mock_discord_cls.return_value = MagicMock(channel_type="discord")
 
             from angie.channels import base as _base_mod
+
             # Reset the global manager so _build_manager is called fresh
             _base_mod._manager = None
             mgr = _base_mod.get_channel_manager()
@@ -53,6 +57,7 @@ def test_channel_manager_build_with_slack_discord():
 
 def test_channel_manager_send_dispatches():
     from angie.channels.base import ChannelManager
+
     manager = ChannelManager()
 
     mock_channel = AsyncMock()
@@ -64,6 +69,7 @@ def test_channel_manager_send_dispatches():
 
 def test_channel_manager_send_unknown_channel():
     from angie.channels.base import ChannelManager
+
     manager = ChannelManager()
     manager._channels = {}
 
@@ -72,6 +78,7 @@ def test_channel_manager_send_unknown_channel():
 
 
 # ── channels/slack.py: _dispatch_event ────────────────────────────────────────
+
 
 def test_slack_dispatch_event():
     """Cover _dispatch_event converting a message to an AngieEvent."""
@@ -105,6 +112,7 @@ def test_slack_dispatch_event():
 
 # ── channels/discord.py: _dispatch_event ─────────────────────────────────────
 
+
 def test_discord_dispatch_event():
     """Cover _dispatch_event in DiscordChannel."""
     mock_discord = MagicMock()
@@ -132,6 +140,7 @@ def test_discord_dispatch_event():
 
 
 # ── channels/email.py: _check_inbox + _poll_inbox ────────────────────────────
+
 
 def test_email_dispatch_event():
     """Cover email _dispatch_event."""
@@ -166,11 +175,11 @@ def test_email_check_inbox_with_imaplib_error():
 
 def test_email_extract_body_multipart():
     """_extract_body on a multipart message returns text/plain part."""
-    import email as email_lib
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
 
     from angie.channels.email import EmailChannel
+
     ch = EmailChannel.__new__(EmailChannel)
 
     msg = MIMEMultipart()
@@ -184,7 +193,9 @@ def test_email_extract_body_multipart():
 def test_email_extract_body_simple():
     """_extract_body on simple text/plain returns the payload."""
     from email.mime.text import MIMEText
+
     from angie.channels.email import EmailChannel
+
     ch = EmailChannel.__new__(EmailChannel)
 
     msg = MIMEText("Simple plain body", "plain")
@@ -194,10 +205,11 @@ def test_email_extract_body_simple():
 
 # ── channels/imessage.py: _poll_messages + old-message skip ──────────────────
 
+
 def test_imessage_dispatch_event():
     """Cover iMessage _dispatch_event."""
+
     from angie.channels.imessage import IMessageChannel
-    import httpx
 
     ch = IMessageChannel.__new__(IMessageChannel)
     ch.settings = _make_settings()
@@ -232,8 +244,8 @@ def test_imessage_check_new_messages_no_http():
 
 def test_imessage_check_new_messages_skips_old():
     """Messages with dateCreated <= _last_ms are skipped."""
+
     from angie.channels.imessage import IMessageChannel
-    import httpx
 
     ch = IMessageChannel.__new__(IMessageChannel)
     ch.settings = _make_settings()
@@ -243,9 +255,7 @@ def test_imessage_check_new_messages_skips_old():
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {
-        "data": [
-            {"dateCreated": 1000, "text": "old message", "handle": {"address": "+1555"}}
-        ]
+        "data": [{"dateCreated": 1000, "text": "old message", "handle": {"address": "+1555"}}]
     }
 
     mock_http = AsyncMock()
@@ -273,9 +283,7 @@ def test_imessage_check_new_messages_processes_new():
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {
-        "data": [
-            {"dateCreated": 2000, "text": "new message", "handle": {"address": "+1555"}}
-        ]
+        "data": [{"dateCreated": 2000, "text": "new message", "handle": {"address": "+1555"}}]
     }
 
     mock_http = AsyncMock()
@@ -294,11 +302,13 @@ def test_imessage_check_new_messages_processes_new():
 
 # ── iMessage _poll_messages exception path ─────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_imessage_poll_messages_exception():
     """Cover _poll_messages exception path (lines 55-56)."""
-    from angie.channels.imessage import IMessageChannel
     import asyncio as _asyncio
+
+    from angie.channels.imessage import IMessageChannel
 
     ch = IMessageChannel.__new__(IMessageChannel)
     ch.settings = MagicMock()
@@ -308,14 +318,21 @@ async def test_imessage_poll_messages_exception():
     ch._last_ts = 0
 
     sleep_calls = []
+
     async def fake_sleep(n):
         sleep_calls.append(n)
         if len(sleep_calls) >= 1:
             raise _asyncio.CancelledError()
 
-    with patch("angie.channels.imessage.asyncio.sleep", side_effect=fake_sleep), \
-         patch.object(ch, "_check_new_messages", new_callable=AsyncMock,
-                      side_effect=RuntimeError("poll error")):
+    with (
+        patch("angie.channels.imessage.asyncio.sleep", side_effect=fake_sleep),
+        patch.object(
+            ch,
+            "_check_new_messages",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("poll error"),
+        ),
+    ):
         try:
             await ch._poll_messages()
         except _asyncio.CancelledError:
@@ -324,16 +341,19 @@ async def test_imessage_poll_messages_exception():
 
 # ── Email _poll_inbox and _check_inbox ─────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_email_poll_inbox():
     """Cover _poll_inbox lines 40-45: exception path + sleep."""
     import asyncio as _asyncio
+
     from angie.channels.email import EmailChannel
 
     ch = EmailChannel.__new__(EmailChannel)
     ch.settings = MagicMock()
 
     sleep_calls = []
+
     async def fake_sleep(n):
         sleep_calls.append(n)
         raise _asyncio.CancelledError()
@@ -341,8 +361,10 @@ async def test_email_poll_inbox():
     async def fake_run_in_executor(executor, fn):
         raise RuntimeError("imap fail")
 
-    with patch("angie.channels.email.asyncio.sleep", side_effect=fake_sleep), \
-         patch("asyncio.get_event_loop") as mock_loop:
+    with (
+        patch("angie.channels.email.asyncio.sleep", side_effect=fake_sleep),
+        patch("asyncio.get_event_loop") as mock_loop,
+    ):
         mock_loop_obj = MagicMock()
         mock_loop_obj.run_in_executor = AsyncMock(side_effect=RuntimeError("fail"))
         mock_loop.return_value = mock_loop_obj
@@ -355,8 +377,6 @@ async def test_email_poll_inbox():
 
 def test_email_check_inbox_imaplib():
     """Cover _check_inbox using mocked imaplib (lines 47-73)."""
-    import email as email_lib
-    import imaplib
     from angie.channels.email import EmailChannel
 
     ch = EmailChannel.__new__(EmailChannel)
@@ -379,9 +399,11 @@ def test_email_check_inbox_imaplib():
     mock_future = MagicMock()
     mock_loop.run_coroutine_threadsafe = MagicMock(return_value=mock_future)
 
-    with patch("angie.channels.email.imaplib.IMAP4_SSL", return_value=mock_conn), \
-         patch("asyncio.get_event_loop", return_value=mock_loop), \
-         patch.object(ch, "_dispatch_event", new_callable=AsyncMock):
+    with (
+        patch("angie.channels.email.imaplib.IMAP4_SSL", return_value=mock_conn),
+        patch("asyncio.get_event_loop", return_value=mock_loop),
+        patch.object(ch, "_dispatch_event", new_callable=AsyncMock),
+    ):
         ch._check_inbox()
 
     mock_conn.login.assert_called_once()
@@ -406,10 +428,12 @@ def test_email_check_inbox_exception():
 
 # ── Slack _listen method ────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_slack_listen():
     """Cover _listen() by mocking SocketModeClient and cancelling the loop."""
     import asyncio as _asyncio
+
     from angie.channels.slack import SlackChannel
 
     ch = SlackChannel.__new__(SlackChannel)
@@ -420,6 +444,7 @@ async def test_slack_listen():
     ch._client.auth_test = AsyncMock(return_value={"user_id": "U123"})
 
     sleep_call_count = 0
+
     async def fake_sleep(n):
         nonlocal sleep_call_count
         sleep_call_count += 1
@@ -433,12 +458,18 @@ async def test_slack_listen():
     mock_request_cls = MagicMock()
     mock_response_cls = MagicMock()
 
-    with patch.dict("sys.modules", {
-        "slack_sdk.socket_mode.aiohttp": MagicMock(SocketModeClient=mock_sm_cls),
-        "slack_sdk.socket_mode.request": MagicMock(SocketModeRequest=mock_request_cls),
-        "slack_sdk.socket_mode.response": MagicMock(SocketModeResponse=mock_response_cls),
-    }), patch("angie.channels.slack.asyncio.sleep", side_effect=fake_sleep), \
-         patch("angie.core.events.router"):
+    with (
+        patch.dict(
+            "sys.modules",
+            {
+                "slack_sdk.socket_mode.aiohttp": MagicMock(SocketModeClient=mock_sm_cls),
+                "slack_sdk.socket_mode.request": MagicMock(SocketModeRequest=mock_request_cls),
+                "slack_sdk.socket_mode.response": MagicMock(SocketModeResponse=mock_response_cls),
+            },
+        ),
+        patch("angie.channels.slack.asyncio.sleep", side_effect=fake_sleep),
+        patch("angie.core.events.router"),
+    ):
         try:
             await ch._listen()
         except _asyncio.CancelledError:
@@ -449,10 +480,12 @@ async def test_slack_listen():
 
 # ── Discord _run_bot method ─────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_discord_run_bot():
     """Cover _run_bot() by mocking discord module and cancelling the bot."""
     import asyncio as _asyncio
+
     from angie.channels.discord import DiscordChannel
 
     ch = DiscordChannel.__new__(DiscordChannel)
@@ -473,8 +506,7 @@ async def test_discord_run_bot():
     mock_discord.Client.return_value = mock_client
     mock_discord.DMChannel = type("DMChannel", (), {})
 
-    with patch.dict("sys.modules", {"discord": mock_discord}), \
-         patch("angie.core.events.router"):
+    with patch.dict("sys.modules", {"discord": mock_discord}), patch("angie.core.events.router"):
         try:
             await ch._run_bot()
         except Exception:
@@ -485,10 +517,12 @@ async def test_discord_run_bot():
 
 # ── Slack _process inner callback ───────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_slack_listen_process_callback():
     """Cover the _process callback inside _listen (lines 44-67)."""
     import asyncio as _asyncio
+
     from angie.channels.slack import SlackChannel
 
     ch = SlackChannel.__new__(SlackChannel)
@@ -500,6 +534,7 @@ async def test_slack_listen_process_callback():
     ch._dispatch_event = AsyncMock()
 
     sleep_calls = []
+
     async def fake_sleep(n):
         sleep_calls.append(n)
         raise _asyncio.CancelledError()
@@ -510,11 +545,19 @@ async def test_slack_listen_process_callback():
 
     mock_response_cls = MagicMock(return_value=MagicMock())
 
-    with patch.dict("sys.modules", {
-        "slack_sdk.socket_mode.aiohttp": MagicMock(SocketModeClient=MagicMock(return_value=mock_sm_client)),
-        "slack_sdk.socket_mode.request": MagicMock(SocketModeRequest=MagicMock()),
-        "slack_sdk.socket_mode.response": MagicMock(SocketModeResponse=mock_response_cls),
-    }), patch("angie.channels.slack.asyncio.sleep", side_effect=fake_sleep):
+    with (
+        patch.dict(
+            "sys.modules",
+            {
+                "slack_sdk.socket_mode.aiohttp": MagicMock(
+                    SocketModeClient=MagicMock(return_value=mock_sm_client)
+                ),
+                "slack_sdk.socket_mode.request": MagicMock(SocketModeRequest=MagicMock()),
+                "slack_sdk.socket_mode.response": MagicMock(SocketModeResponse=mock_response_cls),
+            },
+        ),
+        patch("angie.channels.slack.asyncio.sleep", side_effect=fake_sleep),
+    ):
         try:
             await ch._listen()
         except _asyncio.CancelledError:
@@ -581,10 +624,12 @@ async def test_slack_listen_process_callback():
 
 # ── Discord on_ready and on_message callbacks ───────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_discord_run_bot_callbacks():
     """Cover on_ready and on_message callbacks inside _run_bot."""
     import asyncio as _asyncio
+
     from angie.channels.discord import DiscordChannel
 
     ch = DiscordChannel.__new__(DiscordChannel)
@@ -609,16 +654,16 @@ async def test_discord_run_bot_callbacks():
     mock_client.event = capture_event
 
     # First call: start raises CancelledError after registering events
-    start_call_count = 0
     async def fake_start(token):
         raise _asyncio.CancelledError()
+
     mock_client.start = fake_start
 
-    MockDMChannel = type("DMChannel", (), {})
+    mock_dm_channel_cls = type("DMChannel", (), {})
     mock_discord = MagicMock()
     mock_discord.Intents.default.return_value = MagicMock()
     mock_discord.Client.return_value = mock_client
-    mock_discord.DMChannel = MockDMChannel
+    mock_discord.DMChannel = mock_dm_channel_cls
 
     with patch.dict("sys.modules", {"discord": mock_discord}):
         try:
@@ -644,7 +689,7 @@ async def test_discord_run_bot_callbacks():
     msg_dm.author = MagicMock()
     msg_dm.author.id = "U001"
     msg_dm.content = "hello"
-    msg_dm.channel = MockDMChannel()
+    msg_dm.channel = mock_dm_channel_cls()
     msg_dm.channel.id = "D001"
     msg_dm.mentions = []
     await on_message(msg_dm)

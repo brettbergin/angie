@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing")
 os.environ.setdefault("DB_PASSWORD", "test-password")
@@ -24,6 +25,7 @@ def _make_app_with_overrides(mock_user=None, mock_session=None):
         mock_gs.return_value = mock_settings
 
         from angie.api.app import create_app
+
         app = create_app()
 
     from angie.api.auth import get_current_user
@@ -31,6 +33,7 @@ def _make_app_with_overrides(mock_user=None, mock_session=None):
 
     if mock_user is None:
         from angie.models.user import User
+
         mock_user = User(
             id="user-1",
             email="test@example.com",
@@ -65,6 +68,7 @@ def _make_app_with_overrides(mock_user=None, mock_session=None):
 
 # ── api/app.py lifespan yield ──────────────────────────────────────────────────
 
+
 def test_app_lifespan():
     """Cover the yield inside the lifespan context manager."""
     with patch("angie.config.get_settings") as mock_gs:
@@ -75,6 +79,7 @@ def test_app_lifespan():
         mock_gs.return_value = mock_settings
 
         from angie.api.app import create_app
+
         app = create_app()
 
     # Using TestClient as context manager triggers lifespan startup+shutdown
@@ -84,6 +89,7 @@ def test_app_lifespan():
 
 
 # ── Agents router ─────────────────────────────────────────────────────────────
+
 
 def test_list_agents_endpoint():
     app, user, session = _make_app_with_overrides()
@@ -108,6 +114,7 @@ def test_list_agents_endpoint():
 
 # ── Users router ───────────────────────────────────────────────────────────────
 
+
 def test_get_me_endpoint():
     app, user, session = _make_app_with_overrides()
     with TestClient(app) as client:
@@ -118,6 +125,7 @@ def test_get_me_endpoint():
 
 
 # ── Events router ──────────────────────────────────────────────────────────────
+
 
 def _make_scalars_result(items):
     mock_scalars = MagicMock()
@@ -131,7 +139,10 @@ def test_list_events_endpoint():
     app, user, session = _make_app_with_overrides()
 
     from angie.models.event import Event, EventType
-    event = Event(id="evt-1", type=EventType.USER_MESSAGE, user_id="user-1", payload={}, processed=False)
+
+    event = Event(
+        id="evt-1", type=EventType.USER_MESSAGE, user_id="user-1", payload={}, processed=False
+    )
     session.execute = AsyncMock(return_value=_make_scalars_result([event]))
 
     with TestClient(app) as client:
@@ -142,8 +153,7 @@ def test_list_events_endpoint():
 def test_create_event_endpoint():
     app, user, session = _make_app_with_overrides()
 
-    from angie.models.event import Event, EventType
-    created_event = Event(id="evt-2", type=EventType.USER_MESSAGE, user_id="user-1", payload={"msg": "hi"}, processed=False)
+    from angie.models.event import Event, EventType  # noqa: F401
 
     async def mock_refresh(obj):
         obj.id = "evt-2"
@@ -156,22 +166,33 @@ def test_create_event_endpoint():
     session.refresh = mock_refresh
 
     with TestClient(app) as client:
-        resp = client.post("/api/v1/events/", json={
-            "type": "user_message",
-            "payload": {"msg": "hi"},
-            "source_channel": "slack",
-        })
+        resp = client.post(
+            "/api/v1/events/",
+            json={
+                "type": "user_message",
+                "payload": {"msg": "hi"},
+                "source_channel": "slack",
+            },
+        )
     assert resp.status_code in (200, 201, 422)
 
 
 # ── Tasks router ───────────────────────────────────────────────────────────────
 
+
 def test_list_tasks_endpoint():
     app, user, session = _make_app_with_overrides()
 
     from angie.models.task import Task, TaskStatus
-    task = Task(id="t1", title="Test task", user_id="user-1", status=TaskStatus.PENDING,
-                input_data={}, output_data={})
+
+    task = Task(
+        id="t1",
+        title="Test task",
+        user_id="user-1",
+        status=TaskStatus.PENDING,
+        input_data={},
+        output_data={},
+    )
     session.execute = AsyncMock(return_value=_make_scalars_result([task]))
 
     with TestClient(app) as client:
@@ -182,7 +203,7 @@ def test_list_tasks_endpoint():
 def test_create_task_endpoint():
     app, user, session = _make_app_with_overrides()
 
-    from angie.models.task import Task, TaskStatus
+    from angie.models.task import TaskStatus
 
     async def mock_refresh(obj):
         obj.id = "task-1"
@@ -198,10 +219,13 @@ def test_create_task_endpoint():
     session.refresh = mock_refresh
 
     with TestClient(app) as client:
-        resp = client.post("/api/v1/tasks/", json={
-            "title": "My task",
-            "input_data": {"action": "test"},
-        })
+        resp = client.post(
+            "/api/v1/tasks/",
+            json={
+                "title": "My task",
+                "input_data": {"action": "test"},
+            },
+        )
     assert resp.status_code in (200, 201, 422)
 
 
@@ -218,6 +242,7 @@ def test_get_task_wrong_user():
     app, user, session = _make_app_with_overrides()
 
     from angie.models.task import Task, TaskStatus
+
     other_task = Task(id="t1", title="Other task", user_id="other-user", status=TaskStatus.PENDING)
     session.get = AsyncMock(return_value=other_task)
 
@@ -230,8 +255,15 @@ def test_update_task_status():
     app, user, session = _make_app_with_overrides()
 
     from angie.models.task import Task, TaskStatus
-    task = Task(id="t1", title="t", user_id="user-1", status=TaskStatus.PENDING,
-                input_data={}, output_data={})
+
+    task = Task(
+        id="t1",
+        title="t",
+        user_id="user-1",
+        status=TaskStatus.PENDING,
+        input_data={},
+        output_data={},
+    )
 
     async def mock_refresh(obj):
         pass
@@ -257,6 +289,7 @@ def test_delete_task_success():
     app, user, session = _make_app_with_overrides()
 
     from angie.models.task import Task, TaskStatus
+
     task = Task(id="t1", title="t", user_id="user-1", status=TaskStatus.PENDING)
     session.get = AsyncMock(return_value=task)
 
@@ -267,9 +300,11 @@ def test_delete_task_success():
 
 # ── Teams router ───────────────────────────────────────────────────────────────
 
+
 def test_list_teams_endpoint():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
+
     team = Team(id="team-1", name="Dev Team", slug="dev-team")
     session.execute = AsyncMock(return_value=_make_scalars_result([team]))
 
@@ -280,8 +315,7 @@ def test_list_teams_endpoint():
 
 def test_create_team_endpoint():
     app, user, session = _make_app_with_overrides()
-    from angie.models.team import Team
-    new_team = Team(id="t1", name="My Team", slug="my-team")
+    from angie.models.team import Team  # noqa: F401
 
     async def mock_refresh(obj):
         obj.id = "t1"
@@ -311,12 +345,14 @@ def test_get_team_not_found():
 def test_get_team_success():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
+
     team = Team(id="t1", name="Dev Team", slug="dev-team")
     session.get = AsyncMock(return_value=team)
 
     with TestClient(app) as client:
         resp = client.get("/api/v1/teams/t1")
     assert resp.status_code == 200
+
 
 def test_delete_team_not_found():
     app, user, session = _make_app_with_overrides()
@@ -330,6 +366,7 @@ def test_delete_team_not_found():
 def test_delete_team_success():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
+
     team = Team(id="t1", name="Dev Team", slug="dev-team")
     session.get = AsyncMock(return_value=team)
 
@@ -340,9 +377,11 @@ def test_delete_team_success():
 
 # ── Workflows router ───────────────────────────────────────────────────────────
 
+
 def test_list_workflows_endpoint():
     app, user, session = _make_app_with_overrides()
     from angie.models.workflow import Workflow
+
     wf = Workflow(id="wf-1", name="Morning Briefing", slug="morning-briefing", is_enabled=True)
     session.execute = AsyncMock(return_value=_make_scalars_result([wf]))
 
@@ -384,6 +423,7 @@ def test_get_workflow_not_found():
 def test_get_workflow_success():
     app, user, session = _make_app_with_overrides()
     from angie.models.workflow import Workflow
+
     wf = Workflow(id="wf-1", name="WF", slug="wf", is_enabled=True)
     session.get = AsyncMock(return_value=wf)
 
@@ -404,6 +444,7 @@ def test_update_workflow_not_found():
 def test_update_workflow_success():
     app, user, session = _make_app_with_overrides()
     from angie.models.workflow import Workflow
+
     wf = Workflow(id="wf-1", name="WF", slug="wf", is_enabled=True)
 
     async def mock_refresh(obj):
@@ -415,6 +456,7 @@ def test_update_workflow_success():
     with TestClient(app) as client:
         resp = client.patch("/api/v1/workflows/wf-1", json={"is_enabled": False})
     assert resp.status_code == 200
+
 
 def test_delete_workflow_not_found():
     app, user, session = _make_app_with_overrides()
@@ -428,6 +470,7 @@ def test_delete_workflow_not_found():
 def test_delete_workflow_success():
     app, user, session = _make_app_with_overrides()
     from angie.models.workflow import Workflow
+
     wf = Workflow(id="wf-1", name="WF", slug="wf")
     session.get = AsyncMock(return_value=wf)
 
@@ -438,10 +481,14 @@ def test_delete_workflow_success():
 
 # ── Channels router ────────────────────────────────────────────────────────────
 
+
 def test_list_channels_endpoint():
     app, user, session = _make_app_with_overrides()
     from angie.models.channel import ChannelConfig, ChannelType
-    cfg = ChannelConfig(id="cfg-1", user_id="user-1", type=ChannelType.SLACK, is_enabled=True, config={})
+
+    cfg = ChannelConfig(
+        id="cfg-1", user_id="user-1", type=ChannelType.SLACK, is_enabled=True, config={}
+    )
     session.execute = AsyncMock(return_value=_make_scalars_result([cfg]))
 
     with TestClient(app) as client:
@@ -449,35 +496,8 @@ def test_list_channels_endpoint():
     assert resp.status_code == 200
 
 
-def test_upsert_channel_config_create():
-    app, user, session = _make_app_with_overrides()
-
-    mock_scalars = MagicMock()
-    mock_scalars.scalar_one_or_none.return_value = None
-    mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = None
-    session.execute = AsyncMock(return_value=mock_result)
-
-    from angie.models.channel import ChannelConfig, ChannelType
-    new_cfg = ChannelConfig(user_id="user-1", type=ChannelType.SLACK, is_enabled=True)
-
-    async def mock_refresh(obj):
-        obj.id = "cfg-1"
-        obj.user_id = "user-1"
-        obj.type = ChannelType.SLACK
-        obj.is_enabled = True
-        obj.config = {}
-        obj.created_at = None
-        obj.updated_at = None
-
-    session.refresh = mock_refresh
-
-    with TestClient(app) as client:
-        resp = client.put("/api/v1/channels/slack", json={"is_enabled": True, "config": {}})
-    assert resp.status_code in (200, 422)
-
-
 # ── Prompts router ─────────────────────────────────────────────────────────────
+
 
 def test_list_prompts_endpoint():
     app, user, session = _make_app_with_overrides()
@@ -495,6 +515,7 @@ def test_list_prompts_endpoint():
 
 # ── Tasks router: TaskOut model_validate ──────────────────────────────────────
 
+
 def test_task_out_model_validate_no_timestamps():
     """Cover the custom model_validate override in tasks router (no timestamps)."""
     from angie.models.task import Task, TaskStatus
@@ -509,6 +530,7 @@ def test_task_out_model_validate_no_timestamps():
     )
     # created_at is None, so the isoformat branch is skipped
     from angie.api.routers.tasks import TaskOut
+
     result = TaskOut.model_validate(task)
     assert result.id == "t1"
     assert result.created_at is None
@@ -518,17 +540,31 @@ def test_task_out_model_validate_with_datetime():
     """Cover lines 41+43: TaskOut.model_validate when obj has datetime timestamps."""
     from datetime import datetime
     from unittest.mock import patch as _patch
+
     from pydantic import BaseModel
+
     from angie.api.routers.tasks import TaskOut
 
     base_result = TaskOut(
-        id="t1", title="t", status="success", input_data={}, output_data={},
-        error=None, source_channel=None, created_at=None, updated_at=None,
+        id="t1",
+        title="t",
+        status="success",
+        input_data={},
+        output_data={},
+        error=None,
+        source_channel=None,
+        created_at=None,
+        updated_at=None,
     )
 
     class MockObj:
-        id = "t1"; title = "t"; status = "success"; input_data = {}; output_data = {}
-        error = None; source_channel = None
+        id = "t1"
+        title = "t"
+        status = "success"
+        input_data = {}
+        output_data = {}
+        error = None
+        source_channel = None
         created_at = datetime(2024, 1, 1, 12, 0, 0)
         updated_at = datetime(2024, 1, 2, 12, 0, 0)
 
@@ -546,8 +582,12 @@ def test_get_task_success():
     from angie.models.task import Task, TaskStatus
 
     task = Task(
-        id="t1", title="Task", user_id="user-1", status=TaskStatus.SUCCESS,
-        input_data={}, output_data={},
+        id="t1",
+        title="Task",
+        user_id="user-1",
+        status=TaskStatus.SUCCESS,
+        input_data={},
+        output_data={},
     )
     session.get = AsyncMock(return_value=task)
 
@@ -575,13 +615,18 @@ def test_update_task_with_output_data():
     from angie.models.task import Task, TaskStatus
 
     task = Task(
-        id="t1", title="Task", user_id="user-1", status=TaskStatus.PENDING,
-        input_data={}, output_data={},
+        id="t1",
+        title="Task",
+        user_id="user-1",
+        status=TaskStatus.PENDING,
+        input_data={},
+        output_data={},
     )
     session.get = AsyncMock(return_value=task)
 
     async def mock_refresh(obj):
         pass
+
     session.refresh = mock_refresh
 
     with TestClient(app) as client:
@@ -591,6 +636,7 @@ def test_update_task_with_output_data():
 
 
 # ── api/routers/chat.py (WebSocket) ──────────────────────────────────────────
+
 
 def _make_ws_settings(secret_key: str = "ws-secret"):
     s = MagicMock()
@@ -604,6 +650,7 @@ def _make_ws_settings(secret_key: str = "ws-secret"):
 
 def _ws_token(secret_key: str = "ws-secret") -> str:
     from jose import jwt as jose_jwt
+
     return jose_jwt.encode(
         {"sub": "user-1", "exp": 9999999999},
         secret_key,
@@ -615,12 +662,15 @@ def test_chat_ws_invalid_token():
     """Cover JWT auth failure path in chat WebSocket."""
     mock_settings = _make_ws_settings()
     # Keep patch active during connection so handler reads correct settings
-    with patch("angie.config.get_settings", return_value=mock_settings), \
-         patch("angie.api.routers.chat.get_settings", return_value=mock_settings):
+    with (
+        patch("angie.config.get_settings", return_value=mock_settings),
+        patch("angie.api.routers.chat.get_settings", return_value=mock_settings),
+    ):
         from angie.api.app import create_app
+
         app = create_app()
         with TestClient(app) as client:
-            with pytest.raises(Exception):
+            with pytest.raises(WebSocketDisconnect):
                 with client.websocket_connect("/api/v1/chat/ws?token=bad-token") as ws:
                     ws.receive_text()
 
@@ -630,13 +680,16 @@ def test_chat_ws_no_llm():
     mock_settings = _make_ws_settings()
     token = _ws_token()
 
-    with patch("angie.config.get_settings", return_value=mock_settings), \
-         patch("angie.api.routers.chat.get_settings", return_value=mock_settings), \
-         patch("angie.llm.is_llm_configured", return_value=False), \
-         patch("angie.core.prompts.get_prompt_manager") as mock_pm:
+    with (
+        patch("angie.config.get_settings", return_value=mock_settings),
+        patch("angie.api.routers.chat.get_settings", return_value=mock_settings),
+        patch("angie.llm.is_llm_configured", return_value=False),
+        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+    ):
         mock_pm.return_value.compose_for_user.return_value = "system"
 
         from angie.api.app import create_app
+
         app = create_app()
         with TestClient(app) as client:
             with client.websocket_connect(f"/api/v1/chat/ws?token={token}") as ws:
@@ -655,15 +708,18 @@ def test_chat_ws_with_llm():
     mock_agent_obj = AsyncMock()
     mock_agent_obj.run = AsyncMock(return_value=mock_result)
 
-    with patch("angie.config.get_settings", return_value=mock_settings), \
-         patch("angie.api.routers.chat.get_settings", return_value=mock_settings), \
-         patch("angie.llm.is_llm_configured", return_value=True), \
-         patch("angie.llm.get_llm_model", return_value=MagicMock()), \
-         patch("angie.core.prompts.get_prompt_manager") as mock_pm, \
-         patch("pydantic_ai.Agent", return_value=mock_agent_obj):
+    with (
+        patch("angie.config.get_settings", return_value=mock_settings),
+        patch("angie.api.routers.chat.get_settings", return_value=mock_settings),
+        patch("angie.llm.is_llm_configured", return_value=True),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch("pydantic_ai.Agent", return_value=mock_agent_obj),
+    ):
         mock_pm.return_value.compose_for_user.return_value = "system"
 
         from angie.api.app import create_app
+
         app = create_app()
         with TestClient(app) as client:
             with client.websocket_connect(f"/api/v1/chat/ws?token={token}") as ws:
@@ -677,15 +733,18 @@ def test_chat_ws_llm_error():
     mock_settings = _make_ws_settings()
     token = _ws_token()
 
-    with patch("angie.config.get_settings", return_value=mock_settings), \
-         patch("angie.api.routers.chat.get_settings", return_value=mock_settings), \
-         patch("angie.llm.is_llm_configured", return_value=True), \
-         patch("angie.llm.get_llm_model", return_value=MagicMock()), \
-         patch("angie.core.prompts.get_prompt_manager") as mock_pm, \
-         patch("pydantic_ai.Agent", side_effect=RuntimeError("llm error")):
+    with (
+        patch("angie.config.get_settings", return_value=mock_settings),
+        patch("angie.api.routers.chat.get_settings", return_value=mock_settings),
+        patch("angie.llm.is_llm_configured", return_value=True),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch("pydantic_ai.Agent", side_effect=RuntimeError("llm error")),
+    ):
         mock_pm.return_value.compose_for_user.return_value = "system"
 
         from angie.api.app import create_app
+
         app = create_app()
         with TestClient(app) as client:
             with client.websocket_connect(f"/api/v1/chat/ws?token={token}") as ws:
@@ -698,27 +757,33 @@ def test_chat_ws_no_sub_claim():
     """Cover line 26: valid JWT but no 'sub' claim → WebSocketException."""
     mock_settings = _make_ws_settings()
     from jose import jwt as jose_jwt
+
     # Token with no 'sub' field
     token = jose_jwt.encode(
         {"exp": 9999999999},
         "ws-secret",
         algorithm="HS256",
     )
-    with patch("angie.config.get_settings", return_value=mock_settings), \
-         patch("angie.api.routers.chat.get_settings", return_value=mock_settings):
+    with (
+        patch("angie.config.get_settings", return_value=mock_settings),
+        patch("angie.api.routers.chat.get_settings", return_value=mock_settings),
+    ):
         from angie.api.app import create_app
+
         app = create_app()
         with TestClient(app) as client:
-            with pytest.raises(Exception):
+            with pytest.raises(WebSocketDisconnect):
                 with client.websocket_connect(f"/api/v1/chat/ws?token={token}") as ws:
                     ws.receive_text()
 
 
 # ── api/routers/channels.py upsert update path (lines 52-67) ─────────────────
 
+
 def test_upsert_channel_config_update():
     """Cover upsert update path (lines 59-66): existing config is updated."""
     from angie.models.channel import ChannelConfig, ChannelType
+
     mock_settings = MagicMock()
     mock_settings.cors_origins = ["http://localhost:3000"]
     mock_settings.secret_key = "s"
@@ -744,6 +809,7 @@ def test_upsert_channel_config_update():
 
     with patch("angie.config.get_settings", return_value=mock_settings):
         from angie.api.app import create_app
+
         app = create_app()
 
     app.dependency_overrides = {}
@@ -771,7 +837,6 @@ def test_upsert_channel_config_update():
 
 def test_upsert_channel_config_create():
     """Cover upsert create path (lines 60-62): new config is added."""
-    from angie.models.channel import ChannelConfig, ChannelType
     mock_settings = MagicMock()
     mock_settings.cors_origins = ["http://localhost:3000"]
     mock_settings.secret_key = "s"
@@ -797,6 +862,7 @@ def test_upsert_channel_config_create():
 
     with patch("angie.config.get_settings", return_value=mock_settings):
         from angie.api.app import create_app
+
         app = create_app()
 
     from angie.api.auth import get_current_user

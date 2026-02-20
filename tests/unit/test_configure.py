@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-import pytest
 from click.testing import CliRunner
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
@@ -15,13 +14,16 @@ os.environ.setdefault("DB_PASSWORD", "test-password")
 
 # ── _env_utils tests ───────────────────────────────────────────────────────────
 
+
 def test_read_env_empty(tmp_path):
     from angie.cli._env_utils import read_env
+
     assert read_env(tmp_path / "missing.env") == {}
 
 
 def test_read_env_parses_values(tmp_path):
     from angie.cli._env_utils import read_env
+
     env_file = tmp_path / ".env"
     env_file.write_text("FOO=bar\nBAZ=qux\n# comment\nEMPTY=\n")
     result = read_env(env_file)
@@ -32,6 +34,7 @@ def test_read_env_parses_values(tmp_path):
 
 def test_write_env_creates_file(tmp_path):
     from angie.cli._env_utils import write_env
+
     env_file = tmp_path / ".env"
     write_env({"KEY1": "val1"}, env_file)
     assert "KEY1=val1" in env_file.read_text()
@@ -39,6 +42,7 @@ def test_write_env_creates_file(tmp_path):
 
 def test_write_env_updates_existing(tmp_path):
     from angie.cli._env_utils import read_env, write_env
+
     env_file = tmp_path / ".env"
     env_file.write_text("KEY1=old\nKEY2=keep\n")
     write_env({"KEY1": "new"}, env_file)
@@ -49,6 +53,7 @@ def test_write_env_updates_existing(tmp_path):
 
 def test_write_env_appends_new_keys(tmp_path):
     from angie.cli._env_utils import read_env, write_env
+
     env_file = tmp_path / ".env"
     env_file.write_text("KEY1=val1\n")
     write_env({"KEY2": "val2"}, env_file)
@@ -59,6 +64,7 @@ def test_write_env_appends_new_keys(tmp_path):
 
 def test_write_env_skips_empty_values(tmp_path):
     from angie.cli._env_utils import write_env
+
     env_file = tmp_path / ".env"
     write_env({"EMPTY": ""}, env_file)
     content = env_file.read_text()
@@ -67,22 +73,26 @@ def test_write_env_skips_empty_values(tmp_path):
 
 def test_mask_none():
     from angie.cli._env_utils import mask
+
     assert mask(None) == ""
 
 
 def test_mask_short():
     from angie.cli._env_utils import mask
+
     assert mask("abc") == "***"
 
 
 def test_mask_long():
     from angie.cli._env_utils import mask
+
     result = mask("ghp_abcdefghij")
     assert result.startswith("ghp_")
     assert "****" in result
 
 
 # ── configure keys tests ───────────────────────────────────────────────────────
+
 
 def test_configure_keys_slack(tmp_path):
     from angie.cli.configure import configure
@@ -148,6 +158,7 @@ def test_configure_keys_invalid_service():
 
 # ── configure list tests ───────────────────────────────────────────────────────
 
+
 def test_configure_list(tmp_path):
     from angie.cli.configure import configure
 
@@ -171,6 +182,7 @@ def test_configure_list_empty(tmp_path):
 
 
 # ── configure model tests ──────────────────────────────────────────────────────
+
 
 def test_configure_model_select(tmp_path):
     from angie.cli.configure import configure
@@ -199,6 +211,7 @@ def test_configure_model_default(tmp_path):
 
 
 # ── configure seed tests ───────────────────────────────────────────────────────
+
 
 def test_configure_seed_success(tmp_path):
     from angie.cli.configure import configure

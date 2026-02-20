@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 
 _COPILOT_TOKEN_TTL = 25 * 60  # refresh 5 min before the 30-min Copilot token expiry
 
-_model_cache: "Model | None" = None
+_model_cache: Model | None = None
 _model_expires_at: float = 0.0
 
 
-def get_llm_model(*, force_refresh: bool = False) -> "Model":
+def get_llm_model(*, force_refresh: bool = False) -> Model:
     """Return a cached pydantic-ai model instance, refreshing when the token is near expiry."""
     global _model_cache, _model_expires_at
     if _model_cache is not None and not force_refresh and time.monotonic() < _model_expires_at:
@@ -54,7 +54,7 @@ def _exchange_copilot_token(github_token: str) -> tuple[str, float]:
     return token, expires_at
 
 
-def _build_model() -> "tuple[Model, float]":
+def _build_model() -> tuple[Model, float]:
     from pydantic_ai.models.openai import OpenAIModel
     from pydantic_ai.providers.openai import OpenAIProvider
 

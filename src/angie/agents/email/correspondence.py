@@ -57,12 +57,13 @@ class EmailCorrespondenceAgent(BaseAgent):
         from angie.agents.email.gmail import GmailAgent
 
         gmail = GmailAgent()
-        return await gmail.execute({
-            "input_data": {
-                "action": "send",
-                "to": data.get("reply_to", ""),
-                "subject": f"Re: {data.get('subject', '')}",
-                "body": draft_result["draft"],
+        return await gmail.execute(
+            {
+                "input_data": {
+                    "action": "send",
+                    "to": data.get("reply_to", ""),
+                    "subject": f"Re: {data.get('subject', '')}",
+                    "body": draft_result["draft"],
+                }
             }
-        })
-
+        )
