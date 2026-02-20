@@ -12,7 +12,7 @@ help: ## Show this help
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install all dependencies (including dev)
-	$(UV) sync --dev --all-extras
+	$(UV) sync --extra dev
 
 lint: ## Run ruff linter (check only)
 	$(RUFF) check src/ tests/
