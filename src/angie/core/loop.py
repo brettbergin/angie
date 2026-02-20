@@ -47,9 +47,31 @@ class AngieLoop:
         # Register default event → task handler
         @router.on_any()
         async def _dispatch_to_queue(event: AngieEvent) -> None:
-            if event.type in (EventType.USER_MESSAGE, EventType.CRON, EventType.WEBHOOK):
-                task = self.dispatcher.dispatch_from_event(event)
-                logger.info("Dispatched task", task_id=task.id, event_type=event.type.value)
+            dispatchable = (
+                EventType.USER_MESSAGE,
+                EventType.CHANNEL_MESSAGE,
+                EventType.CRON,
+                EventType.WEBHOOK,
+            )
+            if event.type not in dispatchable:
+                return
+            # Use message text as task title for channel messages
+            if event.type == EventType.CHANNEL_MESSAGE:
+                text = event.payload.get("text", "")[:120]
+                title = text if text else "Channel message"
+            else:
+                title = f"Task from {event.type.value} event"
+            from angie.core.tasks import AngieTask
+
+            task = AngieTask(
+                title=title,
+                user_id=event.user_id or "system",
+                input_data=event.payload,
+                source_event_id=event.id,
+                source_channel=event.source_channel,
+            )
+            self.dispatcher.dispatch(task)
+            logger.info("Dispatched task", task_title=title, event_type=event.type.value)
 
         self._running = True
         logger.info("Angie is online ✨")

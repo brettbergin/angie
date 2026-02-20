@@ -53,21 +53,48 @@ def imessage():
 
 @config.command()
 def email():
-    """Configure email integration."""
+    """Configure email integration (SMTP + IMAP)."""
     console.print("\n[bold]Email Setup[/bold]\n")
-    smtp_host = Prompt.ask("SMTP host")
+    smtp_host = Prompt.ask("SMTP host (outbound)", default="smtp.gmail.com")
     smtp_port = Prompt.ask("SMTP port", default="587")
+    imap_host = Prompt.ask("IMAP host (inbound)", default="imap.gmail.com")
+    imap_port = Prompt.ask("IMAP port", default="993")
     username = Prompt.ask("Username / email address")
-    password = Prompt.ask("Password", password=True)
+    password = Prompt.ask("App password", password=True)
     _write_env(
         {
             "EMAIL_SMTP_HOST": smtp_host,
             "EMAIL_SMTP_PORT": smtp_port,
+            "EMAIL_IMAP_HOST": imap_host,
+            "EMAIL_IMAP_PORT": imap_port,
             "EMAIL_USERNAME": username,
             "EMAIL_PASSWORD": password,
         }
     )
     console.print("[green]✓ Email configured[/green]")
+
+
+@config.command()
+def channels():
+    """Show the status of all configured channels."""
+    from angie.config import get_settings
+
+    from rich.table import Table
+
+    s = get_settings()
+    table = Table(title="Channel Status", show_header=True)
+    table.add_column("Channel", style="bold")
+    table.add_column("Configured")
+
+    def _status(val: str | None) -> str:
+        return "[green]✓ yes[/green]" if val else "[red]✗ no[/red]"
+
+    table.add_row("Slack", _status(s.slack_bot_token))
+    table.add_row("Discord", _status(s.discord_bot_token))
+    table.add_row("iMessage (BlueBubbles)", _status(s.bluebubbles_url))
+    table.add_row("Email (SMTP)", _status(s.email_smtp_host))
+    table.add_row("Email (IMAP receive)", _status(s.email_imap_host))
+    console.print(table)
 
 
 def _write_env(values: dict[str, str]) -> None:
