@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -126,10 +127,14 @@ async def test_github_agent_list_issues():
     mock_gh_module = MagicMock()
     mock_gh_module.Github.return_value = mock_gh_instance
 
+    import importlib
+    import angie.agents.dev
+
     with patch.dict("sys.modules", {"github": mock_gh_module}):
-        from angie.agents.dev import github as _gh_mod
-        import importlib
-        importlib.reload(_gh_mod)
+        sys.modules.pop("angie.agents.dev.github", None)
+        if hasattr(angie.agents.dev, "github"):
+            delattr(angie.agents.dev, "github")
+        _gh_mod = importlib.import_module("angie.agents.dev.github")
         agent = _gh_mod.GitHubAgent()
         result = await agent.execute(_make_task("list_issues", repo="org/repo"))
 
@@ -141,10 +146,14 @@ async def test_github_agent_no_token():
     mock_gh_module = MagicMock()
     mock_gh_module.Github.side_effect = Exception("no token")
 
+    import importlib
+    import angie.agents.dev
+
     with patch.dict("sys.modules", {"github": mock_gh_module}):
-        from angie.agents.dev import github as _gh_mod
-        import importlib
-        importlib.reload(_gh_mod)
+        sys.modules.pop("angie.agents.dev.github", None)
+        if hasattr(angie.agents.dev, "github"):
+            delattr(angie.agents.dev, "github")
+        _gh_mod = importlib.import_module("angie.agents.dev.github")
         agent = _gh_mod.GitHubAgent()
         result = await agent.execute(_make_task("list_issues", repo="org/repo"))
 
@@ -193,10 +202,14 @@ async def test_spotify_agent_current():
     mock_spotipy.Spotify.return_value = mock_sp
     mock_spotipy.oauth2 = MagicMock()
 
+    import importlib
+    import angie.agents.media
+
     with patch.dict("sys.modules", {"spotipy": mock_spotipy, "spotipy.oauth2": mock_spotipy.oauth2}):
-        from angie.agents.media import spotify as _sp_mod
-        import importlib
-        importlib.reload(_sp_mod)
+        sys.modules.pop("angie.agents.media.spotify", None)
+        if hasattr(angie.agents.media, "spotify"):
+            delattr(angie.agents.media, "spotify")
+        _sp_mod = importlib.import_module("angie.agents.media.spotify")
         agent = _sp_mod.SpotifyAgent()
         result = await agent.execute(_make_task("current"))
 
@@ -205,10 +218,14 @@ async def test_spotify_agent_current():
 
 @pytest.mark.asyncio
 async def test_spotify_agent_import_error():
+    import importlib
+    import angie.agents.media
+
     with patch.dict("sys.modules", {"spotipy": None}):  # type: ignore[dict-item]
-        from angie.agents.media import spotify as _sp_mod
-        import importlib
-        importlib.reload(_sp_mod)
+        sys.modules.pop("angie.agents.media.spotify", None)
+        if hasattr(angie.agents.media, "spotify"):
+            delattr(angie.agents.media, "spotify")
+        _sp_mod = importlib.import_module("angie.agents.media.spotify")
         agent = _sp_mod.SpotifyAgent()
         result = await agent.execute(_make_task("current"))
 
