@@ -1,6 +1,9 @@
-"""WebSocket chat endpoint."""
+"""WebSocket chat endpoint — real LLM responses via pydantic-ai."""
 
 from __future__ import annotations
+
+import json
+import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException, status
 from jose import JWTError, jwt
@@ -10,6 +13,7 @@ from angie.config import get_settings
 
 router = APIRouter()
 _web_channel = WebChatChannel()
+logger = logging.getLogger(__name__)
 
 
 @router.websocket("/ws")
@@ -25,19 +29,37 @@ async def chat_ws(websocket: WebSocket, token: str):
 
     await websocket.accept()
     _web_channel.register_connection(user_id, websocket)
+
+    # Build system prompt for this user
+    from angie.core.prompts import get_prompt_manager
+    from angie.llm import get_llm_model, is_llm_configured
+
+    pm = get_prompt_manager()
+    system_prompt = pm.compose_for_user(user_id)
+
     try:
         while True:
-            text = await websocket.receive_text()
-            from angie.core.events import AngieEvent
-            from angie.core.events import router as event_router
-            from angie.models.event import EventType
+            raw = await websocket.receive_text()
+            try:
+                data = json.loads(raw)
+                user_message = data.get("content", raw)
+            except json.JSONDecodeError:
+                user_message = raw
 
-            event = AngieEvent(
-                type=EventType.USER_MESSAGE,
-                user_id=user_id,
-                payload={"message": text},
-                source_channel="web",
-            )
-            await event_router.dispatch(event)
+            if not is_llm_configured():
+                reply = "⚠️ No LLM configured. Set GITHUB_TOKEN or OPENAI_API_KEY in your .env."
+            else:
+                try:
+                    from pydantic_ai import Agent
+                    model = get_llm_model()
+                    agent = Agent(model=model, system_prompt=system_prompt)
+                    result = await agent.run(user_message)
+                    reply = str(result.output)
+                except Exception as exc:
+                    logger.error("LLM error in chat: %s", exc)
+                    reply = f"⚠️ Sorry, I ran into an error: {exc}"
+
+            await websocket.send_text(json.dumps({"content": reply, "role": "assistant"}))
+
     except WebSocketDisconnect:
         _web_channel.unregister_connection(user_id)

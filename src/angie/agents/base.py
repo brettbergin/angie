@@ -32,7 +32,6 @@ class BaseAgent(ABC):
         self.settings = get_settings()
         self.prompt_manager = get_prompt_manager()
         self._pydantic_agent = None
-        self._copilot_session = None
         self.logger = logging.getLogger(f"angie.agents.{self.slug}")
 
     @abstractmethod
@@ -52,35 +51,29 @@ class BaseAgent(ABC):
     def get_system_prompt(self) -> str:
         return self.prompt_manager.compose_for_agent(self.slug)
 
-    async def _get_copilot_session(self):
-        """Lazily initialize a copilot-sdk session."""
-        if self._copilot_session is None:
-            try:
-                from copilot import CopilotClient  # type: ignore[import]
 
-                client = CopilotClient()
-                await client.start()
-                self._copilot_session = await client.create_session(
-                    {
-                        "model": self.settings.copilot_model,
-                        "streaming": False,
-                    }
-                )
-            except ImportError:
-                self.logger.warning("copilot-sdk not available, falling back to pydantic-ai only")
-        return self._copilot_session
+    async def ask_llm(
+        self,
+        prompt: str,
+        system: str | None = None,
+        user_id: str | None = None,
+    ) -> str:
+        """Send a prompt through the full prompt hierarchy to the LLM."""
+        from pydantic_ai import Agent
 
-    async def ask_llm(self, prompt: str, system: str | None = None) -> str:
-        """Send a prompt to the LLM and return the response string."""
-        from pydantic_ai import Agent  # type: ignore[import]
+        from angie.llm import get_llm_model
 
-        system_prompt = system or self.get_system_prompt()
-        agent = Agent(
-            model=f"openai:{self.settings.copilot_model}",
-            system_prompt=system_prompt,
-        )
-        result = await agent.run(prompt)
-        return str(result.data)
+        if system is None:
+            system = self.get_system_prompt()
+
+        try:
+            model = get_llm_model()
+            agent = Agent(model=model, system_prompt=system)
+            result = await agent.run(prompt)
+            return str(result.output)
+        except Exception as exc:
+            self.logger.error("LLM call failed: %s", exc)
+            raise
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} slug={self.slug!r}>"

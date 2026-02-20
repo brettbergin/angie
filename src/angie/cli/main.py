@@ -31,3 +31,41 @@ def daemon():
 
     click.echo("Starting Angie daemon...")
     asyncio.run(run_daemon())
+
+
+@cli.command()
+@click.argument("question")
+@click.option("--user-id", default="default", help="User ID for personalised prompt context")
+def ask(question: str, user_id: str):
+    """Ask Angie a one-shot question and print the response."""
+    import asyncio
+
+    from rich.console import Console
+    from rich.markdown import Markdown
+
+    from angie.llm import is_llm_configured
+
+    console = Console()
+
+    if not is_llm_configured():
+        console.print("[bold red]No LLM configured.[/bold red] Set GITHUB_TOKEN or OPENAI_API_KEY in your .env.")
+        raise SystemExit(1)
+
+    async def _ask():
+        from pydantic_ai import Agent
+
+        from angie.core.prompts import get_prompt_manager
+        from angie.llm import get_llm_model
+
+        pm = get_prompt_manager()
+        system_prompt = pm.compose_for_user(user_id)
+        model = get_llm_model()
+        agent = Agent(model=model, system_prompt=system_prompt)
+        result = await agent.run(question)
+        return str(result.output)
+
+    with console.status("[bold magenta]Thinking…[/bold magenta]"):
+        answer = asyncio.run(_ask())
+
+    console.print(Markdown(answer))
+
