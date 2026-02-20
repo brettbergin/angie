@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from angie.agents.base import BaseAgent
+
+if TYPE_CHECKING:
+    from pydantic_ai import Agent
 
 
 class EmailCorrespondenceAgent(BaseAgent):
@@ -19,51 +22,59 @@ class EmailCorrespondenceAgent(BaseAgent):
         "compose email",
     ]
 
+    def build_pydantic_agent(self) -> Agent:
+        from pydantic_ai import Agent
+
+        agent: Agent[None, str] = Agent(system_prompt=self.get_system_prompt())
+
+        @agent.tool_plain
+        async def send_email_reply(to: str, subject: str, body: str) -> dict:
+            """Send a drafted email reply via Gmail."""
+            from angie.agents.email.gmail import GmailAgent
+
+            gmail = GmailAgent()
+            return await gmail.execute(
+                {
+                    "input_data": {
+                        "intent": f"send email to {to} with subject '{subject}' and body: {body}"
+                    }
+                }
+            )
+
+        return agent
+
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
-        action = task.get("input_data", {}).get("action", "draft_reply")
-        self.logger.info("EmailCorrespondenceAgent action=%s", action)
-
-        if action == "draft_reply":
-            return await self._draft_reply(task.get("input_data", {}))
-        if action == "send_reply":
-            return await self._send_reply(task.get("input_data", {}))
-        return {"error": f"Unknown action: {action}"}
-
-    async def _draft_reply(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Use LLM to draft a reply to the given email content."""
-        original_text = data.get("email_body", "")
-        context = data.get("context", "")
-        tone = data.get("tone", "professional")
-
-        if not original_text:
-            return {"error": "email_body is required"}
-
-        from angie.llm import is_llm_configured
+        from angie.llm import get_llm_model, is_llm_configured
 
         if not is_llm_configured():
             return {"error": "LLM not configured — set GITHUB_TOKEN or OPENAI_API_KEY"}
 
-        reply = await self.ask_llm(
-            f"Draft a {tone} email reply to the following:\n\n{original_text}\n\nContext: {context}"
-        )
-        return {"draft": reply, "tone": tone}
+        data = task.get("input_data", {})
+        email_body = data.get("email_body", "")
+        context = data.get("context", "")
+        tone = data.get("tone", "professional")
 
-    async def _send_reply(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Draft and immediately send via GmailAgent."""
-        draft_result = await self._draft_reply(data)
-        if "error" in draft_result:
-            return draft_result
+        if email_body:
+            intent = (
+                f"Draft a {tone} email reply to the following email:\n\n"
+                f"{email_body}\n\nAdditional context: {context}"
+            )
+        else:
+            intent = self._extract_intent(task, fallback="draft an email reply")
 
-        from angie.agents.email.gmail import GmailAgent
+        self.logger.info("EmailCorrespondenceAgent intent=%r", intent[:80])
+        try:
+            result = await self._get_agent().run(intent, model=get_llm_model())
+            return {"draft": str(result.output), "tone": tone}
+        except Exception as exc:  # noqa: BLE001
+            self.logger.exception("EmailCorrespondenceAgent error")
+            return {"error": str(exc)}
 
-        gmail = GmailAgent()
-        return await gmail.execute(
-            {
-                "input_data": {
-                    "action": "send",
-                    "to": data.get("reply_to", ""),
-                    "subject": f"Re: {data.get('subject', '')}",
-                    "body": draft_result["draft"],
-                }
-            }
-        )
+    async def ask_llm(
+        self,
+        prompt: str,
+        system: str | None = None,
+        user_id: str | None = None,
+    ) -> str:
+        """Kept for backward-compatibility — delegates to the base implementation."""
+        return await super().ask_llm(prompt, system=system, user_id=user_id)

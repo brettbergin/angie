@@ -1,21 +1,21 @@
-"""Tests for various agent implementations."""
+"""Tests for agent tool functions and execute() paths."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-# ── GmailAgent tests ──────────────────────────────────────────────────────────
+# ── GmailAgent ────────────────────────────────────────────────────────────────
 
 
 async def test_gmail_execute_error():
     from angie.agents.email.gmail import GmailAgent
 
     agent = GmailAgent()
-    with patch.object(agent, "_dispatch", side_effect=RuntimeError("auth error")):
-        result = await agent.execute({"input_data": {"action": "list"}})
+    with patch.object(agent, "_build_service", side_effect=RuntimeError("auth error")):
+        result = await agent.execute({"input_data": {"intent": "list emails"}})
 
     assert "error" in result
 
 
-async def test_gmail_dispatch_list():
+def test_gmail_tool_list_messages():
     from angie.agents.email.gmail import GmailAgent
 
     agent = GmailAgent()
@@ -35,67 +35,63 @@ async def test_gmail_dispatch_list():
     }
     mock_svc.users().messages().get().execute.return_value = msg_detail
 
-    with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync("list", {"query": "is:unread"})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["list_messages"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_svc
+    result = tool.function(mock_ctx, query="is:unread")
 
     assert "messages" in result
     assert result["messages"][0]["from"] == "sender@example.com"
 
 
-async def test_gmail_dispatch_send():
+def test_gmail_tool_send_message():
     from angie.agents.email.gmail import GmailAgent
 
     agent = GmailAgent()
     mock_svc = MagicMock()
     mock_svc.users().messages().send().execute.return_value = {"id": "sent-id-1"}
 
-    with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync(
-            "send", {"to": "test@example.com", "subject": "Hi", "body": "Hello"}
-        )
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["send_message"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_svc
+    result = tool.function(mock_ctx, to="test@example.com", subject="Hi", body="Hello")
 
     assert result["sent"] is True
 
 
-async def test_gmail_dispatch_trash():
+def test_gmail_tool_trash_message():
     from angie.agents.email.gmail import GmailAgent
 
     agent = GmailAgent()
     mock_svc = MagicMock()
-    mock_svc.users().messages().trash().execute.return_value = {}
 
-    with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync("trash", {"message_id": "msg1"})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["trash_message"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_svc
+    result = tool.function(mock_ctx, message_id="msg1")
 
     assert result["trashed"] is True
 
 
-async def test_gmail_dispatch_mark_read():
+def test_gmail_tool_mark_message_read():
     from angie.agents.email.gmail import GmailAgent
 
     agent = GmailAgent()
     mock_svc = MagicMock()
-    mock_svc.users().messages().modify().execute.return_value = {}
 
-    with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync("mark_read", {"message_id": "msg1"})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["mark_message_read"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_svc
+    result = tool.function(mock_ctx, message_id="msg1")
 
     assert result["marked_read"] is True
 
 
-async def test_gmail_dispatch_unknown():
-    from angie.agents.email.gmail import GmailAgent
-
-    agent = GmailAgent()
-    mock_svc = MagicMock()
-
-    with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync("unknown_action", {})
-
-    assert "error" in result
-
-
-# ── SpamAgent tests ───────────────────────────────────────────────────────────
+# ── SpamAgent ─────────────────────────────────────────────────────────────────
 
 
 async def test_spam_agent_scan():
@@ -108,13 +104,14 @@ async def test_spam_agent_scan():
             {"id": "msg2", "subject": "Hello friend", "from": "friend@nice.com"},
         ]
     }
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["scan_for_spam"]
 
     with patch("angie.agents.email.gmail.GmailAgent") as mock_gmail_cls:
         mock_inst = AsyncMock()
         mock_inst.execute.return_value = mock_gmail_result
         mock_gmail_cls.return_value = mock_inst
-
-        result = await agent.execute({"input_data": {"action": "scan"}})
+        result = await tool.function()
 
     assert "spam_found" in result
     assert result["spam_found"] >= 1  # "free money" matches
@@ -124,9 +121,11 @@ async def test_spam_agent_scan_error():
     from angie.agents.email.spam import SpamAgent
 
     agent = SpamAgent()
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["scan_for_spam"]
 
     with patch("angie.agents.email.gmail.GmailAgent", side_effect=RuntimeError("fail")):
-        result = await agent.execute({"input_data": {"action": "scan"}})
+        result = await tool.function()
 
     assert "error" in result
 
@@ -135,15 +134,14 @@ async def test_spam_agent_delete():
     from angie.agents.email.spam import SpamAgent
 
     agent = SpamAgent()
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["delete_spam_messages"]
 
     with patch("angie.agents.email.gmail.GmailAgent") as mock_gmail_cls:
         mock_inst = AsyncMock()
         mock_inst.execute.return_value = {"trashed": True}
         mock_gmail_cls.return_value = mock_inst
-
-        result = await agent.execute(
-            {"input_data": {"action": "delete_spam", "message_ids": ["msg1", "msg2"]}}
-        )
+        result = await tool.function(message_ids=["msg1", "msg2"])
 
     assert result["trashed"] == 2
 
@@ -156,7 +154,7 @@ async def test_spam_agent_unknown():
     assert "error" in result
 
 
-# ── EmailCorrespondenceAgent tests ────────────────────────────────────────────
+# ── EmailCorrespondenceAgent ──────────────────────────────────────────────────
 
 
 async def test_correspondence_draft_no_body():
@@ -184,15 +182,18 @@ async def test_correspondence_draft_success():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
 
     agent = EmailCorrespondenceAgent()
+    mock_result = MagicMock(output="Draft reply text")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
 
     with (
         patch("angie.llm.is_llm_configured", return_value=True),
-        patch.object(agent, "ask_llm", AsyncMock(return_value="Draft reply text")),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        patch.object(agent, "_get_agent", return_value=mock_pai),
     ):
         result = await agent.execute(
             {
                 "input_data": {
-                    "action": "draft_reply",
                     "email_body": "Original email",
                     "tone": "casual",
                 }
@@ -203,30 +204,18 @@ async def test_correspondence_draft_success():
     assert result["tone"] == "casual"
 
 
-async def test_correspondence_send_reply():
+async def test_correspondence_send_reply_tool():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
 
     agent = EmailCorrespondenceAgent()
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["send_email_reply"]
 
-    with (
-        patch("angie.llm.is_llm_configured", return_value=True),
-        patch.object(agent, "ask_llm", AsyncMock(return_value="Draft reply")),
-        patch("angie.agents.email.gmail.GmailAgent") as mock_gmail_cls,
-    ):
+    with patch("angie.agents.email.gmail.GmailAgent") as mock_gmail_cls:
         mock_gmail = AsyncMock()
         mock_gmail.execute.return_value = {"sent": True}
         mock_gmail_cls.return_value = mock_gmail
-
-        result = await agent.execute(
-            {
-                "input_data": {
-                    "action": "send_reply",
-                    "email_body": "Original",
-                    "reply_to": "sender@example.com",
-                    "subject": "Test",
-                }
-            }
-        )
+        result = await tool.function(to="sender@example.com", subject="Re: Test", body="Dear sir,")
 
     assert result["sent"] is True
 
@@ -239,7 +228,7 @@ async def test_correspondence_unknown():
     assert "error" in result
 
 
-# ── SpotifyAgent tests ────────────────────────────────────────────────────────
+# ── SpotifyAgent ──────────────────────────────────────────────────────────────
 
 
 async def test_spotify_execute_import_error():
@@ -250,12 +239,10 @@ async def test_spotify_execute_import_error():
     with patch("builtins.__import__", side_effect=ImportError("no spotipy")):
         result = await agent.execute({"input_data": {"action": "current"}})
 
-    # Should return error (if spotipy unavailable)
-    # Actually import error comes from inside spotipy import
     assert isinstance(result, dict)
 
 
-def test_spotify_dispatch_current_playing():
+def test_spotify_tool_get_current_track_playing():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
@@ -269,63 +256,93 @@ def test_spotify_dispatch_current_playing():
         },
     }
 
-    result = agent._dispatch(mock_sp, "current", {})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["get_current_track"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx)
+
     assert result["playing"] is True
     assert result["track"] == "Test Song"
 
 
-def test_spotify_dispatch_current_not_playing():
+def test_spotify_tool_get_current_track_not_playing():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
     mock_sp = MagicMock()
     mock_sp.current_playback.return_value = None
 
-    result = agent._dispatch(mock_sp, "current", {})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["get_current_track"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx)
+
     assert result["playing"] is False
 
 
-def test_spotify_dispatch_pause():
+def test_spotify_tool_pause_music():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
     mock_sp = MagicMock()
 
-    result = agent._dispatch(mock_sp, "pause", {})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["pause_music"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx)
+
     assert result["paused"] is True
 
 
-def test_spotify_dispatch_skip():
+def test_spotify_tool_skip_track():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
     mock_sp = MagicMock()
 
-    result = agent._dispatch(mock_sp, "skip", {})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["skip_track"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx)
+
     assert result["skipped"] is True
 
 
-def test_spotify_dispatch_previous():
+def test_spotify_tool_previous_track():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
     mock_sp = MagicMock()
 
-    result = agent._dispatch(mock_sp, "previous", {})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["previous_track"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx)
+
     assert result["previous"] is True
 
 
-def test_spotify_dispatch_volume():
+def test_spotify_tool_set_volume():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
     mock_sp = MagicMock()
 
-    result = agent._dispatch(mock_sp, "volume", {"volume": 80})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["set_volume"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx, volume=80)
+
     assert result["volume"] == 80
 
 
-def test_spotify_dispatch_play_with_query():
+def test_spotify_tool_play_with_query():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
@@ -334,33 +351,48 @@ def test_spotify_dispatch_play_with_query():
         "tracks": {"items": [{"name": "Found Track", "uri": "spotify:track:1"}]}
     }
 
-    result = agent._dispatch(mock_sp, "play", {"query": "test song"})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["play_music"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx, query="test song")
+
     assert result["playing"] is True
     assert result["track"] == "Found Track"
 
 
-def test_spotify_dispatch_play_no_results():
+def test_spotify_tool_play_no_results():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
     mock_sp = MagicMock()
     mock_sp.search.return_value = {"tracks": {"items": []}}
 
-    result = agent._dispatch(mock_sp, "play", {"query": "nonexistent"})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["play_music"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx, query="nonexistent")
+
     assert "error" in result
 
 
-def test_spotify_dispatch_play_no_query():
+def test_spotify_tool_play_no_query():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
     mock_sp = MagicMock()
 
-    result = agent._dispatch(mock_sp, "play", {})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["play_music"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx)
+
     assert result["playing"] is True
 
 
-def test_spotify_dispatch_search():
+def test_spotify_tool_search_tracks():
     from angie.agents.media.spotify import SpotifyAgent
 
     agent = SpotifyAgent()
@@ -369,22 +401,17 @@ def test_spotify_dispatch_search():
         "tracks": {"items": [{"name": "Track1", "artists": [{"name": "Artist"}], "uri": "uri1"}]}
     }
 
-    result = agent._dispatch(mock_sp, "search", {"query": "test"})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["search_tracks"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_sp
+    result = tool.function(mock_ctx, query="test")
+
     assert "results" in result
     assert len(result["results"]) == 1
 
 
-def test_spotify_dispatch_unknown():
-    from angie.agents.media.spotify import SpotifyAgent
-
-    agent = SpotifyAgent()
-    mock_sp = MagicMock()
-
-    result = agent._dispatch(mock_sp, "unknown", {})
-    assert "error" in result
-
-
-# ── HueAgent tests ────────────────────────────────────────────────────────────
+# ── HueAgent ──────────────────────────────────────────────────────────────────
 
 
 async def test_hue_no_bridge_ip():
@@ -411,7 +438,7 @@ async def test_hue_execute_error():
     assert "error" in result
 
 
-def test_hue_dispatch_list():
+def test_hue_tool_list_lights():
     from angie.agents.smart_home.hue import HueAgent
 
     agent = HueAgent()
@@ -420,62 +447,145 @@ def test_hue_dispatch_list():
     mock_light.on = True
     mock_bridge.get_light_objects.return_value = {"Living Room": mock_light}
 
-    result = agent._dispatch(mock_bridge, "list", {})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["list_lights"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    result = tool.function(mock_ctx)
+
     assert "lights" in result
     assert result["lights"][0]["name"] == "Living Room"
 
 
-def test_hue_dispatch_on():
+def test_hue_tool_turn_on_named():
     from angie.agents.smart_home.hue import HueAgent
 
     agent = HueAgent()
     mock_bridge = MagicMock()
 
-    result = agent._dispatch(mock_bridge, "on", {"light": "Bedroom"})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["turn_on_light"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    result = tool.function(mock_ctx, light_name="Bedroom")
+
     assert result["on"] is True
+    mock_bridge.set_light.assert_called_with("Bedroom", "on", True)
 
 
-def test_hue_dispatch_off():
+def test_hue_tool_turn_on_all():
     from angie.agents.smart_home.hue import HueAgent
 
     agent = HueAgent()
     mock_bridge = MagicMock()
 
-    result = agent._dispatch(mock_bridge, "off", {})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["turn_on_light"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    result = tool.function(mock_ctx)
+
+    assert result["on"] is True
+    mock_bridge.set_group.assert_called_with(0, "on", True)
+
+
+def test_hue_tool_turn_off_named():
+    from angie.agents.smart_home.hue import HueAgent
+
+    agent = HueAgent()
+    mock_bridge = MagicMock()
+
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["turn_off_light"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    result = tool.function(mock_ctx, light_name="Kitchen")
+
     assert result["off"] is True
+    mock_bridge.set_light.assert_called_with("Kitchen", "on", False)
 
 
-def test_hue_dispatch_brightness():
+def test_hue_tool_turn_off_all():
     from angie.agents.smart_home.hue import HueAgent
 
     agent = HueAgent()
     mock_bridge = MagicMock()
 
-    result = agent._dispatch(mock_bridge, "brightness", {"brightness": 200})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["turn_off_light"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    result = tool.function(mock_ctx)
+
+    assert result["off"] is True
+    mock_bridge.set_group.assert_called_with(0, "on", False)
+
+
+def test_hue_tool_set_brightness_named():
+    from angie.agents.smart_home.hue import HueAgent
+
+    agent = HueAgent()
+    mock_bridge = MagicMock()
+
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["set_brightness"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    result = tool.function(mock_ctx, brightness=200, light_name="Lamp")
+
     assert result["brightness"] == 200
+    mock_bridge.set_light.assert_called_with("Lamp", "bri", 200)
 
 
-def test_hue_dispatch_color():
+def test_hue_tool_set_brightness_all():
     from angie.agents.smart_home.hue import HueAgent
 
     agent = HueAgent()
     mock_bridge = MagicMock()
 
-    result = agent._dispatch(mock_bridge, "color", {"hue": 10000, "saturation": 200})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["set_brightness"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    result = tool.function(mock_ctx, brightness=128)
+
+    assert result["brightness"] == 128
+    mock_bridge.set_group.assert_called_with(0, "bri", 128)
+
+
+def test_hue_tool_set_color_named():
+    from angie.agents.smart_home.hue import HueAgent
+
+    agent = HueAgent()
+    mock_bridge = MagicMock()
+
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["set_color"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    result = tool.function(mock_ctx, hue=10000, saturation=200, light_name="Desk")
+
     assert result["color_set"] is True
+    mock_bridge.set_light.assert_called_with("Desk", {"hue": 10000, "sat": 200})
 
 
-def test_hue_dispatch_unknown():
+def test_hue_tool_set_color_all():
     from angie.agents.smart_home.hue import HueAgent
 
     agent = HueAgent()
     mock_bridge = MagicMock()
 
-    result = agent._dispatch(mock_bridge, "unknown", {})
-    assert "error" in result
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["set_color"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    result = tool.function(mock_ctx, hue=5000, saturation=100)
+
+    assert result["color_set"] is True
+    mock_bridge.set_group.assert_called_with(0, {"hue": 5000, "sat": 100})
 
 
-# ── HomeAssistantAgent tests ──────────────────────────────────────────────────
+# ── HomeAssistantAgent ────────────────────────────────────────────────────────
 
 
 async def test_ha_no_config():
@@ -489,125 +599,151 @@ async def test_ha_no_config():
     assert "HOME_ASSISTANT_URL" in result["error"]
 
 
-async def test_ha_states():
+async def test_ha_tool_get_all_states():
     from angie.agents.smart_home.home_assistant import HomeAssistantAgent
 
     agent = HomeAssistantAgent()
-    mock_response = AsyncMock()
-    mock_response.json.return_value = [
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["get_all_states"]
+
+    mock_resp = AsyncMock()
+    mock_resp.json.return_value = [
         {"entity_id": "light.bedroom", "state": "on"},
         {"entity_id": "sensor.temp", "state": "22"},
     ]
-    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_response.__aexit__ = AsyncMock(return_value=None)
 
     mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    result = await agent._dispatch(mock_session, "http://ha.local", "states", {})
+    mock_ctx = MagicMock()
+    mock_ctx.deps = {"url": "http://ha.local", "token": "tok"}
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        result = await tool.function(mock_ctx)
+
     assert "entities" in result
     assert len(result["entities"]) == 2
 
 
-async def test_ha_get_entity():
+async def test_ha_tool_get_entity_state():
     from angie.agents.smart_home.home_assistant import HomeAssistantAgent
 
     agent = HomeAssistantAgent()
-    mock_response = AsyncMock()
-    mock_response.json.return_value = {"entity_id": "light.bedroom", "state": "on"}
-    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_response.__aexit__ = AsyncMock(return_value=None)
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["get_entity_state"]
+
+    mock_resp = AsyncMock()
+    mock_resp.json.return_value = {"entity_id": "light.bedroom", "state": "on"}
 
     mock_session = MagicMock()
-    mock_session.get.return_value = mock_response
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    result = await agent._dispatch(
-        mock_session, "http://ha.local", "get", {"entity_id": "light.bedroom"}
-    )
+    mock_ctx = MagicMock()
+    mock_ctx.deps = {"url": "http://ha.local", "token": "tok"}
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        result = await tool.function(mock_ctx, entity_id="light.bedroom")
+
     assert result["state"] == "on"
 
 
-async def test_ha_call_service():
+async def test_ha_tool_call_service():
     from angie.agents.smart_home.home_assistant import HomeAssistantAgent
 
     agent = HomeAssistantAgent()
-    mock_response = AsyncMock()
-    mock_response.json.return_value = []
-    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_response.__aexit__ = AsyncMock(return_value=None)
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["call_service"]
+
+    mock_resp = AsyncMock()
+    mock_resp.json.return_value = []
 
     mock_session = MagicMock()
-    mock_session.post.return_value = mock_response
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_session.post.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    result = await agent._dispatch(
-        mock_session,
-        "http://ha.local",
-        "call_service",
-        {"domain": "light", "service": "turn_on", "entity_id": "light.bedroom"},
-    )
+    mock_ctx = MagicMock()
+    mock_ctx.deps = {"url": "http://ha.local", "token": "tok"}
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        result = await tool.function(
+            mock_ctx, domain="light", service="turn_on", entity_id="light.bedroom"
+        )
+
     assert result["called"] is True
 
 
-async def test_ha_turn_on():
+async def test_ha_tool_turn_on_entity():
     from angie.agents.smart_home.home_assistant import HomeAssistantAgent
 
     agent = HomeAssistantAgent()
-    mock_response = AsyncMock()
-    mock_response.json.return_value = {}
-    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_response.__aexit__ = AsyncMock(return_value=None)
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["turn_on_entity"]
+
+    mock_resp = AsyncMock()
+    mock_resp.json.return_value = {}
 
     mock_session = MagicMock()
-    mock_session.post.return_value = mock_response
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_session.post.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    result = await agent._dispatch(
-        mock_session, "http://ha.local", "turn_on", {"entity_id": "light.x"}
-    )
+    mock_ctx = MagicMock()
+    mock_ctx.deps = {"url": "http://ha.local", "token": "tok"}
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        result = await tool.function(mock_ctx, entity_id="light.x")
+
     assert result["on"] is True
 
 
-async def test_ha_turn_off():
+async def test_ha_tool_turn_off_entity():
     from angie.agents.smart_home.home_assistant import HomeAssistantAgent
 
     agent = HomeAssistantAgent()
-    mock_response = AsyncMock()
-    mock_response.json.return_value = {}
-    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-    mock_response.__aexit__ = AsyncMock(return_value=None)
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["turn_off_entity"]
+
+    mock_resp = AsyncMock()
+    mock_resp.json.return_value = {}
 
     mock_session = MagicMock()
-    mock_session.post.return_value = mock_response
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post.return_value.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_session.post.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    result = await agent._dispatch(
-        mock_session, "http://ha.local", "turn_off", {"entity_id": "light.x"}
-    )
+    mock_ctx = MagicMock()
+    mock_ctx.deps = {"url": "http://ha.local", "token": "tok"}
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        result = await tool.function(mock_ctx, entity_id="light.x")
+
     assert result["off"] is True
 
 
-async def test_ha_unknown():
-    from angie.agents.smart_home.home_assistant import HomeAssistantAgent
-
-    agent = HomeAssistantAgent()
-    mock_session = MagicMock()
-
-    result = await agent._dispatch(mock_session, "http://ha.local", "unknown", {})
-    assert "error" in result
-
-
-# ── GoogleCalendarAgent tests ─────────────────────────────────────────────────
+# ── GoogleCalendarAgent ───────────────────────────────────────────────────────
 
 
 async def test_gcal_execute_error():
     from angie.agents.calendar.gcal import GoogleCalendarAgent
 
     agent = GoogleCalendarAgent()
-    with patch.object(agent, "_dispatch_sync", side_effect=RuntimeError("gcal error")):
+    with patch.object(agent, "_build_service", side_effect=RuntimeError("gcal error")):
         result = await agent.execute({"input_data": {"action": "list"}})
 
     assert "error" in result
 
 
-def test_gcal_dispatch_list():
+def test_gcal_tool_list_events():
     from angie.agents.calendar.gcal import GoogleCalendarAgent
 
     agent = GoogleCalendarAgent()
@@ -623,14 +759,17 @@ def test_gcal_dispatch_list():
         ]
     }
 
-    with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync("list", {})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["list_upcoming_events"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_svc
+    result = tool.function(mock_ctx)
 
     assert "events" in result
     assert result["events"][0]["summary"] == "Meeting"
 
 
-def test_gcal_dispatch_create():
+def test_gcal_tool_create_event():
     from angie.agents.calendar.gcal import GoogleCalendarAgent
 
     agent = GoogleCalendarAgent()
@@ -640,52 +779,43 @@ def test_gcal_dispatch_create():
         "htmlLink": "http://cal.link",
     }
 
-    with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync(
-            "create",
-            {
-                "summary": "New Meeting",
-                "start": "2025-01-01T10:00:00Z",
-                "end": "2025-01-01T11:00:00Z",
-            },
-        )
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["create_event"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_svc
+    result = tool.function(
+        mock_ctx,
+        summary="New Meeting",
+        start="2025-01-01T10:00:00Z",
+        end="2025-01-01T11:00:00Z",
+    )
 
     assert result["created"] is True
     assert result["event_id"] == "new-evt"
 
 
-def test_gcal_dispatch_delete():
+def test_gcal_tool_delete_event():
     from angie.agents.calendar.gcal import GoogleCalendarAgent
 
     agent = GoogleCalendarAgent()
     mock_svc = MagicMock()
 
-    with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync("delete", {"event_id": "evt1"})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["delete_event"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_svc
+    result = tool.function(mock_ctx, event_id="evt1")
 
     assert result["deleted"] is True
 
 
-def test_gcal_dispatch_unknown():
-    from angie.agents.calendar.gcal import GoogleCalendarAgent
-
-    agent = GoogleCalendarAgent()
-    mock_svc = MagicMock()
-
-    with patch.object(agent, "_build_service", return_value=mock_svc):
-        result = agent._dispatch_sync("unknown", {})
-
-    assert "error" in result
-
-
-# ── GitHubAgent tests ─────────────────────────────────────────────────────────
+# ── GitHubAgent ───────────────────────────────────────────────────────────────
 
 
 async def test_github_execute_import_error():
     from angie.agents.dev.github import GitHubAgent
 
     agent = GitHubAgent()
-    # Test that when the execute dispatch fails, we get an error dict back
     with patch("github.Github", side_effect=RuntimeError("auth error")):
         result = await agent.execute({"input_data": {"action": "list_repos"}})
 
@@ -693,7 +823,7 @@ async def test_github_execute_import_error():
     assert "error" in result
 
 
-async def test_github_dispatch_list_repos():
+def test_github_tool_list_repositories():
     from angie.agents.dev.github import GitHubAgent
 
     agent = GitHubAgent()
@@ -703,12 +833,17 @@ async def test_github_dispatch_list_repos():
     mock_repo.private = False
     mock_g.get_user().get_repos.return_value = [mock_repo]
 
-    result = await agent._dispatch(mock_g, "list_repos", {})
-    assert "repos" in result
-    assert result["repos"][0]["name"] == "user/repo1"
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["list_repositories"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_g
+    result = tool.function(mock_ctx)
+
+    assert isinstance(result, list)
+    assert result[0]["name"] == "user/repo1"
 
 
-async def test_github_dispatch_list_prs():
+def test_github_tool_list_pull_requests():
     from angie.agents.dev.github import GitHubAgent
 
     agent = GitHubAgent()
@@ -720,11 +855,17 @@ async def test_github_dispatch_list_prs():
     mock_pr.user.login = "user1"
     mock_g.get_repo.return_value.get_pulls.return_value = [mock_pr]
 
-    result = await agent._dispatch(mock_g, "list_prs", {"repo": "user/repo"})
-    assert "pull_requests" in result
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["list_pull_requests"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_g
+    result = tool.function(mock_ctx, repo="user/repo")
+
+    assert isinstance(result, list)
+    assert result[0]["number"] == 1
 
 
-async def test_github_dispatch_list_issues():
+def test_github_tool_list_issues():
     from angie.agents.dev.github import GitHubAgent
 
     agent = GitHubAgent()
@@ -736,11 +877,17 @@ async def test_github_dispatch_list_issues():
     mock_issue.user.login = "user2"
     mock_g.get_repo.return_value.get_issues.return_value = [mock_issue]
 
-    result = await agent._dispatch(mock_g, "list_issues", {"repo": "user/repo"})
-    assert "issues" in result
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["list_issues"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_g
+    result = tool.function(mock_ctx, repo="user/repo")
+
+    assert isinstance(result, list)
+    assert result[0]["number"] == 5
 
 
-async def test_github_dispatch_create_issue():
+def test_github_tool_create_issue():
     from angie.agents.dev.github import GitHubAgent
 
     agent = GitHubAgent()
@@ -750,13 +897,16 @@ async def test_github_dispatch_create_issue():
     mock_issue.html_url = "http://github.com/issue/10"
     mock_g.get_repo.return_value.create_issue.return_value = mock_issue
 
-    result = await agent._dispatch(
-        mock_g, "create_issue", {"repo": "user/repo", "title": "New issue", "body": "Details"}
-    )
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["create_issue"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_g
+    result = tool.function(mock_ctx, repo="user/repo", title="New issue", body="Details")
+
     assert result["created"] is True
 
 
-async def test_github_dispatch_get_repo():
+def test_github_tool_get_repository():
     from angie.agents.dev.github import GitHubAgent
 
     agent = GitHubAgent()
@@ -770,21 +920,16 @@ async def test_github_dispatch_get_repo():
     mock_repo.default_branch = "main"
     mock_g.get_repo.return_value = mock_repo
 
-    result = await agent._dispatch(mock_g, "get_repo", {"repo": "user/repo"})
+    pa = agent.build_pydantic_agent()
+    tool = pa._function_toolset.tools["get_repository"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_g
+    result = tool.function(mock_ctx, repo="user/repo")
+
     assert result["stars"] == 42
 
 
-async def test_github_dispatch_unknown():
-    from angie.agents.dev.github import GitHubAgent
-
-    agent = GitHubAgent()
-    mock_g = MagicMock()
-
-    result = await agent._dispatch(mock_g, "unknown", {})
-    assert "error" in result
-
-
-# ── UbiquitiAgent tests ───────────────────────────────────────────────────────
+# ── UbiquitiAgent ─────────────────────────────────────────────────────────────
 
 
 async def test_ubiquiti_execute():

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from angie.agents.base import BaseAgent
+
+if TYPE_CHECKING:
+    from pydantic_ai import Agent
 
 SPAM_KEYWORDS = ["unsubscribe", "click here", "winner", "free money", "limited offer", "act now"]
 
@@ -15,46 +18,52 @@ class SpamAgent(BaseAgent):
     description: ClassVar[str] = "Email spam detection and deletion across providers."
     capabilities: ClassVar[list[str]] = ["spam", "spam email", "delete spam", "clean inbox"]
 
+    def build_pydantic_agent(self) -> Agent:
+        from pydantic_ai import Agent
+
+        agent: Agent[None, str] = Agent(system_prompt=self.get_system_prompt())
+
+        @agent.tool_plain
+        async def scan_for_spam() -> dict:
+            """Scan the Gmail inbox for likely spam using keyword heuristics."""
+            try:
+                from angie.agents.email.gmail import GmailAgent
+
+                gmail = GmailAgent()
+                result = await gmail.execute({"input_data": {"intent": "list unread emails"}})
+                messages = result.get("messages", [])
+                spam = [
+                    {"id": m["id"], "subject": m.get("subject"), "from": m.get("from")}
+                    for m in messages
+                    if any(kw in m.get("subject", "").lower() for kw in SPAM_KEYWORDS)
+                ]
+                return {"spam_found": len(spam), "items": spam}
+            except Exception as exc:  # noqa: BLE001
+                return {"error": str(exc)}
+
+        @agent.tool_plain
+        async def delete_spam_messages(message_ids: list) -> dict:
+            """Trash a list of Gmail messages identified as spam."""
+            try:
+                from angie.agents.email.gmail import GmailAgent
+
+                gmail = GmailAgent()
+                for mid in message_ids:
+                    await gmail.execute({"input_data": {"intent": f"trash message {mid}"}})
+                return {"trashed": len(message_ids), "message_ids": message_ids}
+            except Exception as exc:  # noqa: BLE001
+                return {"error": str(exc)}
+
+        return agent
+
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
-        action = task.get("input_data", {}).get("action", "scan")
-        self.logger.info("SpamAgent action=%s", action)
+        from angie.llm import get_llm_model
 
-        if action == "scan":
-            return await self._scan(task.get("input_data", {}))
-        if action == "delete_spam":
-            return await self._delete_spam(task.get("input_data", {}))
-        return {"error": f"Unknown action: {action}"}
-
-    async def _scan(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Scan Gmail inbox for likely spam using keyword heuristics."""
+        intent = self._extract_intent(task, fallback="scan inbox for spam")
+        self.logger.info("SpamAgent intent=%r", intent)
         try:
-            from angie.agents.email.gmail import GmailAgent
-
-            gmail = GmailAgent()
-            result = await gmail.execute({"input_data": {"action": "list", "query": "is:unread"}})
-            messages = result.get("messages", [])
-            spam = []
-            for msg in messages:
-                subject = msg.get("subject", "").lower()
-                # sender stored for potential future filter use
-                _ = msg.get("from", "").lower()
-                if any(kw in subject for kw in SPAM_KEYWORDS):
-                    spam.append(
-                        {"id": msg["id"], "subject": msg.get("subject"), "from": msg.get("from")}
-                    )
-            return {"spam_found": len(spam), "items": spam}
+            result = await self._get_agent().run(intent, model=get_llm_model())
+            return {"result": str(result.output)}
         except Exception as exc:  # noqa: BLE001
-            return {"error": str(exc)}
-
-    async def _delete_spam(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Trash messages by their IDs."""
-        try:
-            from angie.agents.email.gmail import GmailAgent
-
-            gmail = GmailAgent()
-            ids = data.get("message_ids", [])
-            for mid in ids:
-                await gmail.execute({"input_data": {"action": "trash", "message_id": mid}})
-            return {"trashed": len(ids), "message_ids": ids}
-        except Exception as exc:  # noqa: BLE001
+            self.logger.exception("SpamAgent error")
             return {"error": str(exc)}

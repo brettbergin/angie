@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime, timedelta
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+from pydantic_ai import RunContext
 
 from angie.agents.base import BaseAgent
+
+if TYPE_CHECKING:
+    from pydantic_ai import Agent
 
 
 class GoogleCalendarAgent(BaseAgent):
@@ -23,43 +28,26 @@ class GoogleCalendarAgent(BaseAgent):
         "upcoming events",
     ]
 
-    async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
-        action = task.get("input_data", {}).get("action", "list")
-        self.logger.info("GoogleCalendarAgent action=%s", action)
-        try:
-            import asyncio
+    def build_pydantic_agent(self) -> Agent:
+        from pydantic_ai import Agent
 
-            return await asyncio.get_event_loop().run_in_executor(
-                None, self._dispatch_sync, action, task.get("input_data", {})
-            )
-        except Exception as exc:  # noqa: BLE001
-            self.logger.exception("GoogleCalendarAgent error")
-            return {"error": str(exc)}
+        agent: Agent[object, str] = Agent(
+            deps_type=object,
+            system_prompt=self.get_system_prompt(),
+        )
 
-    def _build_service(self) -> Any:
-        from google.oauth2.credentials import Credentials
-        from googleapiclient.discovery import build
-
-        token_file = os.environ.get("GCAL_TOKEN_FILE", "gcal_token.json")
-        scopes = ["https://www.googleapis.com/auth/calendar"]
-        from pathlib import Path
-
-        if not Path(token_file).exists():
-            raise RuntimeError(f"Google Calendar token not found at {token_file}.")
-        creds = Credentials.from_authorized_user_file(token_file, scopes)
-        return build("calendar", "v3", credentials=creds)
-
-    def _dispatch_sync(self, action: str, data: dict[str, Any]) -> dict[str, Any]:
-        svc = self._build_service()
-        cal_id = data.get("calendar_id", "primary")
-
-        if action == "list":
+        @agent.tool
+        def list_upcoming_events(
+            ctx: RunContext[object], calendar_id: str = "primary", days_ahead: int = 7
+        ) -> dict:
+            """List upcoming Google Calendar events within the next N days."""
+            svc = ctx.deps
             now = datetime.now(UTC).isoformat()
-            end = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+            end = (datetime.now(UTC) + timedelta(days=days_ahead)).isoformat()
             result = (
                 svc.events()
                 .list(
-                    calendarId=cal_id,
+                    calendarId=calendar_id,
                     timeMin=now,
                     timeMax=end,
                     maxResults=20,
@@ -79,19 +67,62 @@ class GoogleCalendarAgent(BaseAgent):
             ]
             return {"events": events}
 
-        if action == "create":
+        @agent.tool
+        def create_event(
+            ctx: RunContext[object],
+            summary: str,
+            start: str,
+            end: str,
+            description: str = "",
+            timezone: str = "UTC",
+            calendar_id: str = "primary",
+        ) -> dict:
+            """Create a new Google Calendar event."""
+            svc = ctx.deps
             event_body = {
-                "summary": data.get("summary", "New Event"),
-                "start": {"dateTime": data.get("start"), "timeZone": data.get("timezone", "UTC")},
-                "end": {"dateTime": data.get("end"), "timeZone": data.get("timezone", "UTC")},
-                "description": data.get("description", ""),
+                "summary": summary,
+                "start": {"dateTime": start, "timeZone": timezone},
+                "end": {"dateTime": end, "timeZone": timezone},
+                "description": description,
             }
-            result = svc.events().insert(calendarId=cal_id, body=event_body).execute()
+            result = svc.events().insert(calendarId=calendar_id, body=event_body).execute()
             return {"created": True, "event_id": result["id"], "link": result.get("htmlLink", "")}
 
-        if action == "delete":
-            event_id = data.get("event_id", "")
-            svc.events().delete(calendarId=cal_id, eventId=event_id).execute()
+        @agent.tool
+        def delete_event(
+            ctx: RunContext[object], event_id: str, calendar_id: str = "primary"
+        ) -> dict:
+            """Delete a Google Calendar event by its ID."""
+            svc = ctx.deps
+            svc.events().delete(calendarId=calendar_id, eventId=event_id).execute()
             return {"deleted": True, "event_id": event_id}
 
-        return {"error": f"Unknown action: {action}"}
+        return agent
+
+    def _build_service(self) -> Any:
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+
+        token_file = os.environ.get("GCAL_TOKEN_FILE", "gcal_token.json")
+        scopes = ["https://www.googleapis.com/auth/calendar"]
+        from pathlib import Path
+
+        if not Path(token_file).exists():
+            raise RuntimeError(f"Google Calendar token not found at {token_file}.")
+        creds = Credentials.from_authorized_user_file(token_file, scopes)
+        return build("calendar", "v3", credentials=creds)
+
+    async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
+        import asyncio
+
+        self.logger.info("GoogleCalendarAgent executing")
+        try:
+            svc = await asyncio.get_event_loop().run_in_executor(None, self._build_service)
+            from angie.llm import get_llm_model
+
+            intent = self._extract_intent(task, fallback="list upcoming events")
+            result = await self._get_agent().run(intent, model=get_llm_model(), deps=svc)
+            return {"result": str(result.output)}
+        except Exception as exc:  # noqa: BLE001
+            self.logger.exception("GoogleCalendarAgent error")
+            return {"error": str(exc)}
