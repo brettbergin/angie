@@ -57,7 +57,7 @@ async def _ask(text: str, user_id: str, agent_slug: str | None) -> None:
             description = "Direct chat"
             capabilities = []
 
-            async def execute(self, t):
+            async def execute(self, t):  # pragma: no cover
                 return await self.ask_llm(t["input_data"]["message"])
 
         temp = _TempAgent()

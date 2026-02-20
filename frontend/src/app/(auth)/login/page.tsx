@@ -58,7 +58,7 @@ export default function LoginPage() {
         />
         {error && <p className="text-sm text-red-400">{error}</p>}
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? <Spinner className="w-4 h-4" /> : null}
+          {loading && <Spinner className="w-4 h-4" />}
           Sign in
         </Button>
       </form>

@@ -77,7 +77,11 @@ class EmailChannel(BaseChannel):
             for part in msg.walk():
                 if part.get_content_type() == "text/plain":
                     return part.get_payload(decode=True).decode("utf-8", errors="replace")
-        return msg.get_payload(decode=True).decode("utf-8", errors="replace") if isinstance(msg.get_payload(), bytes) else str(msg.get_payload())
+        return (
+            msg.get_payload(decode=True).decode("utf-8", errors="replace")
+            if isinstance(msg.get_payload(), bytes)
+            else str(msg.get_payload())
+        )
 
     async def _dispatch_event(self, sender: str, subject: str, body: str) -> None:
         from angie.core.events import AngieEvent, router
@@ -115,4 +119,3 @@ class EmailChannel(BaseChannel):
 
     async def mention_user(self, user_id: str, text: str, **kwargs: Any) -> None:
         await self.send(user_id, text, subject="Angie needs your attention", **kwargs)
-

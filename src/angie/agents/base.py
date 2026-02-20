@@ -51,7 +51,6 @@ class BaseAgent(ABC):
     def get_system_prompt(self) -> str:
         return self.prompt_manager.compose_for_agent(self.slug)
 
-
     async def ask_llm(
         self,
         prompt: str,

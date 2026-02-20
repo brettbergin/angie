@@ -12,7 +12,16 @@ class SpotifyAgent(BaseAgent):
     name: ClassVar[str] = "SpotifyAgent"
     slug: ClassVar[str] = "spotify"
     description: ClassVar[str] = "Spotify music control."
-    capabilities: ClassVar[list[str]] = ["spotify", "music", "play", "pause", "playlist", "song", "skip", "volume"]
+    capabilities: ClassVar[list[str]] = [
+        "spotify",
+        "music",
+        "play",
+        "pause",
+        "playlist",
+        "song",
+        "skip",
+        "volume",
+    ]
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         action = task.get("input_data", {}).get("action", "current")
@@ -25,7 +34,9 @@ class SpotifyAgent(BaseAgent):
                 auth_manager=SpotifyOAuth(
                     client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
                     client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", ""),
-                    redirect_uri=os.environ.get("SPOTIFY_REDIRECT_URI", "http://localhost:8888/callback"),
+                    redirect_uri=os.environ.get(
+                        "SPOTIFY_REDIRECT_URI", "http://localhost:8888/callback"
+                    ),
                     scope="user-read-playback-state user-modify-playback-state user-read-currently-playing",
                     cache_path=os.environ.get("SPOTIFY_TOKEN_CACHE", ".spotify_cache"),
                 )
@@ -93,4 +104,3 @@ class SpotifyAgent(BaseAgent):
             return {"results": items}
 
         return {"error": f"Unknown action: {action}"}
-

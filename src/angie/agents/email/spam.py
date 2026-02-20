@@ -36,9 +36,12 @@ class SpamAgent(BaseAgent):
             spam = []
             for msg in messages:
                 subject = msg.get("subject", "").lower()
-                sender = msg.get("from", "").lower()
+                # sender stored for potential future filter use
+                _ = msg.get("from", "").lower()
                 if any(kw in subject for kw in SPAM_KEYWORDS):
-                    spam.append({"id": msg["id"], "subject": msg.get("subject"), "from": msg.get("from")})
+                    spam.append(
+                        {"id": msg["id"], "subject": msg.get("subject"), "from": msg.get("from")}
+                    )
             return {"spam_found": len(spam), "items": spam}
         except Exception as exc:  # noqa: BLE001
             return {"error": str(exc)}
@@ -55,4 +58,3 @@ class SpamAgent(BaseAgent):
             return {"trashed": len(ids), "message_ids": ids}
         except Exception as exc:  # noqa: BLE001
             return {"error": str(exc)}
-

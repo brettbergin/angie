@@ -26,7 +26,8 @@ class Event(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     type: Mapped[EventType] = mapped_column(
         Enum(EventType, values_callable=lambda obj: [e.value for e in obj]),
-        nullable=False, index=True
+        nullable=False,
+        index=True,
     )
     source_channel: Mapped[str | None] = mapped_column(String(50))
     user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"))

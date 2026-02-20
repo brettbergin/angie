@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
 
+
 async def _update_task_in_db(
     task_id: str, status: str, output_data: dict, error: str | None
 ) -> None:
@@ -32,6 +33,7 @@ async def _update_task_in_db(
 
 
 # ── D3: Intent routing ────────────────────────────────────────────────────────
+
 
 def _resolve_agent(task_dict: dict[str, Any]):
     """D3 — route task to correct agent via registry keyword matching."""
@@ -56,12 +58,14 @@ def _resolve_agent(task_dict: dict[str, Any]):
 
 # ── D2: Channel reply ─────────────────────────────────────────────────────────
 
+
 async def _send_reply(source_channel: str | None, user_id: str | None, text: str) -> None:
     """D2 — send task result back to the originating channel."""
     if not source_channel or not user_id:
         return
     try:
         from angie.channels.base import get_channel_manager
+
         mgr = get_channel_manager()
         await mgr.send(user_id, text, channel_type=source_channel)
     except Exception as exc:
@@ -69,6 +73,7 @@ async def _send_reply(source_channel: str | None, user_id: str | None, text: str
 
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────
+
 
 @shared_task(bind=True, name="angie.queue.workers.execute_task", max_retries=3)
 def execute_task(self, task_dict: dict[str, Any]) -> dict[str, Any]:

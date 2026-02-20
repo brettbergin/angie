@@ -106,4 +106,3 @@ class DiscordChannel(BaseChannel):
 
     async def mention_user(self, user_id: str, text: str, **kwargs: Any) -> None:
         await self.send(user_id, f"<@{user_id}> {text}", **kwargs)
-

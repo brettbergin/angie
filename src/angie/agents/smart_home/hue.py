@@ -44,7 +44,7 @@ class HueAgent(BaseAgent):
     def _dispatch(self, bridge: Any, action: str, data: dict[str, Any]) -> dict[str, Any]:
         if action == "list":
             lights = bridge.get_light_objects("name")
-            return {"lights": [{"name": n, "on": l.on} for n, l in lights.items()]}
+            return {"lights": [{"name": n, "on": light.on} for n, light in lights.items()]}
 
         if action == "on":
             name = data.get("light", "")
@@ -82,4 +82,3 @@ class HueAgent(BaseAgent):
             return {"color_set": True, "hue": hue, "saturation": sat}
 
         return {"error": f"Unknown action: {action}"}
-

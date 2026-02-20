@@ -40,7 +40,9 @@ class GitHubAgent(BaseAgent):
         repo_name: str = data.get("repo", "")
 
         if action == "list_repos":
-            repos = [{"name": r.full_name, "private": r.private} for r in g.get_user().get_repos()[:20]]
+            repos = [
+                {"name": r.full_name, "private": r.private} for r in g.get_user().get_repos()[:20]
+            ]
             return {"repos": repos}
 
         if action == "list_prs":
@@ -79,4 +81,3 @@ class GitHubAgent(BaseAgent):
             }
 
         return {"error": f"Unknown action: {action}"}
-

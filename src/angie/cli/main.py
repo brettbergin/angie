@@ -4,6 +4,7 @@ import click
 
 from angie.cli.chat import chat
 from angie.cli.config import config
+from angie.cli.configure import configure
 from angie.cli.prompts import prompts
 from angie.cli.setup import setup
 from angie.cli.status import status
@@ -18,6 +19,7 @@ def cli():
 cli.add_command(setup)
 cli.add_command(chat)
 cli.add_command(config)
+cli.add_command(configure)
 cli.add_command(status)
 cli.add_command(prompts)
 
@@ -48,7 +50,9 @@ def ask(question: str, user_id: str):
     console = Console()
 
     if not is_llm_configured():
-        console.print("[bold red]No LLM configured.[/bold red] Set GITHUB_TOKEN or OPENAI_API_KEY in your .env.")
+        console.print(
+            "[bold red]No LLM configured.[/bold red] Set GITHUB_TOKEN or OPENAI_API_KEY in your .env."
+        )
         raise SystemExit(1)
 
     async def _ask():
@@ -68,4 +72,3 @@ def ask(question: str, user_id: str):
         answer = asyncio.run(_ask())
 
     console.print(Markdown(answer))
-

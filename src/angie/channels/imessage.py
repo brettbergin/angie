@@ -108,4 +108,3 @@ class IMessageChannel(BaseChannel):
 
     async def mention_user(self, user_id: str, text: str, **kwargs: Any) -> None:
         await self.send(user_id, f"Hey! {text}", **kwargs)
-
