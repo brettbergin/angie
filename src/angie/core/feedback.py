@@ -17,7 +17,9 @@ class FeedbackManager:
         channel: str | None = None,
         task_id: str | None = None,
     ) -> None:
-        logger.info("[FEEDBACK OK] user=%s channel=%s task=%s | %s", user_id, channel, task_id, message)
+        logger.info(
+            "[FEEDBACK OK] user=%s channel=%s task=%s | %s", user_id, channel, task_id, message
+        )
         await self._send(user_id, f"✅ {message}", channel)
 
     async def send_failure(
@@ -31,7 +33,9 @@ class FeedbackManager:
         text = f"❌ {message}"
         if error:
             text += f"\n```{error}```"
-        logger.error("[FEEDBACK ERR] user=%s channel=%s task=%s | %s", user_id, channel, task_id, message)
+        logger.error(
+            "[FEEDBACK ERR] user=%s channel=%s task=%s | %s", user_id, channel, task_id, message
+        )
         await self._send(user_id, text, channel)
 
     async def send_mention(
@@ -47,6 +51,7 @@ class FeedbackManager:
     async def _send(self, user_id: str, text: str, channel: str | None) -> None:
         """Dispatch to the appropriate channel adapter."""
         from angie.channels.base import get_channel_manager
+
         mgr = get_channel_manager()
         await mgr.send(user_id=user_id, text=text, channel_type=channel)
 

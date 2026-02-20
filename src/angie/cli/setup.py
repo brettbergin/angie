@@ -9,11 +9,17 @@ from rich.prompt import Prompt
 console = Console()
 
 ONBOARDING_QUESTIONS = [
-    ("personality", "How would you like Angie to communicate with you? (formal, casual, friendly, brief, etc.)"),
+    (
+        "personality",
+        "How would you like Angie to communicate with you? (formal, casual, friendly, brief, etc.)",
+    ),
     ("interests", "What are your main interests and areas Angie should know about?"),
     ("schedule", "Describe your typical daily schedule (work hours, time zone, routines)"),
     ("priorities", "What are your top priorities that Angie should always keep in mind?"),
-    ("communication", "Which communication channels do you prefer and in what order? (Slack, Discord, iMessage, email)"),
+    (
+        "communication",
+        "Which communication channels do you prefer and in what order? (Slack, Discord, iMessage, email)",
+    ),
     ("home", "Describe your home setup relevant for Angie (smart home devices, location, etc.)"),
     ("work", "Describe your work context (role, tools, projects, workflows)"),
     ("style", "How detailed should Angie's responses be? Any language or tone preferences?"),
@@ -29,6 +35,7 @@ def setup(user_id: str):
     console.print("[dim]Answer each question — the more detail, the better I can help.[/dim]\n")
 
     from angie.core.prompts import get_prompt_manager
+
     pm = get_prompt_manager()
 
     for name, question in ONBOARDING_QUESTIONS:
@@ -40,4 +47,6 @@ def setup(user_id: str):
             console.print(f"[dim]  ✓ saved to {path}[/dim]\n")
 
     console.print("\n[bold green]✅ Setup complete! Angie knows you now.[/bold green]")
-    console.print("Run [bold]angie daemon[/bold] to start Angie, or [bold]angie ask[/bold] to chat.\n")
+    console.print(
+        "Run [bold]angie daemon[/bold] to start Angie, or [bold]angie ask[/bold] to chat.\n"
+    )

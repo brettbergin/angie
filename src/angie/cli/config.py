@@ -21,11 +21,13 @@ def slack():
     bot_token = Prompt.ask("Bot token (xoxb-...)")
     app_token = Prompt.ask("App-level token (xapp-...)", default="")
     signing_secret = Prompt.ask("Signing secret")
-    _write_env({
-        "SLACK_BOT_TOKEN": bot_token,
-        "SLACK_APP_TOKEN": app_token,
-        "SLACK_SIGNING_SECRET": signing_secret,
-    })
+    _write_env(
+        {
+            "SLACK_BOT_TOKEN": bot_token,
+            "SLACK_APP_TOKEN": app_token,
+            "SLACK_SIGNING_SECRET": signing_secret,
+        }
+    )
     console.print("[green]✓ Slack configured[/green]")
 
 
@@ -57,12 +59,14 @@ def email():
     smtp_port = Prompt.ask("SMTP port", default="587")
     username = Prompt.ask("Username / email address")
     password = Prompt.ask("Password", password=True)
-    _write_env({
-        "EMAIL_SMTP_HOST": smtp_host,
-        "EMAIL_SMTP_PORT": smtp_port,
-        "EMAIL_USERNAME": username,
-        "EMAIL_PASSWORD": password,
-    })
+    _write_env(
+        {
+            "EMAIL_SMTP_HOST": smtp_host,
+            "EMAIL_SMTP_PORT": smtp_port,
+            "EMAIL_USERNAME": username,
+            "EMAIL_PASSWORD": password,
+        }
+    )
     console.print("[green]✓ Email configured[/green]")
 
 

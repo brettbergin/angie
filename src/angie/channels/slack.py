@@ -29,11 +29,15 @@ class SlackChannel(BaseChannel):
     async def stop(self) -> None:
         self._client = None
 
-    async def send(self, user_id: str, text: str, channel: str | None = None, **kwargs: Any) -> None:
+    async def send(
+        self, user_id: str, text: str, channel: str | None = None, **kwargs: Any
+    ) -> None:
         if self._client is None:
             return
         target = channel or user_id
         await self._client.chat_postMessage(channel=target, text=text)
 
-    async def mention_user(self, user_id: str, text: str, channel: str | None = None, **kwargs: Any) -> None:
+    async def mention_user(
+        self, user_id: str, text: str, channel: str | None = None, **kwargs: Any
+    ) -> None:
         await self.send(user_id, f"<@{user_id}> {text}", channel=channel)

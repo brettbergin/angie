@@ -29,7 +29,9 @@ class Team(Base, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text)
     goal: Mapped[str | None] = mapped_column(Text)
 
-    team_agents: Mapped[list[TeamAgent]] = relationship(back_populates="team", cascade="all, delete-orphan")
+    team_agents: Mapped[list[TeamAgent]] = relationship(
+        back_populates="team", cascade="all, delete-orphan"
+    )
     workflows: Mapped[list["Workflow"]] = relationship(back_populates="team")  # noqa: F821
 
     def __repr__(self) -> str:

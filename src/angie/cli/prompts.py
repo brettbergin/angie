@@ -19,6 +19,7 @@ def prompts():
 def list_prompts(user_id: str):
     """List all USER_PROMPT files for a user."""
     from angie.core.prompts import get_prompt_manager
+
     pm = get_prompt_manager()
     user_dir = pm.user_prompts_dir / user_id
 
@@ -40,6 +41,7 @@ def list_prompts(user_id: str):
 def edit(name: str, user_id: str):
     """Open a USER_PROMPT in your default editor."""
     from angie.core.prompts import get_prompt_manager
+
     pm = get_prompt_manager()
     path = pm.user_prompts_dir / user_id / f"{name}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -57,11 +59,13 @@ def edit(name: str, user_id: str):
 def reset(user_id: str):
     """Delete all USER_PROMPTS for a user."""
     from angie.core.prompts import get_prompt_manager
+
     pm = get_prompt_manager()
     user_dir = pm.user_prompts_dir / user_id
 
     if user_dir.exists():
         import shutil
+
         shutil.rmtree(user_dir)
         pm.invalidate_cache()
         console.print(f"[green]✓ Cleared prompts for {user_id}[/green]")

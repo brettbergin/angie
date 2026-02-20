@@ -11,7 +11,14 @@ class HueAgent(BaseAgent):
     name: ClassVar[str] = "HueAgent"
     slug: ClassVar[str] = "hue"
     description: ClassVar[str] = "Philips Hue smart lighting control."
-    capabilities: ClassVar[list[str]] = ["lights", "hue", "brightness", "lighting", "turn on lights", "turn off lights"]
+    capabilities: ClassVar[list[str]] = [
+        "lights",
+        "hue",
+        "brightness",
+        "lighting",
+        "turn on lights",
+        "turn off lights",
+    ]
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         # TODO: implement using SDK

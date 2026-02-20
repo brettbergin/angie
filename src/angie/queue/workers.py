@@ -27,12 +27,13 @@ def execute_task(self, task_dict: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"No agent found for task {task_id}")
 
         import asyncio
+
         result = asyncio.run(agent.execute(task_dict))
         return {"status": "success", "result": result, "task_id": task_id}
 
     except Exception as exc:
         logger.exception("Task %s failed: %s", task_id, exc)
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries) from exc
+        raise self.retry(exc=exc, countdown=2**self.request.retries) from exc
 
 
 @shared_task(bind=True, name="angie.queue.workers.execute_workflow", max_retries=1)
@@ -43,6 +44,7 @@ def execute_workflow(self, workflow_id: str, task_dict: dict[str, Any]) -> dict[
     logger.info("Executing workflow %s", workflow_id)
     try:
         import asyncio
+
         executor = WorkflowExecutor()
         result = asyncio.run(executor.run(workflow_id, task_dict))
         return {"status": "success", "result": result, "workflow_id": workflow_id}

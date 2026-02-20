@@ -32,6 +32,7 @@ class TaskManagerAgent(BaseAgent):
     async def _cancel_task(self, data: dict[str, Any]) -> dict[str, Any]:
         task_id = data.get("task_id", "")
         from angie.queue.celery_app import celery_app
+
         celery_app.control.revoke(task_id, terminate=True)
         return {"cancelled": True, "task_id": task_id}
 

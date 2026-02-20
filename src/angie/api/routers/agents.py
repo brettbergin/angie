@@ -19,6 +19,7 @@ class AgentOut(BaseModel):
 @router.get("/", response_model=list[AgentOut])
 async def list_agents(_: User = Depends(get_current_user)):
     from angie.agents.registry import get_registry
+
     registry = get_registry()
     return [
         AgentOut(

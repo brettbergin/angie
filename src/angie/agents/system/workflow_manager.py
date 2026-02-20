@@ -26,5 +26,6 @@ class WorkflowManagerAgent(BaseAgent):
     async def _trigger_workflow(self, data: dict[str, Any]) -> dict[str, Any]:
         workflow_id = data.get("workflow_id", "")
         from angie.queue.workers import execute_workflow
+
         result = execute_workflow.delay(workflow_id, data)
         return {"triggered": True, "workflow_id": workflow_id, "celery_id": result.id}

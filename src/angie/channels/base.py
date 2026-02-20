@@ -94,18 +94,22 @@ def _build_manager() -> ChannelManager:
 
     if settings.slack_bot_token:
         from angie.channels.slack import SlackChannel
+
         mgr.register(SlackChannel())
 
     if settings.discord_bot_token:
         from angie.channels.discord import DiscordChannel
+
         mgr.register(DiscordChannel())
 
     if settings.bluebubbles_url:
         from angie.channels.imessage import IMessageChannel
+
         mgr.register(IMessageChannel())
 
     if settings.email_smtp_host:
         from angie.channels.email import EmailChannel
+
         mgr.register(EmailChannel())
 
     return mgr

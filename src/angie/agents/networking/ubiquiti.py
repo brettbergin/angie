@@ -11,7 +11,14 @@ class UbiquitiAgent(BaseAgent):
     name: ClassVar[str] = "UbiquitiAgent"
     slug: ClassVar[str] = "ubiquiti"
     description: ClassVar[str] = "UniFi network management."
-    capabilities: ClassVar[list[str]] = ["network", "wifi", "unifi", "ubiquiti", "clients", "bandwidth"]
+    capabilities: ClassVar[list[str]] = [
+        "network",
+        "wifi",
+        "unifi",
+        "ubiquiti",
+        "clients",
+        "bandwidth",
+    ]
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         # TODO: implement using SDK

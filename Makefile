@@ -43,9 +43,7 @@ test-cov: ## Run tests with coverage report
 	$(PYTEST) tests/ --cov=src/angie --cov-report=term-missing -v
 
 build: ## Build the angie CLI binary with PyInstaller
-	$(UV) run pyinstaller --onefile --name angie \
-		--add-data "prompts:prompts" \
-		src/angie/cli/main.py
+	$(UV) run pyinstaller angie.spec
 
 migrate: ## Run Alembic database migrations
 	$(UV) run alembic upgrade head
@@ -68,7 +66,3 @@ docker-logs: ## Tail logs from all services
 docker-reset: ## Stop services and remove volumes (destructive!)
 	docker compose down -v
 
-build: ## Build angie CLI binary with PyInstaller
-	$(UV) run pyinstaller --onefile --name angie \
-		--add-data "prompts:prompts" \
-		src/angie/cli/main.py

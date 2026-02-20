@@ -11,7 +11,14 @@ class GitHubAgent(BaseAgent):
     name: ClassVar[str] = "GitHubAgent"
     slug: ClassVar[str] = "github"
     description: ClassVar[str] = "GitHub repository and PR management."
-    capabilities: ClassVar[list[str]] = ["github", "pull request", "pr", "issues", "repository", "commit"]
+    capabilities: ClassVar[list[str]] = [
+        "github",
+        "pull request",
+        "pr",
+        "issues",
+        "repository",
+        "commit",
+    ]
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         # TODO: implement using SDK

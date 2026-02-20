@@ -25,7 +25,9 @@ class EmailChannel(BaseChannel):
     async def stop(self) -> None:
         pass
 
-    async def send(self, user_id: str, text: str, subject: str = "Message from Angie", **kwargs: Any) -> None:
+    async def send(
+        self, user_id: str, text: str, subject: str = "Message from Angie", **kwargs: Any
+    ) -> None:
         s = self.settings
         if not s.email_smtp_host or not s.email_username:
             logger.warning("Email channel not configured")

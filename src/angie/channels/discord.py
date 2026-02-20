@@ -30,7 +30,9 @@ class DiscordChannel(BaseChannel):
         if self._client and not self._client.is_closed():
             await self._client.close()
 
-    async def send(self, user_id: str, text: str, channel_id: int | None = None, **kwargs: Any) -> None:
+    async def send(
+        self, user_id: str, text: str, channel_id: int | None = None, **kwargs: Any
+    ) -> None:
         if self._client is None:
             return
         if channel_id:

@@ -40,6 +40,7 @@ class AngieLoop:
 
         # Initialize channels
         from angie.channels.base import get_channel_manager
+
         self._channel_manager = get_channel_manager()
         await self._channel_manager.start_all()
 

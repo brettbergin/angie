@@ -23,6 +23,7 @@ async def _show_status() -> None:
     # Celery inspect
     try:
         from angie.queue.celery_app import celery_app
+
         inspect = celery_app.control.inspect(timeout=2.0)
         active = inspect.active() or {}
 
@@ -45,6 +46,7 @@ async def _show_status() -> None:
     # Registered agents
     try:
         from angie.agents.registry import get_registry
+
         agents = get_registry().list_all()
         console.print(f"\n[bold]Registered agents:[/bold] {len(agents)}")
         for a in agents:

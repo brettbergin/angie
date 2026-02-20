@@ -11,7 +11,12 @@ class EmailCorrespondenceAgent(BaseAgent):
     name: ClassVar[str] = "EmailCorrespondenceAgent"
     slug: ClassVar[str] = "email-correspondence"
     description: ClassVar[str] = "Context-aware email reply drafting."
-    capabilities: ClassVar[list[str]] = ["reply email", "draft email", "respond to email", "email reply"]
+    capabilities: ClassVar[list[str]] = [
+        "reply email",
+        "draft email",
+        "respond to email",
+        "email reply",
+    ]
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         # TODO: implement using SDK

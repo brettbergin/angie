@@ -73,6 +73,5 @@ class CronEngine:
 
     def list_crons(self) -> list[dict[str, Any]]:
         return [
-            {"id": job.id, "next_run": str(job.next_run_time)}
-            for job in self.scheduler.get_jobs()
+            {"id": job.id, "next_run": str(job.next_run_time)} for job in self.scheduler.get_jobs()
         ]

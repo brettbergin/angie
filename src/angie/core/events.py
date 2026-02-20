@@ -45,17 +45,21 @@ class EventRouter:
 
     def on(self, *event_types: EventType) -> Callable[[HandlerFn], HandlerFn]:
         """Decorator to register a handler for one or more event types."""
+
         def decorator(fn: HandlerFn) -> HandlerFn:
             for et in event_types:
                 self._handlers.setdefault(et, []).append(fn)
             return fn
+
         return decorator
 
     def on_any(self) -> Callable[[HandlerFn], HandlerFn]:
         """Decorator to register a catch-all handler."""
+
         def decorator(fn: HandlerFn) -> HandlerFn:
             self._catch_all.append(fn)
             return fn
+
         return decorator
 
     async def dispatch(self, event: AngieEvent) -> None:

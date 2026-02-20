@@ -11,7 +11,13 @@ class GmailAgent(BaseAgent):
     name: ClassVar[str] = "GmailAgent"
     slug: ClassVar[str] = "gmail"
     description: ClassVar[str] = "Gmail email management."
-    capabilities: ClassVar[list[str]] = ["gmail", "email", "send email", "read email", "search email"]
+    capabilities: ClassVar[list[str]] = [
+        "gmail",
+        "email",
+        "send email",
+        "read email",
+        "search email",
+    ]
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         # TODO: implement using SDK

@@ -54,6 +54,7 @@ async def cache_delete_pattern(pattern: str) -> int:
 
 def cached(key_prefix: str, ttl: int = 300) -> Callable:
     """Async cache decorator. Key = prefix + str(first arg)."""
+
     def decorator(fn: Callable) -> Callable:
         @wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -65,5 +66,7 @@ def cached(key_prefix: str, ttl: int = 300) -> Callable:
             if result is not None:
                 await cache_set(cache_key, result, ttl)
             return result
+
         return wrapper
+
     return decorator

@@ -1,6 +1,5 @@
 """Unit tests for the prompt manager."""
 
-
 import pytest
 
 from angie.core.prompts import PromptManager
