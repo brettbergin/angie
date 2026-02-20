@@ -25,6 +25,3 @@ frontend/out/
 # Git
 .git/
 .gitignore
-
-# Docker build artifacts
-docker/

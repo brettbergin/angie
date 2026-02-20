@@ -27,8 +27,8 @@ def upgrade() -> None:
         sa.Column("is_superuser", sa.Boolean(), default=False),
         sa.Column("timezone", sa.String(50), default="UTC"),
         sa.Column("preferred_channel", sa.String(50), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"), nullable=False),
         sa.UniqueConstraint("email"),
         sa.UniqueConstraint("username"),
     )
@@ -45,8 +45,8 @@ def upgrade() -> None:
         sa.Column("is_enabled", sa.Boolean(), default=True),
         sa.Column("capabilities", sa.JSON(), default=list),
         sa.Column("config", sa.JSON(), default=dict),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"), nullable=False),
         sa.UniqueConstraint("name"),
         sa.UniqueConstraint("slug"),
     )
@@ -60,8 +60,8 @@ def upgrade() -> None:
         sa.Column("slug", sa.String(100), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("goal", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"), nullable=False),
         sa.UniqueConstraint("name"),
         sa.UniqueConstraint("slug"),
     )
@@ -84,8 +84,8 @@ def upgrade() -> None:
         sa.Column("team_id", sa.String(36), sa.ForeignKey("teams.id"), nullable=True),
         sa.Column("is_enabled", sa.Boolean(), default=True),
         sa.Column("trigger_event", sa.String(100), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"), nullable=False),
         sa.UniqueConstraint("name"),
         sa.UniqueConstraint("slug"),
     )
@@ -111,8 +111,8 @@ def upgrade() -> None:
         sa.Column("error", sa.Text(), nullable=True),
         sa.Column("source_channel", sa.String(50), nullable=True),
         sa.Column("retry_count", sa.Integer(), default=0),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"), nullable=False),
     )
     op.create_index("ix_tasks_celery_task_id", "tasks", ["celery_task_id"])
     op.create_index("ix_tasks_status", "tasks", ["status"])
@@ -127,8 +127,8 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("config", sa.JSON(), default=dict),
         sa.Column("on_failure", sa.String(20), default="stop"),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"), nullable=False),
     )
 
     op.create_table(
@@ -147,8 +147,8 @@ def upgrade() -> None:
         sa.Column("payload", sa.JSON(), default=dict),
         sa.Column("processed", sa.Boolean(), default=False),
         sa.Column("task_id", sa.String(36), sa.ForeignKey("tasks.id"), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"), nullable=False),
     )
     op.create_index("ix_events_type", "events", ["type"])
     op.create_index("ix_events_processed", "events", ["processed"])
@@ -167,8 +167,8 @@ def upgrade() -> None:
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("is_active", sa.Boolean(), default=True),
         sa.Column("version", sa.Integer(), default=1),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"), nullable=False),
     )
     op.create_index("ix_prompts_type", "prompts", ["type"])
 
@@ -183,8 +183,8 @@ def upgrade() -> None:
         ),
         sa.Column("is_enabled", sa.Boolean(), default=True),
         sa.Column("config", sa.JSON(), default=dict),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"), nullable=False),
     )
     op.create_index("ix_channel_configs_type", "channel_configs", ["type"])
 
