@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Dev artifacts
+.env
+*.log
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Docker build artifacts
+docker/
