@@ -137,8 +137,8 @@ def upgrade() -> None:
         sa.Column(
             "type",
             sa.Enum(
-                "user_message", "cron_tick", "task_request", "webhook",
-                "channel_event", "system_event", "workflow_trigger",
+                "user_message", "cron", "webhook", "task_complete",
+                "task_failed", "system", "channel_message", "api_call",
             ),
             nullable=False,
         ),
