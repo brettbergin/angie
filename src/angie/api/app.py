@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
     from angie.api.routers import (
         agents,
         auth,
+        channels,
         chat,
         events,
         prompts,
@@ -55,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
     app.include_router(events.router, prefix="/api/v1/events", tags=["events"])
     app.include_router(prompts.router, prefix="/api/v1/prompts", tags=["prompts"])
+    app.include_router(channels.router, prefix="/api/v1/channels", tags=["channels"])
     app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 
     @app.exception_handler(Exception)

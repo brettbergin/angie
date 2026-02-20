@@ -22,7 +22,10 @@ class ChannelConfig(Base, TimestampMixin):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
-    type: Mapped[ChannelType] = mapped_column(Enum(ChannelType), nullable=False, index=True)
+    type: Mapped[ChannelType] = mapped_column(
+        Enum(ChannelType, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False, index=True
+    )
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     config: Mapped[dict] = mapped_column(JSON, default=dict)
 

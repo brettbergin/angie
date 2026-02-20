@@ -1,19 +1,55 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { api, type ChannelConfig } from "@/lib/api";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 const CHANNELS = [
-  { key: "slack", label: "Slack", placeholder: "xoxb-..." },
-  { key: "discord", label: "Discord", placeholder: "Bot token" },
-  { key: "imessage", label: "iMessage (BlueBubbles)", placeholder: "http://localhost:1234" },
-  { key: "email", label: "Email (SMTP host)", placeholder: "smtp.gmail.com" },
+  { key: "slack", label: "Slack", field: "token", placeholder: "xoxb-..." },
+  { key: "discord", label: "Discord", field: "token", placeholder: "Bot token" },
+  { key: "imessage", label: "iMessage (BlueBubbles)", field: "url", placeholder: "http://localhost:1234" },
+  { key: "email", label: "Email (SMTP host)", field: "smtp_host", placeholder: "smtp.gmail.com" },
 ];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const [channelValues, setChannelValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    api.channels.list(token).then((configs: ChannelConfig[]) => {
+      const vals: Record<string, string> = {};
+      configs.forEach((c) => {
+        const ch = CHANNELS.find((ch) => ch.key === c.type);
+        if (ch) vals[c.type] = (c.config as Record<string, string>)[ch.field] ?? "";
+      });
+      setChannelValues(vals);
+    });
+  }, [token]);
+
+  const handleSaveChannels = async () => {
+    if (!token) return;
+    setSaving(true);
+    try {
+      await Promise.all(
+        CHANNELS.map((ch) =>
+          api.channels.upsert(token, ch.key, {
+            is_enabled: !!channelValues[ch.key],
+            config: { [ch.field]: channelValues[ch.key] ?? "" },
+          }),
+        ),
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="p-8 space-y-6 max-w-2xl">
@@ -38,10 +74,18 @@ export default function SettingsPage() {
         <div className="space-y-4">
           {CHANNELS.map(({ key, label, placeholder }) => (
             <div key={key} className="space-y-1">
-              <Input label={label} placeholder={placeholder} type="password" />
+              <Input
+                label={label}
+                placeholder={placeholder}
+                type="password"
+                value={channelValues[key] ?? ""}
+                onChange={(e) => setChannelValues((v) => ({ ...v, [key]: e.target.value }))}
+              />
             </div>
           ))}
-          <Button variant="secondary">Save channels</Button>
+          <Button variant="secondary" onClick={handleSaveChannels} disabled={saving}>
+            {saved ? "Saved ✓" : saving ? "Saving…" : "Save channels"}
+          </Button>
         </div>
       </Card>
 
