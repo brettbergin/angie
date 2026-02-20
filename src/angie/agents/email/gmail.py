@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import os
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+from pydantic_ai import RunContext
 
 from angie.agents.base import BaseAgent
+
+if TYPE_CHECKING:
+    from pydantic_ai import Agent
 
 
 class GmailAgent(BaseAgent):
@@ -21,51 +26,24 @@ class GmailAgent(BaseAgent):
         "inbox",
     ]
 
-    async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
-        action = task.get("input_data", {}).get("action", "list")
-        self.logger.info("GmailAgent action=%s", action)
-        try:
-            return await self._dispatch(action, task.get("input_data", {}))
-        except Exception as exc:  # noqa: BLE001
-            self.logger.exception("GmailAgent error")
-            return {"error": str(exc)}
+    def build_pydantic_agent(self) -> Agent:
+        from pydantic_ai import Agent
 
-    def _build_service(self) -> Any:
-        """Build a Gmail API service using a service account or OAuth credentials."""
-        from google.oauth2.credentials import Credentials
-        from googleapiclient.discovery import build
-
-        creds_file = os.environ.get("GMAIL_CREDENTIALS_FILE", "gmail_credentials.json")  # noqa: F841
-        token_file = os.environ.get("GMAIL_TOKEN_FILE", "gmail_token.json")
-        scopes = ["https://www.googleapis.com/auth/gmail.modify"]
-
-        from pathlib import Path
-
-        if Path(token_file).exists():
-            creds = Credentials.from_authorized_user_file(token_file, scopes)
-        else:
-            raise RuntimeError(
-                f"Gmail token not found at {token_file}. Run 'angie config gmail' to authenticate."
-            )
-        return build("gmail", "v1", credentials=creds)
-
-    async def _dispatch(self, action: str, data: dict[str, Any]) -> dict[str, Any]:
-        import asyncio
-
-        return await asyncio.get_event_loop().run_in_executor(
-            None, self._dispatch_sync, action, data
+        agent: Agent[object, str] = Agent(
+            deps_type=object,
+            system_prompt=self.get_system_prompt(),
         )
 
-    def _dispatch_sync(self, action: str, data: dict[str, Any]) -> dict[str, Any]:
-        import base64
-        from email.mime.text import MIMEText
-
-        svc = self._build_service()
-        user = "me"
-
-        if action == "list":
-            q = data.get("query", "is:unread")
-            results = svc.users().messages().list(userId=user, q=q, maxResults=20).execute()
+        @agent.tool
+        def list_messages(
+            ctx: RunContext[object], query: str = "is:unread", max_results: int = 20
+        ) -> dict:
+            """List Gmail messages matching a search query."""
+            svc = ctx.deps
+            user = "me"
+            results = (
+                svc.users().messages().list(userId=user, q=query, maxResults=max_results).execute()
+            )
             messages = results.get("messages", [])
             items = []
             for m in messages[:10]:
@@ -83,27 +61,68 @@ class GmailAgent(BaseAgent):
                 )
             return {"messages": items, "total": results.get("resultSizeEstimate", 0)}
 
-        if action == "send":
-            to = data.get("to", "")
-            subject = data.get("subject", "")
-            body = data.get("body", "")
+        @agent.tool
+        def send_message(ctx: RunContext[object], to: str, subject: str, body: str) -> dict:
+            """Send an email via Gmail."""
+            import base64
+            from email.mime.text import MIMEText
+
+            svc = ctx.deps
             msg = MIMEText(body)
             msg["To"] = to
             msg["Subject"] = subject
             raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-            result = svc.users().messages().send(userId=user, body={"raw": raw}).execute()
+            result = svc.users().messages().send(userId="me", body={"raw": raw}).execute()
             return {"sent": True, "message_id": result["id"]}
 
-        if action == "trash":
-            mid = data.get("message_id", "")
-            svc.users().messages().trash(userId=user, id=mid).execute()
-            return {"trashed": True, "message_id": mid}
+        @agent.tool
+        def trash_message(ctx: RunContext[object], message_id: str) -> dict:
+            """Move a Gmail message to trash."""
+            svc = ctx.deps
+            svc.users().messages().trash(userId="me", id=message_id).execute()
+            return {"trashed": True, "message_id": message_id}
 
-        if action == "mark_read":
-            mid = data.get("message_id", "")
+        @agent.tool
+        def mark_message_read(ctx: RunContext[object], message_id: str) -> dict:
+            """Mark a Gmail message as read."""
+            svc = ctx.deps
             svc.users().messages().modify(
-                userId=user, id=mid, body={"removeLabelIds": ["UNREAD"]}
+                userId="me", id=message_id, body={"removeLabelIds": ["UNREAD"]}
             ).execute()
-            return {"marked_read": True, "message_id": mid}
+            return {"marked_read": True, "message_id": message_id}
 
-        return {"error": f"Unknown action: {action}"}
+        return agent
+
+    def _build_service(self) -> Any:
+        """Build a Gmail API service using stored OAuth credentials."""
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+
+        creds_file = os.environ.get("GMAIL_CREDENTIALS_FILE", "gmail_credentials.json")  # noqa: F841
+        token_file = os.environ.get("GMAIL_TOKEN_FILE", "gmail_token.json")
+        scopes = ["https://www.googleapis.com/auth/gmail.modify"]
+
+        from pathlib import Path
+
+        if Path(token_file).exists():
+            creds = Credentials.from_authorized_user_file(token_file, scopes)
+        else:
+            raise RuntimeError(
+                f"Gmail token not found at {token_file}. Run 'angie config gmail' to authenticate."
+            )
+        return build("gmail", "v1", credentials=creds)
+
+    async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
+        import asyncio
+
+        self.logger.info("GmailAgent executing")
+        try:
+            svc = await asyncio.get_event_loop().run_in_executor(None, self._build_service)
+            from angie.llm import get_llm_model
+
+            intent = self._extract_intent(task, fallback="list unread emails")
+            result = await self._get_agent().run(intent, model=get_llm_model(), deps=svc)
+            return {"result": str(result.output)}
+        except Exception as exc:  # noqa: BLE001
+            self.logger.exception("GmailAgent error")
+            return {"error": str(exc)}

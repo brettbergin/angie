@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import os
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+from pydantic_ai import RunContext
 
 from angie.agents.base import BaseAgent
+
+if TYPE_CHECKING:
+    from pydantic_ai import Agent
 
 
 class SpotifyAgent(BaseAgent):
@@ -23,33 +28,18 @@ class SpotifyAgent(BaseAgent):
         "volume",
     ]
 
-    async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
-        action = task.get("input_data", {}).get("action", "current")
-        self.logger.info("SpotifyAgent action=%s", action)
-        try:
-            import spotipy
-            from spotipy.oauth2 import SpotifyOAuth
+    def build_pydantic_agent(self) -> Agent:
+        from pydantic_ai import Agent
 
-            sp = spotipy.Spotify(
-                auth_manager=SpotifyOAuth(
-                    client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
-                    client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", ""),
-                    redirect_uri=os.environ.get(
-                        "SPOTIFY_REDIRECT_URI", "http://localhost:8888/callback"
-                    ),
-                    scope="user-read-playback-state user-modify-playback-state user-read-currently-playing",
-                    cache_path=os.environ.get("SPOTIFY_TOKEN_CACHE", ".spotify_cache"),
-                )
-            )
-            return self._dispatch(sp, action, task.get("input_data", {}))
-        except ImportError:
-            return {"error": "spotipy not installed"}
-        except Exception as exc:  # noqa: BLE001
-            self.logger.exception("SpotifyAgent error")
-            return {"error": str(exc)}
+        agent: Agent[object, str] = Agent(
+            deps_type=object,
+            system_prompt=self.get_system_prompt(),
+        )
 
-    def _dispatch(self, sp: Any, action: str, data: dict[str, Any]) -> dict[str, Any]:
-        if action == "current":
+        @agent.tool
+        def get_current_track(ctx: RunContext[object]) -> dict:
+            """Get the currently playing Spotify track."""
+            sp = ctx.deps
             track = sp.current_playback()
             if not track or not track.get("item"):
                 return {"playing": False}
@@ -61,8 +51,10 @@ class SpotifyAgent(BaseAgent):
                 "album": item["album"]["name"],
             }
 
-        if action == "play":
-            query = data.get("query", "")
+        @agent.tool
+        def play_music(ctx: RunContext[object], query: str = "") -> dict:
+            """Play music on Spotify, optionally searching for a track or artist."""
+            sp = ctx.deps
             if query:
                 results = sp.search(q=query, limit=1, type="track")
                 tracks = results.get("tracks", {}).get("items", [])
@@ -73,26 +65,36 @@ class SpotifyAgent(BaseAgent):
             sp.start_playback()
             return {"playing": True}
 
-        if action == "pause":
-            sp.pause_playback()
+        @agent.tool
+        def pause_music(ctx: RunContext[object]) -> dict:
+            """Pause Spotify playback."""
+            ctx.deps.pause_playback()
             return {"paused": True}
 
-        if action == "skip":
-            sp.next_track()
+        @agent.tool
+        def skip_track(ctx: RunContext[object]) -> dict:
+            """Skip to the next track on Spotify."""
+            ctx.deps.next_track()
             return {"skipped": True}
 
-        if action == "previous":
-            sp.previous_track()
+        @agent.tool
+        def previous_track(ctx: RunContext[object]) -> dict:
+            """Go back to the previous track on Spotify."""
+            ctx.deps.previous_track()
             return {"previous": True}
 
-        if action == "volume":
-            vol = int(data.get("volume", 50))
-            sp.volume(vol)
+        @agent.tool
+        def set_volume(ctx: RunContext[object], volume: int) -> dict:
+            """Set the Spotify playback volume (0-100)."""
+            vol = max(0, min(100, volume))
+            ctx.deps.volume(vol)
             return {"volume": vol}
 
-        if action == "search":
-            query = data.get("query", "")
-            results = sp.search(q=query, limit=5, type="track")
+        @agent.tool
+        def search_tracks(ctx: RunContext[object], query: str, limit: int = 5) -> dict:
+            """Search Spotify for tracks matching a query."""
+            sp = ctx.deps
+            results = sp.search(q=query, limit=limit, type="track")
             items = [
                 {
                     "name": t["name"],
@@ -103,4 +105,37 @@ class SpotifyAgent(BaseAgent):
             ]
             return {"results": items}
 
-        return {"error": f"Unknown action: {action}"}
+        return agent
+
+    def _build_client(self) -> Any:
+        import spotipy
+        from spotipy.oauth2 import SpotifyOAuth
+
+        return spotipy.Spotify(
+            auth_manager=SpotifyOAuth(
+                client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
+                client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", ""),
+                redirect_uri=os.environ.get(
+                    "SPOTIFY_REDIRECT_URI", "http://localhost:8888/callback"
+                ),
+                scope="user-read-playback-state user-modify-playback-state user-read-currently-playing",
+                cache_path=os.environ.get("SPOTIFY_TOKEN_CACHE", ".spotify_cache"),
+            )
+        )
+
+    async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
+        self.logger.info("SpotifyAgent executing")
+        try:
+            import spotipy  # noqa: F401 — verify installed
+
+            sp = self._build_client()
+            from angie.llm import get_llm_model
+
+            intent = self._extract_intent(task, fallback="what is currently playing?")
+            result = await self._get_agent().run(intent, model=get_llm_model(), deps=sp)
+            return {"result": str(result.output)}
+        except ImportError:
+            return {"error": "spotipy not installed"}
+        except Exception as exc:  # noqa: BLE001
+            self.logger.exception("SpotifyAgent error")
+            return {"error": str(exc)}

@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import os
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+from pydantic_ai import RunContext
 
 from angie.agents.base import BaseAgent
+
+if TYPE_CHECKING:
+    from pydantic_ai import Agent
 
 
 class GitHubAgent(BaseAgent):
@@ -21,63 +26,89 @@ class GitHubAgent(BaseAgent):
         "commit",
     ]
 
+    def build_pydantic_agent(self) -> Agent:
+        from pydantic_ai import Agent
+
+        agent: Agent[object, str] = Agent(
+            deps_type=object,
+            system_prompt=self.get_system_prompt(),
+        )
+
+        @agent.tool
+        def list_repositories(ctx: RunContext[object]) -> list:
+            """List the authenticated user's GitHub repositories."""
+            g = ctx.deps
+            return [
+                {"name": r.full_name, "private": r.private} for r in g.get_user().get_repos()[:20]
+            ]
+
+        @agent.tool
+        def list_pull_requests(ctx: RunContext[object], repo: str, state: str = "open") -> list:
+            """List pull requests for a GitHub repository."""
+            g = ctx.deps
+            repo_obj = g.get_repo(repo)
+            return [
+                {
+                    "number": pr.number,
+                    "title": pr.title,
+                    "state": pr.state,
+                    "author": pr.user.login,
+                }
+                for pr in repo_obj.get_pulls(state=state)[:20]
+            ]
+
+        @agent.tool
+        def list_issues(ctx: RunContext[object], repo: str, state: str = "open") -> list:
+            """List issues for a GitHub repository."""
+            g = ctx.deps
+            repo_obj = g.get_repo(repo)
+            return [
+                {
+                    "number": i.number,
+                    "title": i.title,
+                    "state": i.state,
+                    "author": i.user.login,
+                }
+                for i in repo_obj.get_issues(state=state)[:20]
+            ]
+
+        @agent.tool
+        def create_issue(ctx: RunContext[object], repo: str, title: str, body: str = "") -> dict:
+            """Create a new issue in a GitHub repository."""
+            g = ctx.deps
+            issue = g.get_repo(repo).create_issue(title=title, body=body)
+            return {"created": True, "number": issue.number, "url": issue.html_url}
+
+        @agent.tool
+        def get_repository(ctx: RunContext[object], repo: str) -> dict:
+            """Get details about a GitHub repository."""
+            g = ctx.deps
+            r = g.get_repo(repo)
+            return {
+                "name": r.full_name,
+                "description": r.description,
+                "stars": r.stargazers_count,
+                "forks": r.forks_count,
+                "open_issues": r.open_issues_count,
+                "default_branch": r.default_branch,
+            }
+
+        return agent
+
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
-        action = task.get("input_data", {}).get("action", "list_repos")
-        self.logger.info("GitHubAgent action=%s", action)
         try:
             import github as gh_module
-
-            token = os.environ.get("GITHUB_TOKEN", "")
-            g = gh_module.Github(token) if token else gh_module.Github()
-            return await self._dispatch(g, action, task.get("input_data", {}))
         except ImportError:
             return {"error": "PyGithub not installed"}
+        self.logger.info("GitHubAgent executing")
+        try:
+            token = os.environ.get("GITHUB_TOKEN", "")
+            g = gh_module.Github(token) if token else gh_module.Github()
+            from angie.llm import get_llm_model
+
+            intent = self._extract_intent(task, fallback="list my repositories")
+            result = await self._get_agent().run(intent, model=get_llm_model(), deps=g)
+            return {"result": str(result.output)}
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("GitHubAgent error")
             return {"error": str(exc)}
-
-    async def _dispatch(self, g: Any, action: str, data: dict[str, Any]) -> dict[str, Any]:
-        repo_name: str = data.get("repo", "")
-
-        if action == "list_repos":
-            repos = [
-                {"name": r.full_name, "private": r.private} for r in g.get_user().get_repos()[:20]
-            ]
-            return {"repos": repos}
-
-        if action == "list_prs":
-            repo = g.get_repo(repo_name)
-            prs = [
-                {"number": pr.number, "title": pr.title, "state": pr.state, "author": pr.user.login}
-                for pr in repo.get_pulls(state="open")[:20]
-            ]
-            return {"pull_requests": prs}
-
-        if action == "list_issues":
-            repo = g.get_repo(repo_name)
-            issues = [
-                {"number": i.number, "title": i.title, "state": i.state, "author": i.user.login}
-                for i in repo.get_issues(state="open")[:20]
-            ]
-            return {"issues": issues}
-
-        if action == "create_issue":
-            repo = g.get_repo(repo_name)
-            issue = repo.create_issue(
-                title=data.get("title", "Untitled"),
-                body=data.get("body", ""),
-            )
-            return {"created": True, "number": issue.number, "url": issue.html_url}
-
-        if action == "get_repo":
-            repo = g.get_repo(repo_name)
-            return {
-                "name": repo.full_name,
-                "description": repo.description,
-                "stars": repo.stargazers_count,
-                "forks": repo.forks_count,
-                "open_issues": repo.open_issues_count,
-                "default_branch": repo.default_branch,
-            }
-
-        return {"error": f"Unknown action: {action}"}

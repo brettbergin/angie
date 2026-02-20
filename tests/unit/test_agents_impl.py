@@ -67,11 +67,15 @@ async def test_spam_agent_scan():
     from angie.agents.email.spam import SpamAgent
 
     agent = SpamAgent()
-    with patch.object(
-        agent, "_scan", new_callable=AsyncMock, return_value={"spam_found": 0, "items": []}
+    mock_result = MagicMock(output="Found spam messages")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+    with (
+        patch.object(agent, "_get_agent", return_value=mock_pai),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
     ):
         result = await agent.execute(_make_task("scan"))
-    assert "spam_found" in result or "error" in result
+    assert "result" in result or "error" in result
 
 
 @pytest.mark.asyncio
@@ -79,14 +83,15 @@ async def test_spam_agent_delete():
     from angie.agents.email.spam import SpamAgent
 
     agent = SpamAgent()
-    with patch.object(
-        agent,
-        "_delete_spam",
-        new_callable=AsyncMock,
-        return_value={"trashed": 0, "message_ids": []},
+    mock_result = MagicMock(output="Deleted spam messages")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+    with (
+        patch.object(agent, "_get_agent", return_value=mock_pai),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
     ):
         result = await agent.execute(_make_task("delete_spam"))
-    assert "trashed" in result or "error" in result
+    assert "result" in result or "error" in result
 
 
 @pytest.mark.asyncio
@@ -106,8 +111,13 @@ async def test_correspondence_agent_draft():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
 
     agent = EmailCorrespondenceAgent()
-    with patch.object(
-        agent, "_draft_reply", new_callable=AsyncMock, return_value={"draft": "Dear..."}
+    mock_result = MagicMock(output="Dear...")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+    with (
+        patch("angie.llm.is_llm_configured", return_value=True),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        patch.object(agent, "_get_agent", return_value=mock_pai),
     ):
         result = await agent.execute(_make_task("draft_reply", email_body="Hello", context="reply"))
     assert "draft" in result or "reply" in result or "error" in result

@@ -290,74 +290,57 @@ async def test_hue_import_error():
 
 @pytest.mark.asyncio
 async def test_hue_on_group_fallback():
-    """bridge.set_group when no named light is specified."""
+    """turn_on_light tool with no light_name calls set_group."""
+    from angie.agents.smart_home.hue import HueAgent
+
     mock_bridge = MagicMock()
-    mock_phue = MagicMock()
-    mock_phue.Bridge.return_value = mock_bridge
-
-    os.environ["HUE_BRIDGE_IP"] = "192.168.1.100"
-    sys.modules.pop("angie.agents.smart_home.hue", None)
-    with patch.dict("sys.modules", {"phue": mock_phue}):
-        import angie.agents.smart_home.hue as _hue_mod
-
-        agent = _hue_mod.HueAgent()
-        await agent.execute(_task("on"))  # no light= kwarg
-    os.environ.pop("HUE_BRIDGE_IP", None)
-    sys.modules.pop("angie.agents.smart_home.hue", None)
+    agent = HueAgent()
+    tool = agent.build_pydantic_agent()._function_toolset.tools["turn_on_light"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    tool.function(mock_ctx)
     mock_bridge.set_group.assert_called_with(0, "on", True)
 
 
 @pytest.mark.asyncio
 async def test_hue_off_named_light():
+    """turn_off_light tool with light_name calls set_light."""
+    from angie.agents.smart_home.hue import HueAgent
+
     mock_bridge = MagicMock()
-    mock_phue = MagicMock()
-    mock_phue.Bridge.return_value = mock_bridge
-
-    os.environ["HUE_BRIDGE_IP"] = "192.168.1.100"
-    sys.modules.pop("angie.agents.smart_home.hue", None)
-    with patch.dict("sys.modules", {"phue": mock_phue}):
-        import angie.agents.smart_home.hue as _hue_mod
-
-        agent = _hue_mod.HueAgent()
-        await agent.execute(_task("off", light="Bedroom"))
-    os.environ.pop("HUE_BRIDGE_IP", None)
-    sys.modules.pop("angie.agents.smart_home.hue", None)
+    agent = HueAgent()
+    tool = agent.build_pydantic_agent()._function_toolset.tools["turn_off_light"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    tool.function(mock_ctx, light_name="Bedroom")
     mock_bridge.set_light.assert_called_with("Bedroom", "on", False)
 
 
 @pytest.mark.asyncio
 async def test_hue_brightness_named():
+    """set_brightness tool with light_name calls set_light."""
+    from angie.agents.smart_home.hue import HueAgent
+
     mock_bridge = MagicMock()
-    mock_phue = MagicMock()
-    mock_phue.Bridge.return_value = mock_bridge
-
-    os.environ["HUE_BRIDGE_IP"] = "192.168.1.100"
-    sys.modules.pop("angie.agents.smart_home.hue", None)
-    with patch.dict("sys.modules", {"phue": mock_phue}):
-        import angie.agents.smart_home.hue as _hue_mod
-
-        agent = _hue_mod.HueAgent()
-        await agent.execute(_task("brightness", brightness=128, light="Kitchen"))
-    os.environ.pop("HUE_BRIDGE_IP", None)
-    sys.modules.pop("angie.agents.smart_home.hue", None)
+    agent = HueAgent()
+    tool = agent.build_pydantic_agent()._function_toolset.tools["set_brightness"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    tool.function(mock_ctx, brightness=128, light_name="Kitchen")
     mock_bridge.set_light.assert_called_with("Kitchen", "bri", 128)
 
 
 @pytest.mark.asyncio
 async def test_hue_color_named():
+    """set_color tool with light_name calls set_light."""
+    from angie.agents.smart_home.hue import HueAgent
+
     mock_bridge = MagicMock()
-    mock_phue = MagicMock()
-    mock_phue.Bridge.return_value = mock_bridge
-
-    os.environ["HUE_BRIDGE_IP"] = "192.168.1.100"
-    sys.modules.pop("angie.agents.smart_home.hue", None)
-    with patch.dict("sys.modules", {"phue": mock_phue}):
-        import angie.agents.smart_home.hue as _hue_mod
-
-        agent = _hue_mod.HueAgent()
-        await agent.execute(_task("color", hue=10000, saturation=200, light="Living Room"))
-    os.environ.pop("HUE_BRIDGE_IP", None)
-    sys.modules.pop("angie.agents.smart_home.hue", None)
+    agent = HueAgent()
+    tool = agent.build_pydantic_agent()._function_toolset.tools["set_color"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = mock_bridge
+    tool.function(mock_ctx, hue=10000, saturation=200, light_name="Living Room")
     mock_bridge.set_light.assert_called_with("Living Room", {"hue": 10000, "sat": 200})
 
 
@@ -366,14 +349,17 @@ async def test_hue_color_named():
 
 @pytest.mark.asyncio
 async def test_spam_delete_with_ids():
+    """delete_spam_messages tool trashes specified message IDs."""
     from angie.agents.email.spam import SpamAgent
+
+    agent = SpamAgent()
+    tool = agent.build_pydantic_agent()._function_toolset.tools["delete_spam_messages"]
 
     mock_gmail = AsyncMock()
     mock_gmail.execute.return_value = {"status": "trashed"}
 
-    agent = SpamAgent()
     with patch("angie.agents.email.gmail.GmailAgent", return_value=mock_gmail):
-        result = await agent._delete_spam({"message_ids": ["msg-1", "msg-2"]})
+        result = await tool.function(message_ids=["msg-1", "msg-2"])
 
     assert result["trashed"] == 2
 
@@ -414,14 +400,16 @@ def test_registry_generic_exception():
 
 @pytest.mark.asyncio
 async def test_spam_delete_exception():
-    """_delete_spam returns error dict when gmail.execute raises."""
+    """delete_spam_messages tool returns error dict when gmail.execute raises."""
     from angie.agents.email.spam import SpamAgent
+
+    agent = SpamAgent()
+    tool = agent.build_pydantic_agent()._function_toolset.tools["delete_spam_messages"]
 
     mock_gmail = AsyncMock()
     mock_gmail.execute.side_effect = RuntimeError("gmail error")
 
-    agent = SpamAgent()
     with patch("angie.agents.email.gmail.GmailAgent", return_value=mock_gmail):
-        result = await agent._delete_spam({"message_ids": ["msg-1"]})
+        result = await tool.function(message_ids=["msg-1"])
 
     assert "error" in result
