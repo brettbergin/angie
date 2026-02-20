@@ -20,21 +20,26 @@ class TeamResolver:
 
     def agents(self) -> list[BaseAgent]:
         registry = get_registry()
-        return [a for a in registry.all() if a.slug in self.agent_slugs]
+        return [a for a in registry.list_all() if a.slug in self.agent_slugs]
+
+    def _task_dict(self, task: AngieTask) -> dict:
+        return task.to_dict() if hasattr(task, "to_dict") else dict(task)  # type: ignore[arg-type]
 
     def resolve(self, task: AngieTask) -> BaseAgent | None:
         """Return the first agent in this team that can handle the task."""
+        task_dict = self._task_dict(task)
         for agent in self.agents():
-            if agent.can_handle(task):
+            if agent.can_handle(task_dict):
                 return agent
         return None
 
     async def execute(self, task: AngieTask) -> dict:
         """Execute a task against this team, trying agents in priority order."""
+        task_dict = self._task_dict(task)
         results: list[dict] = []
         for agent in self.agents():
-            if agent.can_handle(task):
-                result = await agent.execute(task)
+            if agent.can_handle(task_dict):
+                result = await agent.execute(task_dict)
                 results.append({"agent": agent.slug, "result": result})
                 # Stop after first successful execution unless task requires fan-out
                 if result.get("status") != "failure":

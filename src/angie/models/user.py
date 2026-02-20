@@ -21,12 +21,12 @@ class User(Base, TimestampMixin):
     preferred_channel: Mapped[str | None] = mapped_column(String(50))
 
     # Relationships
-    prompts: Mapped[list["Prompt"]] = relationship(
+    prompts: Mapped[list["Prompt"]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan"
-    )  # noqa: F821
-    channel_configs: Mapped[list["ChannelConfig"]] = relationship(
+    )
+    channel_configs: Mapped[list["ChannelConfig"]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan"
-    )  # noqa: F821
+    )
     tasks: Mapped[list["Task"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # noqa: F821
 
     def __repr__(self) -> str:
