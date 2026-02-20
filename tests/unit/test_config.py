@@ -14,7 +14,12 @@ def make_settings(**kwargs):
 
 
 def test_settings_defaults():
-    s = make_settings()
+    # Unset env vars that CI may inject (e.g. from the MySQL service container)
+    # so we test the Settings field defaults, not ambient env values.
+    ci_vars = {"DB_NAME", "DB_USER", "DB_HOST", "DB_PORT", "APP_ENV", "DEBUG"}
+    clean_env = {k: v for k, v in os.environ.items() if k not in ci_vars}
+    with patch.dict(os.environ, clean_env, clear=True):
+        s = make_settings()
     assert s.app_name == "Angie"
     assert s.app_env == "development"
     assert s.debug is False
