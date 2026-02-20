@@ -4,6 +4,7 @@ import click
 
 from angie.cli.chat import chat
 from angie.cli.config import config
+from angie.cli.configure import configure
 from angie.cli.prompts import prompts
 from angie.cli.setup import setup
 from angie.cli.status import status
@@ -18,6 +19,7 @@ def cli():
 cli.add_command(setup)
 cli.add_command(chat)
 cli.add_command(config)
+cli.add_command(configure)
 cli.add_command(status)
 cli.add_command(prompts)
 
