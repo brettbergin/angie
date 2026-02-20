@@ -5,7 +5,7 @@ PYTEST       := .venv/bin/pytest
 RUFF         := .venv/bin/ruff
 
 .PHONY: help install lint lint-fix format format-fix check fix test test-single \
-        build docker-build docker-up docker-down docker-logs migrate clean
+        build docker-build docker-up docker-down docker-restart docker-logs migrate clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -59,6 +59,9 @@ docker-up: ## Start all services with Docker Compose
 
 docker-down: ## Stop all services
 	docker compose down
+
+docker-restart: ## Rebuild images and restart all services
+	docker compose down && docker compose build && docker compose up -d
 
 docker-logs: ## Tail logs from all services
 	docker compose logs -f
