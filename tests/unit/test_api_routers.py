@@ -708,6 +708,7 @@ def test_chat_ws_with_llm():
     ]
     mock_agent_obj = AsyncMock()
     mock_agent_obj.run = AsyncMock(return_value=mock_result)
+    mock_agent_obj.tool_plain = lambda fn=None, **kw: fn if fn else (lambda f: f)
 
     with (
         patch("angie.config.get_settings", return_value=mock_settings),
@@ -736,6 +737,7 @@ def test_chat_ws_llm_error():
 
     mock_agent_obj = AsyncMock()
     mock_agent_obj.run = AsyncMock(side_effect=RuntimeError("llm error"))
+    mock_agent_obj.tool_plain = lambda fn=None, **kw: fn if fn else (lambda f: f)
 
     with (
         patch("angie.config.get_settings", return_value=mock_settings),

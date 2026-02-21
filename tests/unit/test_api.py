@@ -304,6 +304,7 @@ async def test_register_endpoint():
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = None
     mock_session.execute.return_value = mock_result
+    mock_session.add = MagicMock()
     mock_session.flush = AsyncMock()
     mock_session.refresh = AsyncMock()
 

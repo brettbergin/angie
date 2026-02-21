@@ -110,6 +110,14 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"
 pythonpath = ["src"]
+filterwarnings = [
+    "ignore::ResourceWarning",
+    "ignore:coroutine 'AsyncMockMixin._execute_mock_call' was never awaited:RuntimeWarning",
+    "ignore:coroutine 'run_daemon' was never awaited:RuntimeWarning",
+    "ignore:coroutine '_seed_db' was never awaited:RuntimeWarning",
+    "ignore:coroutine 'ask.<locals>._ask' was never awaited:RuntimeWarning",
+    "ignore:coroutine '_run_task' was never awaited:RuntimeWarning",
+]
 
 [tool.mypy]
 python_version = "3.12"

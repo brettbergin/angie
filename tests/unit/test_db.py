@@ -170,6 +170,7 @@ async def test_repository_create():
     from angie.db.repository import Repository
 
     mock_session = AsyncMock()
+    mock_session.add = MagicMock()
 
     class FakeModel:
         def __init__(self, **kwargs):
