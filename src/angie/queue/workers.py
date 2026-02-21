@@ -142,6 +142,7 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
         result.get("summary")
         or result.get("message")
         or result.get("result")
+        or result.get("error")
         or "✅ Task complete."
     )
 

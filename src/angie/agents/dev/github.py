@@ -50,7 +50,8 @@ class GitHubAgent(BaseAgent):
             """List the authenticated user's GitHub repositories."""
             g = ctx.deps
             return [
-                {"name": r.full_name, "private": r.private} for r in g.get_user().get_repos()[:20]
+                {"name": r.full_name, "private": r.private}
+                for r in list(g.get_user().get_repos()[:20])
             ]
 
         @agent.tool
@@ -58,6 +59,7 @@ class GitHubAgent(BaseAgent):
             """List pull requests for a GitHub repository."""
             g = ctx.deps
             repo_obj = g.get_repo(repo)
+            pulls = list(repo_obj.get_pulls(state=state)[:20])
             return [
                 {
                     "number": pr.number,
@@ -65,7 +67,7 @@ class GitHubAgent(BaseAgent):
                     "state": pr.state,
                     "author": pr.user.login,
                 }
-                for pr in repo_obj.get_pulls(state=state)[:20]
+                for pr in pulls
             ]
 
         @agent.tool
@@ -73,6 +75,7 @@ class GitHubAgent(BaseAgent):
             """List issues for a GitHub repository."""
             g = ctx.deps
             repo_obj = g.get_repo(repo)
+            issues = list(repo_obj.get_issues(state=state)[:20])
             return [
                 {
                     "number": i.number,
@@ -80,7 +83,7 @@ class GitHubAgent(BaseAgent):
                     "state": i.state,
                     "author": i.user.login,
                 }
-                for i in repo_obj.get_issues(state=state)[:20]
+                for i in issues
             ]
 
         @agent.tool
@@ -119,7 +122,7 @@ class GitHubAgent(BaseAgent):
 
             intent = self._extract_intent(task, fallback="list my repositories")
             result = await self._get_agent().run(intent, model=get_llm_model(), deps=g)
-            return {"result": str(result.output)}
+            return {"summary": str(result.output)}
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("GitHubAgent error")
-            return {"error": str(exc)}
+            return {"summary": f"GitHub error: {exc}", "error": str(exc)}
