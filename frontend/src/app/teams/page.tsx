@@ -20,6 +20,7 @@ export default function TeamsPage() {
   const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [agentSearch, setAgentSearch] = useState("");
+  const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
 
   const fetchTeams = () => {
     if (!token) return;
@@ -78,7 +79,7 @@ export default function TeamsPage() {
           <h1 className="text-2xl font-bold text-gray-100">Teams</h1>
           <p className="text-sm text-gray-400 mt-1">Groups of agents that collaborate on workflows</p>
         </div>
-        <Button size="sm" onClick={() => { setShowCreate(!showCreate); if (showCreate) { setSelectedSlugs([]); setAgentSearch(""); } }}>
+        <Button size="sm" onClick={() => { setShowCreate(!showCreate); if (showCreate) { setSelectedSlugs([]); setAgentSearch(""); setAgentDropdownOpen(false); } }}>
           {showCreate ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           {showCreate ? "Cancel" : "New Team"}
         </Button>
@@ -100,13 +101,15 @@ export default function TeamsPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Add Agents</label>
-              <div className="relative">
-                <Input placeholder="Search agents to add…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
-                {agentSearch && (
+              <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setAgentDropdownOpen(false); }}>
+                <Input placeholder="Click to browse or type to search agents…" value={agentSearch}
+                  onFocus={() => setAgentDropdownOpen(true)}
+                  onChange={(e) => { setAgentSearch(e.target.value); setAgentDropdownOpen(true); }} />
+                {agentDropdownOpen && (
                   <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-gray-900 border border-gray-700 rounded-lg shadow-xl divide-y divide-gray-800">
                     {filteredAgents.filter((a) => !selectedSlugs.includes(a.slug)).map((agent) => (
                       <button key={agent.slug} type="button"
-                        onClick={() => { toggleAgent(agent.slug); setAgentSearch(""); }}
+                        onClick={() => { toggleAgent(agent.slug); setAgentSearch(""); setAgentDropdownOpen(false); }}
                         className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-800/50 transition-colors">
                         <Plus className="w-4 h-4 text-angie-400 flex-shrink-0" />
                         <Bot className="w-4 h-4 text-gray-500 flex-shrink-0" />
