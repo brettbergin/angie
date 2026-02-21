@@ -544,25 +544,10 @@ def test_task_out_model_validate_no_timestamps():
 
 
 def test_task_out_model_validate_with_datetime():
-    """Cover lines 41+43: TaskOut.model_validate when obj has datetime timestamps."""
+    """TaskOut accepts native datetime fields via from_attributes."""
     from datetime import datetime
-    from unittest.mock import patch as _patch
-
-    from pydantic import BaseModel
 
     from angie.api.routers.tasks import TaskOut
-
-    base_result = TaskOut(
-        id="t1",
-        title="t",
-        status="success",
-        input_data={},
-        output_data={},
-        error=None,
-        source_channel=None,
-        created_at=None,
-        updated_at=None,
-    )
 
     class MockObj:
         id = "t1"
@@ -575,11 +560,10 @@ def test_task_out_model_validate_with_datetime():
         created_at = datetime(2024, 1, 1, 12, 0, 0)
         updated_at = datetime(2024, 1, 2, 12, 0, 0)
 
-    with _patch.object(BaseModel, "model_validate", return_value=base_result):
-        result = TaskOut.model_validate(MockObj())
+    result = TaskOut.model_validate(MockObj())
 
-    assert result.created_at == "2024-01-01T12:00:00"
-    assert result.updated_at == "2024-01-02T12:00:00"
+    assert result.created_at == datetime(2024, 1, 1, 12, 0, 0)
+    assert result.updated_at == datetime(2024, 1, 2, 12, 0, 0)
 
 
 def test_get_task_success():

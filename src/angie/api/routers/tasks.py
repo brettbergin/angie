@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -29,19 +31,10 @@ class TaskOut(BaseModel):
     output_data: dict
     error: str | None
     source_channel: str | None
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
-
-    @classmethod
-    def model_validate(cls, obj, **kw):
-        data = super().model_validate(obj, **kw)
-        if hasattr(obj, "created_at") and obj.created_at:
-            data.created_at = obj.created_at.isoformat()
-        if hasattr(obj, "updated_at") and obj.updated_at:
-            data.updated_at = obj.updated_at.isoformat()
-        return data
 
 
 @router.get("/", response_model=list[TaskOut])
