@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,7 +50,7 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function sendMessage(e: React.FormEvent) {
+  function sendMessage(e: React.FormEvent | React.KeyboardEvent) {
     e.preventDefault();
     const text = input.trim();
     if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
@@ -61,6 +60,8 @@ export default function ChatPage() {
       { id: crypto.randomUUID(), role: "user", content: text, ts: Date.now() },
     ]);
     setInput("");
+    const ta = (e.target as HTMLElement).closest("form")?.querySelector("textarea");
+    if (ta) ta.style.height = "auto";
   }
 
   return (
@@ -121,15 +122,17 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="p-4 border-t border-gray-800">
-        <form onSubmit={sendMessage} className="flex gap-3">
-          <Input
-            className="flex-1"
+        <form onSubmit={sendMessage} className="flex gap-3 items-end">
+          <textarea
+            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-angie-500 focus:border-transparent transition resize-none min-h-[44px] max-h-[200px]"
             placeholder={connected ? "Message Angie…" : "Waiting for connection…"}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(e); } }}
             disabled={!connected}
+            rows={1}
           />
-          <Button type="submit" disabled={!connected || !input.trim()}>
+          <Button type="submit" disabled={!connected || !input.trim()} className="h-[44px]">
             {connecting ? <Spinner className="w-4 h-4" /> : <Send className="w-4 h-4" />}
           </Button>
         </form>
