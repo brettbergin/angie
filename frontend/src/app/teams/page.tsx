@@ -53,8 +53,12 @@ export default function TeamsPage() {
 
   const handleDelete = async (id: string) => {
     if (!token || !confirm("Delete this team?")) return;
-    await api.teams.delete(token, id);
-    fetchTeams();
+    setTeams((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await api.teams.delete(token, id);
+    } catch {
+      fetchTeams();
+    }
   };
 
   const filtered = teams.filter((t) =>
