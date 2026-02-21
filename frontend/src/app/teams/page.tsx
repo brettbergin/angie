@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Users, Plus, Trash2, X, Bot, Check } from "lucide-react";
+import { Users, Plus, Trash2, X, Bot } from "lucide-react";
 
 export default function TeamsPage() {
   const { token } = useAuth();
@@ -95,31 +95,60 @@ export default function TeamsPage() {
               onChange={(e) => setForm({ ...form, goal: e.target.value })} />
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Agents ({selectedSlugs.length} selected)
-              </label>
-              <Input placeholder="Search agents…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
-              <div className="mt-2 max-h-48 overflow-y-auto border border-gray-700 rounded-lg divide-y divide-gray-800">
-                {filteredAgents.map((agent) => {
-                  const selected = selectedSlugs.includes(agent.slug);
-                  return (
-                    <button key={agent.slug} type="button" onClick={() => toggleAgent(agent.slug)}
-                      className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${selected ? "bg-angie-600/10" : "hover:bg-gray-800/50"}`}>
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selected ? "bg-angie-600 border-angie-500" : "border-gray-600"}`}>
-                        {selected && <Check className="w-3 h-3 text-white" />}
-                      </div>
-                      <Bot className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <span className="text-sm text-gray-200">{agent.name}</span>
-                        <span className="text-xs text-gray-500 ml-2 font-mono">{agent.slug}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-                {filteredAgents.length === 0 && (
-                  <div className="px-3 py-4 text-center text-sm text-gray-500">No agents match</div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Add Agents</label>
+              <div className="relative">
+                <Input placeholder="Search agents to add…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
+                {agentSearch && (
+                  <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto bg-gray-900 border border-gray-700 rounded-lg shadow-xl divide-y divide-gray-800">
+                    {filteredAgents.filter((a) => !selectedSlugs.includes(a.slug)).map((agent) => (
+                      <button key={agent.slug} type="button"
+                        onClick={() => { toggleAgent(agent.slug); setAgentSearch(""); }}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-800/50 transition-colors">
+                        <Plus className="w-4 h-4 text-angie-400 flex-shrink-0" />
+                        <Bot className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-sm text-gray-200">{agent.name}</span>
+                          <span className="text-xs text-gray-500 ml-2 font-mono">{agent.slug}</span>
+                        </div>
+                      </button>
+                    ))}
+                    {filteredAgents.filter((a) => !selectedSlugs.includes(a.slug)).length === 0 && (
+                      <div className="px-3 py-4 text-center text-sm text-gray-500">No agents match</div>
+                    )}
+                  </div>
                 )}
               </div>
+
+              {selectedSlugs.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-2 uppercase tracking-wide font-semibold">
+                    Team Roster — {selectedSlugs.length} agent{selectedSlugs.length !== 1 ? "s" : ""}
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {selectedSlugs.map((slug) => {
+                      const agent = agents.find((a) => a.slug === slug);
+                      if (!agent) return null;
+                      return (
+                        <div key={slug}
+                          className="group/card relative flex flex-col items-center gap-2 p-3 rounded-lg border border-angie-600/30 bg-angie-600/5 hover:border-angie-500/50 transition-colors">
+                          <button type="button" onClick={() => toggleAgent(slug)}
+                            className="absolute top-1.5 right-1.5 opacity-0 group-hover/card:opacity-100 p-1 rounded hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all"
+                            title="Remove from team">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                          <div className="w-10 h-10 rounded-full bg-angie-600/20 border border-angie-600/30 flex items-center justify-center">
+                            <Bot className="w-5 h-5 text-angie-400" />
+                          </div>
+                          <div className="text-center min-w-0 w-full">
+                            <p className="text-sm font-medium text-gray-200 truncate">{agent.name}</p>
+                            <p className="text-xs text-gray-500 font-mono truncate">{agent.slug}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button size="sm" onClick={handleCreate} disabled={creating || !form.name || !form.slug}>
