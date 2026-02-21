@@ -46,10 +46,15 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 
 
 def reset_engine() -> None:
-    """Dispose the engine and clear singletons (for use in forked workers)."""
+    """Dispose the engine and clear singletons (for use in forked workers).
+
+    Uses close=False to abandon parent-process connections without trying to
+    close them — their async transports are tied to the parent's event loop
+    which is dead in the forked worker.
+    """
     global _engine, _session_factory
     if _engine is not None:
-        _engine.sync_engine.dispose()
+        _engine.sync_engine.dispose(close=False)
     _engine = None
     _session_factory = None
 
