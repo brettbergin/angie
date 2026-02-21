@@ -139,8 +139,9 @@ class SpotifyAgent(BaseAgent):
         if not token_info:
             auth_url = auth_manager.get_authorize_url()
             raise RuntimeError(
-                f"Spotify authorization required. Visit this URL to authorize: {auth_url} "
-                f"Then run: angie config spotify --callback-url '<redirect_url_with_code>'"
+                f"Spotify authorization required. "
+                f"[Click here to authorize Spotify]({auth_url}), "
+                f"then run: `angie config spotify --callback-url '<redirect_url_with_code>'`"
             )
 
         return spotipy.Spotify(auth_manager=auth_manager)

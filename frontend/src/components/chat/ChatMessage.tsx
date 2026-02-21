@@ -45,7 +45,17 @@ export function ChatMessageBubble({ role, content, username, type }: Props) {
         )}
         {role === "assistant" ? (
           <div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2 prose-code:text-angie-300 prose-a:text-angie-400 prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-700">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeSanitize]}
+              components={{
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-angie-400 underline hover:text-angie-300">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
               {content}
             </ReactMarkdown>
           </div>
