@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api, Agent, Team, ChatMessage as ChatMessageType } from "@/lib/api";
+import { parseUTC } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ChatMessageBubble } from "@/components/chat/ChatMessage";
@@ -93,7 +94,7 @@ function ChatPageInner() {
         id: m.id,
         role: m.role,
         content: m.content,
-        ts: new Date(m.created_at).getTime(),
+        ts: parseUTC(m.created_at).getTime(),
       }));
       setMessages(mapped);
       messageCountRef.current = mapped.length;
@@ -130,7 +131,7 @@ function ChatPageInner() {
               id: m.id,
               role: m.role as "user" | "assistant",
               content: m.content,
-              ts: new Date(m.created_at).getTime(),
+              ts: parseUTC(m.created_at).getTime(),
             }))
           );
           messageCountRef.current = msgs.length;

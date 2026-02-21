@@ -5,8 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Parse a date string as UTC even if the server omits the trailing Z. */
+export function parseUTC(dateStr: string): Date {
+  if (!dateStr.endsWith("Z") && !dateStr.includes("+") && !dateStr.includes("-", 10)) {
+    return new Date(dateStr + "Z");
+  }
+  return new Date(dateStr);
+}
+
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString();
+  return parseUTC(iso).toLocaleString();
 }
 
 export function statusColor(status: string): string {

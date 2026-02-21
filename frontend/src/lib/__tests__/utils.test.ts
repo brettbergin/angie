@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cn, formatDate, statusColor } from "../utils";
+import { cn, formatDate, parseUTC, statusColor } from "../utils";
 
 describe("cn()", () => {
   it("merges multiple class strings", () => {
@@ -12,6 +12,23 @@ describe("cn()", () => {
 
   it("handles undefined/null/false values", () => {
     expect(cn("foo", undefined, null, false, "bar")).toBe("foo bar");
+  });
+});
+
+describe("parseUTC()", () => {
+  it("appends Z to naive timestamp strings", () => {
+    const d = parseUTC("2024-06-15T14:30:00");
+    expect(d.toISOString()).toBe("2024-06-15T14:30:00.000Z");
+  });
+
+  it("leaves timestamp with Z unchanged", () => {
+    const d = parseUTC("2024-06-15T14:30:00Z");
+    expect(d.toISOString()).toBe("2024-06-15T14:30:00.000Z");
+  });
+
+  it("leaves timestamp with offset unchanged", () => {
+    const d = parseUTC("2024-06-15T14:30:00+05:00");
+    expect(d.toISOString()).toBe("2024-06-15T09:30:00.000Z");
   });
 });
 
