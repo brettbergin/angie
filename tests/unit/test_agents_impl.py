@@ -28,9 +28,16 @@ async def test_gmail_agent_list():
     mock_service.users.return_value.messages.return_value.list.return_value.execute.return_value = {
         "messages": []
     }
-    with patch.object(agent, "_build_service", return_value=mock_service):
+    mock_result = MagicMock(output="No unread messages found.")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+    with (
+        patch.object(agent, "_build_service", return_value=mock_service),
+        patch.object(agent, "_get_agent", return_value=mock_pai),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+    ):
         result = await agent.execute(_make_task("list"))
-    assert "messages" in result or "emails" in result or "error" in result
+    assert "result" in result or "error" in result
 
 
 @pytest.mark.asyncio
@@ -52,11 +59,18 @@ async def test_gmail_agent_send():
     mock_service.users.return_value.messages.return_value.send.return_value.execute.return_value = {
         "id": "msg-1"
     }
-    with patch.object(agent, "_build_service", return_value=mock_service):
+    mock_result = MagicMock(output="Email sent successfully.")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+    with (
+        patch.object(agent, "_build_service", return_value=mock_service),
+        patch.object(agent, "_get_agent", return_value=mock_pai),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+    ):
         result = await agent.execute(
             _make_task("send", to="test@example.com", subject="hi", body="hello")
         )
-    assert "error" in result or "sent" in result or "id" in result or "message_id" in result
+    assert "result" in result or "error" in result
 
 
 # ── Spam agent ─────────────────────────────────────────────────────────────────
@@ -128,8 +142,16 @@ async def test_correspondence_agent_unknown():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
 
     agent = EmailCorrespondenceAgent()
-    result = await agent.execute(_make_task("bad_action"))
-    assert "error" in result
+    mock_result = MagicMock(output="I can help draft emails.")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+    with (
+        patch("angie.llm.is_llm_configured", return_value=True),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        patch.object(agent, "_get_agent", return_value=mock_pai),
+    ):
+        result = await agent.execute(_make_task("bad_action"))
+    assert "draft" in result or "error" in result
 
 
 # ── GitHub agent ───────────────────────────────────────────────────────────────
@@ -162,9 +184,16 @@ async def test_github_agent_list_issues():
             delattr(angie.agents.dev, "github")
         _gh_mod = importlib.import_module("angie.agents.dev.github")
         agent = _gh_mod.GitHubAgent()
-        result = await agent.execute(_make_task("list_issues", repo="org/repo"))
+        mock_result = MagicMock(output="Found 1 issue.")
+        mock_pai = MagicMock()
+        mock_pai.run = AsyncMock(return_value=mock_result)
+        with (
+            patch.object(agent, "_get_agent", return_value=mock_pai),
+            patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        ):
+            result = await agent.execute(_make_task("list_issues", repo="org/repo"))
 
-    assert "issues" in result or "error" in result
+    assert "result" in result or "error" in result
 
 
 @pytest.mark.asyncio
@@ -197,9 +226,16 @@ async def test_gcal_agent_list():
     agent = GoogleCalendarAgent()
     mock_service = MagicMock()
     mock_service.events.return_value.list.return_value.execute.return_value = {"items": []}
-    with patch.object(agent, "_build_service", return_value=mock_service):
+    mock_result = MagicMock(output="No upcoming events.")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+    with (
+        patch.object(agent, "_build_service", return_value=mock_service),
+        patch.object(agent, "_get_agent", return_value=mock_pai),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+    ):
         result = await agent.execute(_make_task("list"))
-    assert "events" in result or "error" in result
+    assert "result" in result or "error" in result
 
 
 @pytest.mark.asyncio
@@ -243,9 +279,16 @@ async def test_spotify_agent_current():
             delattr(angie.agents.media, "spotify")
         _sp_mod = importlib.import_module("angie.agents.media.spotify")
         agent = _sp_mod.SpotifyAgent()
-        result = await agent.execute(_make_task("current"))
+        mock_result = MagicMock(output="Now playing: Test Song")
+        mock_pai = MagicMock()
+        mock_pai.run = AsyncMock(return_value=mock_result)
+        with (
+            patch.object(agent, "_get_agent", return_value=mock_pai),
+            patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        ):
+            result = await agent.execute(_make_task("current"))
 
-    assert "track" in result or "playing" in result or "error" in result
+    assert "result" in result or "error" in result
 
 
 @pytest.mark.asyncio
@@ -300,10 +343,17 @@ async def test_hue_agent_list_lights():
 
         importlib.reload(_hue_mod)
         agent = _hue_mod.HueAgent()
-        result = await agent.execute(_make_task("list"))
+        mock_result = MagicMock(output="1 light found.")
+        mock_pai = MagicMock()
+        mock_pai.run = AsyncMock(return_value=mock_result)
+        with (
+            patch.object(agent, "_get_agent", return_value=mock_pai),
+            patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        ):
+            result = await agent.execute(_make_task("list"))
         os.environ.pop("HUE_BRIDGE_IP", None)
 
-    assert "lights" in result or "error" in result
+    assert "result" in result or "error" in result
 
 
 # ── Home Assistant agent ───────────────────────────────────────────────────────
@@ -351,9 +401,16 @@ async def test_home_assistant_agent_states():
 
         importlib.reload(_ha_mod)
         agent = _ha_mod.HomeAssistantAgent()
-        result = await agent.execute(_make_task("states"))
+        mock_result = MagicMock(output="Found 1 entity.")
+        mock_pai = MagicMock()
+        mock_pai.run = AsyncMock(return_value=mock_result)
+        with (
+            patch.object(agent, "_get_agent", return_value=mock_pai),
+            patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        ):
+            result = await agent.execute(_make_task("states"))
 
     os.environ.pop("HOME_ASSISTANT_URL", None)
     os.environ.pop("HOME_ASSISTANT_TOKEN", None)
 
-    assert "entities" in result or "error" in result
+    assert "result" in result or "error" in result
