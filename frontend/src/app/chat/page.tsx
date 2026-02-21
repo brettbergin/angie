@@ -104,7 +104,7 @@ export default function ChatPage() {
             )}
             <div
               className={cn(
-                "max-w-lg px-4 py-3 rounded-2xl text-sm leading-relaxed",
+                "max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed",
                 msg.role === "user"
                   ? "bg-angie-600 text-white rounded-tr-sm"
                   : "bg-gray-800 text-gray-100 rounded-tl-sm"
