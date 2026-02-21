@@ -8,7 +8,7 @@ def _mock_settings(github_token=None, openai_api_key=None):
     s.github_token = github_token
     s.openai_api_key = openai_api_key
     s.copilot_model = "gpt-4o"
-    s.github_models_api_base = "https://models.inference.ai.azure.com"
+    s.github_models_api_base = "https://models.github.ai/inference"
     return s
 
 
@@ -84,7 +84,7 @@ def test_build_model_with_github_token():
 
         assert math.isinf(expires_at)
         mock_provider_cls.assert_called_once_with(
-            base_url="https://models.inference.ai.azure.com",
+            base_url="https://models.github.ai/inference",
             api_key="gh-tok",
         )
 

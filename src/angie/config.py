@@ -61,10 +61,10 @@ class Settings(BaseSettings):
 
     # LLM — GitHub Models API (preferred) or OpenAI fallback
     github_token: str | None = None
-    copilot_model: str = "gpt-4o"
+    copilot_model: str = "openai/gpt-4o"
     openai_api_key: str | None = None
-    # GitHub Models OpenAI-compatible endpoint
-    github_models_api_base: str = "https://models.inference.ai.azure.com"
+    # GitHub Models API endpoint
+    github_models_api_base: str = "https://models.github.ai/inference"
 
     # Slack
     slack_bot_token: str | None = None
