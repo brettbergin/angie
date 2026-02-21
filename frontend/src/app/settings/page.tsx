@@ -6,6 +6,9 @@ import { api, type ChannelConfig } from "@/lib/api";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
+
+const TIMEZONES = Intl.supportedValuesOf("timeZone");
 
 const CHANNELS = [
   { key: "slack", label: "Slack", field: "token", placeholder: "xoxb-..." },
@@ -22,6 +25,8 @@ export default function SettingsPage() {
   const [profileForm, setProfileForm] = useState({ full_name: "", timezone: "" });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [tzOpen, setTzOpen] = useState(false);
+  const [tzSearch, setTzSearch] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -85,8 +90,34 @@ export default function SettingsPage() {
           <Input label="Email" value={user?.email ?? ""} readOnly className="opacity-60" />
           <Input label="Full name" value={profileForm.full_name} placeholder="Your full name"
             onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
-          <Input label="Timezone" value={profileForm.timezone} placeholder="America/New_York"
-            onChange={(e) => setProfileForm({ ...profileForm, timezone: e.target.value })} />
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Timezone</label>
+            <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setTzOpen(false); }}>
+              <button type="button" onClick={() => { setTzOpen(!tzOpen); setTzSearch(""); }}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-200 hover:border-gray-600 transition-colors text-left">
+                <span>{profileForm.timezone || "Select timezone…"}</span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${tzOpen ? "rotate-180" : ""}`} />
+              </button>
+              {tzOpen && (
+                <div className="absolute z-20 w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                  <div className="p-2 border-b border-gray-800">
+                    <input autoFocus type="text" placeholder="Search timezones…" value={tzSearch}
+                      onChange={(e) => setTzSearch(e.target.value)}
+                      className="w-full px-2 py-1.5 rounded bg-gray-800 border border-gray-700 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-angie-500" />
+                  </div>
+                  <div className="max-h-56 overflow-y-auto">
+                    {TIMEZONES.filter((tz) => !tzSearch || tz.toLowerCase().includes(tzSearch.toLowerCase())).map((tz) => (
+                      <button key={tz} type="button"
+                        onClick={() => { setProfileForm({ ...profileForm, timezone: tz }); setTzOpen(false); setTzSearch(""); }}
+                        className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${tz === profileForm.timezone ? "bg-angie-600/20 text-angie-300" : "text-gray-300 hover:bg-gray-800"}`}>
+                        {tz}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           <Button variant="secondary" onClick={handleSaveProfile} disabled={profileSaving}>
             {profileSaved ? "Saved ✓" : profileSaving ? "Saving…" : "Save profile"}
           </Button>
