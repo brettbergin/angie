@@ -36,12 +36,27 @@ async def dispatch_task(
 
     # Persist a Task row so it shows up in the Tasks page
     task_record_id: str | None = None
+    event_record_id: str | None = None
     try:
         from angie.db.session import get_session_factory
+        from angie.models.event import Event
         from angie.models.task import Task
 
         factory = get_session_factory()
         async with factory() as session:
+            # Persist the event
+            event_record = Event(
+                type=EventType.USER_MESSAGE,
+                payload=payload,
+                source_channel="web",
+                user_id=user_id,
+            )
+            session.add(event_record)
+            await session.flush()
+            await session.refresh(event_record)
+            event_record_id = event_record.id
+
+            # Persist the task
             task_record = Task(
                 user_id=user_id,
                 title=title,
@@ -58,15 +73,17 @@ async def dispatch_task(
             task_record_id = task_record.id
             await session.commit()
     except Exception as exc:
-        logger.error("Failed to persist task record: %s", exc)
+        logger.error("Failed to persist event/task records: %s", exc)
 
-    # Build the AngieEvent
+    # Build the AngieEvent (in-memory, for task dispatch)
     event = AngieEvent(
         type=EventType.USER_MESSAGE,
         payload=payload,
         source_channel="web",
         user_id=user_id,
     )
+    if event_record_id:
+        event.id = event_record_id
 
     # Build the AngieTask for Celery
     task = AngieTask(
