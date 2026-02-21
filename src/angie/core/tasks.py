@@ -43,9 +43,13 @@ class TaskDispatcher:
 
     def dispatch(self, task: AngieTask) -> str:
         """Enqueue a task. Returns the Celery task ID."""
-        from angie.queue.workers import execute_task
+        from angie.queue.celery_app import celery_app
 
-        result = execute_task.delay(task.to_dict())
+        result = celery_app.send_task(
+            "angie.queue.workers.execute_task",
+            args=[task.to_dict()],
+            queue="tasks",
+        )
         return result.id
 
     def dispatch_from_event(self, event: AngieEvent, agent_slug: str | None = None) -> AngieTask:

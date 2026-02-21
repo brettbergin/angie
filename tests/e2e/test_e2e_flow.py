@@ -213,8 +213,8 @@ def test_task_dispatcher_queues_task():
     mock_result = MagicMock()
     mock_result.id = "celery-abc-123"
 
-    with patch("angie.queue.workers.execute_task") as mock_worker:
-        mock_worker.delay.return_value = mock_result
+    with patch("angie.queue.celery_app.celery_app") as mock_celery:
+        mock_celery.send_task.return_value = mock_result
         celery_id = dispatcher.dispatch(task)
 
     assert celery_id == "celery-abc-123"

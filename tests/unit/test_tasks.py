@@ -42,13 +42,13 @@ def test_task_dispatcher_dispatch():
     mock_result = MagicMock()
     mock_result.id = "celery-id-123"
 
-    with patch("angie.queue.workers.execute_task") as mock_execute_task:
-        mock_execute_task.delay.return_value = mock_result
+    with patch("angie.queue.celery_app.celery_app") as mock_celery:
+        mock_celery.send_task.return_value = mock_result
         task = AngieTask(title="Test", user_id="u1")
         celery_id = dispatcher.dispatch(task)
 
     assert celery_id == "celery-id-123"
-    mock_execute_task.delay.assert_called_once()
+    mock_celery.send_task.assert_called_once()
 
 
 def test_task_dispatcher_dispatch_from_event():
@@ -66,8 +66,8 @@ def test_task_dispatcher_dispatch_from_event():
         source_channel="discord",
     )
 
-    with patch("angie.queue.workers.execute_task") as mock_execute_task:
-        mock_execute_task.delay.return_value = mock_result
+    with patch("angie.queue.celery_app.celery_app") as mock_celery:
+        mock_celery.send_task.return_value = mock_result
         task = dispatcher.dispatch_from_event(event, agent_slug="test-agent")
 
     assert task.id == "celery-event-id"
@@ -87,8 +87,8 @@ def test_task_dispatcher_dispatch_from_event_no_user():
 
     event = AngieEvent(type=EventType.SYSTEM, payload={})
 
-    with patch("angie.queue.workers.execute_task") as mock_execute_task:
-        mock_execute_task.delay.return_value = mock_result
+    with patch("angie.queue.celery_app.celery_app") as mock_celery:
+        mock_celery.send_task.return_value = mock_result
         task = dispatcher.dispatch_from_event(event)
 
     assert task.user_id == "system"
