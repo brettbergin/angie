@@ -36,7 +36,7 @@ function AgentDetailModal({ slug, onClose }: { slug: string; onClose: () => void
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col mx-4" onClick={(e) => e.stopPropagation()}>
         {loading ? (
           <div className="flex justify-center p-16"><Spinner className="w-8 h-8" /></div>
         ) : agent ? (
@@ -85,7 +85,7 @@ function AgentDetailModal({ slug, onClose }: { slug: string; onClose: () => void
                     {copied ? "Copied" : "Copy"}
                   </button>
                 </div>
-                <pre className="text-sm text-gray-300 bg-gray-950 border border-gray-800 rounded-lg p-4 whitespace-pre-wrap font-mono leading-relaxed max-h-64 overflow-y-auto">
+                <pre className="text-sm text-gray-300 bg-gray-950 border border-gray-800 rounded-lg p-4 whitespace-pre-wrap font-mono leading-relaxed max-h-96 overflow-y-auto">
                   {agent.instructions}
                 </pre>
               </div>
