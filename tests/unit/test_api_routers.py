@@ -136,6 +136,8 @@ def _make_scalars_result(items):
 
 
 def test_list_events_endpoint():
+    from datetime import datetime
+
     app, user, session = _make_app_with_overrides()
 
     from angie.models.event import Event, EventType
@@ -143,6 +145,7 @@ def test_list_events_endpoint():
     event = Event(
         id="evt-1", type=EventType.USER_MESSAGE, user_id="user-1", payload={}, processed=False
     )
+    event.created_at = datetime(2026, 1, 1, 12, 0, 0)
     session.execute = AsyncMock(return_value=_make_scalars_result([event]))
 
     with TestClient(app) as client:
@@ -151,6 +154,8 @@ def test_list_events_endpoint():
 
 
 def test_create_event_endpoint():
+    from datetime import datetime
+
     app, user, session = _make_app_with_overrides()
 
     from angie.models.event import Event, EventType  # noqa: F401
@@ -162,6 +167,7 @@ def test_create_event_endpoint():
         obj.source_channel = None
         obj.user_id = "user-1"
         obj.type = EventType.USER_MESSAGE
+        obj.created_at = datetime(2026, 1, 1, 12, 0, 0)
 
     session.refresh = mock_refresh
 
@@ -544,25 +550,10 @@ def test_task_out_model_validate_no_timestamps():
 
 
 def test_task_out_model_validate_with_datetime():
-    """Cover lines 41+43: TaskOut.model_validate when obj has datetime timestamps."""
+    """TaskOut accepts native datetime fields via from_attributes."""
     from datetime import datetime
-    from unittest.mock import patch as _patch
-
-    from pydantic import BaseModel
 
     from angie.api.routers.tasks import TaskOut
-
-    base_result = TaskOut(
-        id="t1",
-        title="t",
-        status="success",
-        input_data={},
-        output_data={},
-        error=None,
-        source_channel=None,
-        created_at=None,
-        updated_at=None,
-    )
 
     class MockObj:
         id = "t1"
@@ -575,11 +566,10 @@ def test_task_out_model_validate_with_datetime():
         created_at = datetime(2024, 1, 1, 12, 0, 0)
         updated_at = datetime(2024, 1, 2, 12, 0, 0)
 
-    with _patch.object(BaseModel, "model_validate", return_value=base_result):
-        result = TaskOut.model_validate(MockObj())
+    result = TaskOut.model_validate(MockObj())
 
-    assert result.created_at == "2024-01-01T12:00:00"
-    assert result.updated_at == "2024-01-02T12:00:00"
+    assert result.created_at == datetime(2024, 1, 1, 12, 0, 0)
+    assert result.updated_at == datetime(2024, 1, 2, 12, 0, 0)
 
 
 def test_get_task_success():

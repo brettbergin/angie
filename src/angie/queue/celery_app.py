@@ -27,7 +27,7 @@ def create_celery_app() -> Celery:
             },
         }
     )
-    app.autodiscover_tasks(["angie.queue"])
+    app.autodiscover_tasks(["angie.queue"], related_name="workers")
     return app
 
 

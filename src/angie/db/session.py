@@ -45,6 +45,15 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     return _session_factory
 
 
+def reset_engine() -> None:
+    """Dispose the engine and clear singletons (for use in forked workers)."""
+    global _engine, _session_factory
+    if _engine is not None:
+        _engine.sync_engine.dispose()
+    _engine = None
+    _session_factory = None
+
+
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency that yields an async DB session."""
     factory = get_session_factory()
