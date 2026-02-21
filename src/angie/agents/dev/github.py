@@ -59,32 +59,38 @@ class GitHubAgent(BaseAgent):
             """List pull requests for a GitHub repository."""
             g = ctx.deps
             repo_obj = g.get_repo(repo)
-            pulls = list(repo_obj.get_pulls(state=state)[:20])
-            return [
-                {
-                    "number": pr.number,
-                    "title": pr.title,
-                    "state": pr.state,
-                    "author": pr.user.login,
-                }
-                for pr in pulls
-            ]
+            pulls = []
+            for pr in repo_obj.get_pulls(state=state):
+                pulls.append(
+                    {
+                        "number": pr.number,
+                        "title": pr.title,
+                        "state": pr.state,
+                        "author": pr.user.login,
+                    }
+                )
+                if len(pulls) >= 20:
+                    break
+            return pulls
 
         @agent.tool
         def list_issues(ctx: RunContext[object], repo: str, state: str = "open") -> list:
             """List issues for a GitHub repository."""
             g = ctx.deps
             repo_obj = g.get_repo(repo)
-            issues = list(repo_obj.get_issues(state=state)[:20])
-            return [
-                {
-                    "number": i.number,
-                    "title": i.title,
-                    "state": i.state,
-                    "author": i.user.login,
-                }
-                for i in issues
-            ]
+            issues = []
+            for i in repo_obj.get_issues(state=state):
+                issues.append(
+                    {
+                        "number": i.number,
+                        "title": i.title,
+                        "state": i.state,
+                        "author": i.user.login,
+                    }
+                )
+                if len(issues) >= 20:
+                    break
+            return issues
 
         @agent.tool
         def create_issue(ctx: RunContext[object], repo: str, title: str, body: str = "") -> dict:
