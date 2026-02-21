@@ -32,12 +32,14 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
+  const deletingRef = useRef<string | null>(null);
 
   const loadConversations = useCallback(async () => {
     if (!token) return;
     try {
       const data = await api.conversations.list(token);
-      setConversations(data);
+      const removing = deletingRef.current;
+      setConversations(removing ? data.filter((c) => c.id !== removing) : data);
     } catch {
       // ignore
     } finally {
@@ -60,11 +62,13 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
     e.stopPropagation();
     if (!token) return;
     try {
+      deletingRef.current = id;
       await api.conversations.delete(token, id);
       setConversations((prev) => prev.filter((c) => c.id !== id));
       if (activeId === id) onNew();
+      deletingRef.current = null;
     } catch {
-      // ignore
+      deletingRef.current = null;
     }
   }
 
