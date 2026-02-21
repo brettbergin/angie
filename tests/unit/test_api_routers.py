@@ -395,8 +395,12 @@ def test_list_teams_enabled_only():
 
     async def mock_execute(stmt):
         """Return filtered results based on enabled_only query param."""
-        stmt_str = str(stmt)
-        if "is_enabled" in stmt_str:
+        stmt_str = (
+            str(stmt.compile(compile_kwargs={"literal_binds": True}))
+            if hasattr(stmt, "compile")
+            else str(stmt)
+        )
+        if "WHERE" in stmt_str and "is_enabled" in stmt_str:
             return _make_scalars_result([enabled_team])
         return _make_scalars_result(all_teams)
 
@@ -406,10 +410,19 @@ def test_list_teams_enabled_only():
         # Without filter — returns all
         resp = client.get("/api/v1/teams/")
         assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) == 2
+        assert {team["id"] for team in data} == {"t1", "t2"}
 
         # With enabled_only — returns filtered
         resp = client.get("/api/v1/teams/?enabled_only=true")
         assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) == 1
+        assert data[0]["id"] == "t1"
+        assert data[0].get("is_enabled") is True
 
 
 def test_update_team_is_enabled():
