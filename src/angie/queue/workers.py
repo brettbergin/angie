@@ -138,7 +138,12 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
     if task_id:
         await _update_task_in_db(task_id, "success", result, None)
 
-    summary = result.get("summary") or result.get("message") or "✅ Task complete."
+    summary = (
+        result.get("summary")
+        or result.get("message")
+        or result.get("result")
+        or "✅ Task complete."
+    )
 
     if conversation_id and user_id:
         await _deliver_chat_result(conversation_id, user_id, summary)

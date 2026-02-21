@@ -124,17 +124,26 @@ class SpotifyAgent(BaseAgent):
         import spotipy
         from spotipy.oauth2 import SpotifyOAuth
 
-        return spotipy.Spotify(
-            auth_manager=SpotifyOAuth(
-                client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
-                client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", ""),
-                redirect_uri=os.environ.get(
-                    "SPOTIFY_REDIRECT_URI", "http://localhost:8888/callback"
-                ),
-                scope="user-read-playback-state user-modify-playback-state user-read-currently-playing",
-                cache_path=os.environ.get("SPOTIFY_TOKEN_CACHE", ".spotify_cache"),
-            )
+        cache_path = os.environ.get("SPOTIFY_TOKEN_CACHE", ".spotify_cache")
+        auth_manager = SpotifyOAuth(
+            client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
+            client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", ""),
+            redirect_uri=os.environ.get("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8888/callback"),
+            scope="user-read-playback-state user-modify-playback-state user-read-currently-playing",
+            cache_path=cache_path,
+            open_browser=False,
         )
+
+        # Check if we have a cached token; if not, raise a clear error
+        token_info = auth_manager.cache_handler.get_cached_token()
+        if not token_info:
+            auth_url = auth_manager.get_authorize_url()
+            raise RuntimeError(
+                f"Spotify authorization required. Visit this URL to authorize: {auth_url} "
+                f"Then run: angie config spotify --callback-url '<redirect_url_with_code>'"
+            )
+
+        return spotipy.Spotify(auth_manager=auth_manager)
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         self.logger.info("SpotifyAgent executing")
@@ -146,9 +155,14 @@ class SpotifyAgent(BaseAgent):
 
             intent = self._extract_intent(task, fallback="what is currently playing?")
             result = await self._get_agent().run(intent, model=get_llm_model(), deps=sp)
-            return {"result": str(result.output)}
+            output = str(result.output)
+            return {"status": "success", "summary": output, "result": output}
         except ImportError:
-            return {"error": "spotipy not installed"}
+            return {
+                "status": "error",
+                "summary": "spotipy is not installed.",
+                "error": "spotipy not installed",
+            }
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("SpotifyAgent error")
-            return {"error": str(exc)}
+            return {"status": "error", "summary": f"Spotify error: {exc}", "error": str(exc)}

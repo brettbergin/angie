@@ -35,6 +35,10 @@ function ChatPageInner() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const currentConvoRef = useRef<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const messageCountRef = useRef<number>(0);
+  // Skip DB reload when we just created the conversation via WS
+  const skipNextReloadRef = useRef(false);
 
   const resizeTextarea = useCallback(() => {
     const el = textareaRef.current;
@@ -50,19 +54,25 @@ function ChatPageInner() {
       return;
     }
 
+    // Skip reload when we just created this conversation via WS (we already have messages in state)
+    if (skipNextReloadRef.current) {
+      skipNextReloadRef.current = false;
+      return;
+    }
+
     let cancelled = false;
     setLoadingMessages(true);
 
     api.conversations.getMessages(token, conversationId).then((msgs) => {
       if (cancelled) return;
-      setMessages(
-        msgs.map((m: ChatMessageType) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          ts: new Date(m.created_at).getTime(),
-        }))
-      );
+      const mapped = msgs.map((m: ChatMessageType) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        ts: new Date(m.created_at).getTime(),
+      }));
+      setMessages(mapped);
+      messageCountRef.current = mapped.length;
       setLoadingMessages(false);
     }).catch(() => {
       if (!cancelled) setLoadingMessages(false);
@@ -70,6 +80,49 @@ function ChatPageInner() {
 
     return () => { cancelled = true; };
   }, [token, conversationId]);
+
+  // Poll for task results (worker persists to DB; WebSocket push from worker is unreliable)
+  const startPolling = useCallback((convoId: string) => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    if (!token) return;
+    let attempts = 0;
+    const maxAttempts = 20; // 60 seconds at 3s intervals
+    pollTimerRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+        return;
+      }
+      try {
+        const msgs = await api.conversations.getMessages(token, convoId);
+        if (msgs.length > messageCountRef.current) {
+          // Reload all messages from DB to ensure correct ordering
+          // (worker result may be inserted before LLM ack in DB)
+          setMessages(
+            msgs.map((m: ChatMessageType) => ({
+              id: m.id,
+              role: m.role as "user" | "assistant",
+              content: m.content,
+              ts: new Date(m.created_at).getTime(),
+            }))
+          );
+          messageCountRef.current = msgs.length;
+          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
+      } catch {
+        // Polling error — ignore and retry
+      }
+    }, 3000);
+  }, [token]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, []);
 
   // WebSocket connection — reconnect when conversation changes
   useEffect(() => {
@@ -101,6 +154,7 @@ function ChatPageInner() {
       // If server created a new conversation, navigate to it
       if (data.conversation_id && !currentConvoRef.current) {
         currentConvoRef.current = data.conversation_id;
+        skipNextReloadRef.current = true;
         router.push(`/chat?c=${data.conversation_id}`);
       }
 
@@ -109,20 +163,29 @@ function ChatPageInner() {
         return;
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: data.content ?? data.message ?? JSON.stringify(data),
-          ts: Date.now(),
-          type: data.type,
-        },
-      ]);
+      setMessages((prev) => {
+        const updated = [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant" as const,
+            content: data.content ?? data.message ?? JSON.stringify(data),
+            ts: Date.now(),
+            type: data.type,
+          },
+        ];
+        messageCountRef.current = updated.length;
+        return updated;
+      });
+
+      // If a task was dispatched, start polling for the result
+      if (data.task_dispatched && currentConvoRef.current) {
+        startPolling(currentConvoRef.current);
+      }
     };
 
     return () => ws.close();
-  }, [token, conversationId, router]);
+  }, [token, conversationId, router, startPolling]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -133,10 +196,14 @@ function ChatPageInner() {
     const text = input.trim();
     if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({ content: text }));
-    setMessages((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), role: "user", content: text, ts: Date.now() },
-    ]);
+    setMessages((prev) => {
+      const updated = [
+        ...prev,
+        { id: crypto.randomUUID(), role: "user" as const, content: text, ts: Date.now() },
+      ];
+      messageCountRef.current = updated.length;
+      return updated;
+    });
     setInput("");
     const ta = (e.target as HTMLElement).closest("form")?.querySelector("textarea");
     if (ta) ta.style.height = "auto";

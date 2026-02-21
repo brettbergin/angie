@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException, status
@@ -59,11 +60,38 @@ def _build_agents_catalog() -> str:
         "respond normally without dispatching a task."
     )
     lines.append("")
+    lines.append(
+        "### @-Mentions\n"
+        "Users can @-mention an agent by slug (e.g. `@spotify play some jazz`). "
+        "When a message contains an @-mention, you MUST use that agent's slug as the "
+        "`agent_slug` parameter in `dispatch_task`. Strip the @-mention from the intent text."
+    )
+    lines.append("")
     for agent in agents:
         caps = ", ".join(agent.capabilities) if agent.capabilities else "general"
         lines.append(f"- **{agent.name}** (`{agent.slug}`): {agent.description}")
         lines.append(f"  Capabilities: {caps}")
     return "\n".join(lines)
+
+
+# Regex pattern to extract @agent-slug mentions from user messages
+_MENTION_PATTERN = re.compile(r"@([a-z][a-z0-9_-]*)", re.IGNORECASE)
+
+
+def _extract_mention(message: str) -> tuple[str | None, str]:
+    """Extract @agent-slug from message. Returns (slug_or_none, cleaned_message)."""
+    from angie.agents.registry import get_registry
+
+    registry = get_registry()
+    slugs = {a.slug for a in registry.list_all()}
+
+    match = _MENTION_PATTERN.search(message)
+    if match:
+        slug = match.group(1).lower()
+        if slug in slugs:
+            cleaned = message[: match.start()] + message[match.end() :]
+            return slug, cleaned.strip()
+    return None, message
 
 
 def _build_chat_agent(system_prompt: str, user_id: str, conversation_id_ref: list):
@@ -248,16 +276,33 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
                 except Exception as exc:
                     logger.warning("Could not persist user message: %s", exc)
 
+            # Extract @-mention if present
+            mentioned_slug, cleaned_message = _extract_mention(user_message)
+            llm_message = user_message
+            if mentioned_slug:
+                llm_message = (
+                    f"[The user @-mentioned the `{mentioned_slug}` agent. "
+                    f"Use agent_slug='{mentioned_slug}' when dispatching.]\n\n{cleaned_message}"
+                )
+
+            task_dispatched = False
             if agent is None:
                 reply = "⚠️ No LLM configured. Set GITHUB_TOKEN or OPENAI_API_KEY in your .env."
             else:
                 try:
                     result = await agent.run(
-                        user_message,
+                        llm_message,
                         message_history=message_history if message_history else None,
                     )
                     reply = str(result.output)
                     message_history = result.all_messages()
+                    # Check if dispatch_task was called by looking at tool calls
+                    task_dispatched = any(
+                        getattr(m, "part_kind", None) == "tool-call"
+                        and getattr(m, "tool_name", None) == "dispatch_task"
+                        for msg in result.all_messages()
+                        for m in (getattr(msg, "parts", None) or [])
+                    )
                 except Exception as exc:
                     logger.error("LLM error in chat: %s", exc)
                     reply = f"⚠️ Sorry, I ran into an error: {exc}"
@@ -286,6 +331,8 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
             response = {"content": reply, "role": "assistant"}
             if conversation_id:
                 response["conversation_id"] = conversation_id
+            if task_dispatched:
+                response["task_dispatched"] = True
             await websocket.send_text(json.dumps(response))
 
     except WebSocketDisconnect:
