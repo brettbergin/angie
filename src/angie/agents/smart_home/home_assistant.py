@@ -26,6 +26,18 @@ class HomeAssistantAgent(BaseAgent):
         "sensor",
         "entity",
     ]
+    instructions: ClassVar[str] = (
+        "You control a Home Assistant instance via its REST API.\n\n"
+        "Available tools:\n"
+        "- get_all_states: Get the current state of all entities (returns up to 50).\n"
+        "- get_entity_state: Get the state of a specific entity by its entity_id "
+        "(e.g. 'light.living_room', 'switch.fan', 'sensor.temperature').\n"
+        "- turn_on_entity: Turn on any controllable entity (lights, switches, etc.).\n"
+        "- turn_off_entity: Turn off any controllable entity.\n"
+        "- call_service: Call any Home Assistant service by domain and service name "
+        "(e.g. domain='climate', service='set_temperature').\n\n"
+        "Requires HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN environment variables."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

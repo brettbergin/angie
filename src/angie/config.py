@@ -59,12 +59,12 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 30
 
-    # LLM — GitHub Copilot (preferred) or OpenAI fallback
+    # LLM — GitHub Models API (preferred) or OpenAI fallback
     github_token: str | None = None
-    copilot_model: str = "gpt-4o"
+    copilot_model: str = "openai/gpt-4o"
     openai_api_key: str | None = None
-    # GitHub Copilot OpenAI-compatible endpoint
-    copilot_api_base: str = "https://api.githubcopilot.com"
+    # GitHub Models API endpoint
+    github_models_api_base: str = "https://models.github.ai/inference"
 
     # Slack
     slack_bot_token: str | None = None

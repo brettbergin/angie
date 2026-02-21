@@ -21,7 +21,7 @@ class PromptManager:
         settings = get_settings()
         self.prompts_dir = Path(prompts_dir or settings.prompts_dir)
         self.user_prompts_dir = Path(settings.user_prompts_dir)
-        self._env = Environment(
+        self._env = Environment(  # noqa: S701  # nosec B701 — markdown prompts, not HTML
             loader=FileSystemLoader([str(self.prompts_dir), str(self.user_prompts_dir)]),
             undefined=StrictUndefined,
             trim_blocks=True,
@@ -72,12 +72,15 @@ class PromptManager:
         self,
         agent_slug: str,
         context: dict | None = None,
+        agent_instructions: str = "",
     ) -> str:
-        """Compose: SYSTEM > ANGIE > AGENT_PROMPT."""
+        """Compose: SYSTEM > ANGIE > AGENT_PROMPT/INSTRUCTIONS."""
+        # Use inline instructions if provided, otherwise load from file
+        agent_prompt = agent_instructions or self.get_agent_prompt(agent_slug, context)
         parts = [
             self.get_system_prompt(context),
             self.get_angie_prompt(context),
-            self.get_agent_prompt(agent_slug, context),
+            agent_prompt,
         ]
         return "\n\n---\n\n".join(p for p in parts if p.strip())
 

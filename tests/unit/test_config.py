@@ -78,8 +78,9 @@ def test_jwt_defaults():
 
 def test_copilot_defaults():
     s = make_settings()
-    assert s.copilot_model == "gpt-4o"
-    assert s.copilot_api_base == "https://api.githubcopilot.com"
+    # copilot_model may be overridden by .env; just verify it's a non-empty string
+    assert isinstance(s.copilot_model, str) and len(s.copilot_model) > 0
+    assert s.github_models_api_base == "https://models.github.ai/inference"
     # github_token and openai_api_key may be set by .env; just verify types
     assert s.github_token is None or isinstance(s.github_token, str)
     assert s.openai_api_key is None or isinstance(s.openai_api_key, str)

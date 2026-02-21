@@ -27,6 +27,19 @@ class SpotifyAgent(BaseAgent):
         "skip",
         "volume",
     ]
+    instructions: ClassVar[str] = (
+        "You control Spotify playback via the Spotify Web API (OAuth2 authenticated).\n\n"
+        "Available tools:\n"
+        "- get_current_track: Get the currently playing track with artist and album info.\n"
+        "- play_music: Resume playback or search and play a specific track by query.\n"
+        "- pause_music: Pause the current playback.\n"
+        "- skip_track: Skip to the next track.\n"
+        "- previous_track: Go back to the previous track.\n"
+        "- set_volume: Set playback volume (0-100).\n"
+        "- search_tracks: Search for tracks matching a query, returns up to 5 results.\n\n"
+        "Requires SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and SPOTIFY_REDIRECT_URI "
+        "environment variables."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

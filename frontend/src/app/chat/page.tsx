@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeSanitize from "rehype-sanitize";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
 
@@ -25,6 +27,14 @@ export default function ChatPage() {
   const [connecting, setConnecting] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const resizeTextarea = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -51,7 +61,7 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function sendMessage(e: React.FormEvent) {
+  function sendMessage(e: React.FormEvent | React.KeyboardEvent) {
     e.preventDefault();
     const text = input.trim();
     if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
@@ -61,6 +71,8 @@ export default function ChatPage() {
       { id: crypto.randomUUID(), role: "user", content: text, ts: Date.now() },
     ]);
     setInput("");
+    const ta = (e.target as HTMLElement).closest("form")?.querySelector("textarea");
+    if (ta) ta.style.height = "auto";
   }
 
   return (
@@ -101,13 +113,19 @@ export default function ChatPage() {
             )}
             <div
               className={cn(
-                "max-w-lg px-4 py-3 rounded-2xl text-sm leading-relaxed",
+                "max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed",
                 msg.role === "user"
                   ? "bg-angie-600 text-white rounded-tr-sm"
                   : "bg-gray-800 text-gray-100 rounded-tl-sm"
               )}
             >
-              {msg.content}
+              {msg.role === "assistant" ? (
+                <div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2 prose-code:text-angie-300 prose-a:text-angie-400 prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-700">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{msg.content}</ReactMarkdown>
+                </div>
+              ) : (
+                msg.content
+              )}
             </div>
             {msg.role === "user" && (
               <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ml-2 mt-0.5">
@@ -121,15 +139,18 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="p-4 border-t border-gray-800">
-        <form onSubmit={sendMessage} className="flex gap-3">
-          <Input
-            className="flex-1"
+        <form onSubmit={sendMessage} className="flex gap-3 items-end">
+          <textarea
+            ref={textareaRef}
+            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-angie-500 focus:border-transparent transition resize-none min-h-[44px] max-h-[200px]"
             placeholder={connected ? "Message Angie…" : "Waiting for connection…"}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); resizeTextarea(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(e); } }}
             disabled={!connected}
+            rows={1}
           />
-          <Button type="submit" disabled={!connected || !input.trim()}>
+          <Button type="submit" disabled={!connected || !input.trim()} className="h-[44px]">
             {connecting ? <Spinner className="w-4 h-4" /> : <Send className="w-4 h-4" />}
           </Button>
         </form>

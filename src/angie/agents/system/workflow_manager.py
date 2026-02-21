@@ -15,6 +15,15 @@ class WorkflowManagerAgent(BaseAgent):
     slug: ClassVar[str] = "workflow-manager"
     description: ClassVar[str] = "Manage and trigger Angie workflows."
     capabilities: ClassVar[list[str]] = ["workflow", "run workflow", "trigger workflow"]
+    instructions: ClassVar[str] = (
+        "You manage and trigger Angie workflows — ordered sequences of steps across agents.\n\n"
+        "Available tools:\n"
+        "- list_workflows: List all workflows. Set enabled_only=true to filter to active ones.\n"
+        "- trigger_workflow: Start a workflow by its ID. The workflow is dispatched to "
+        "the Celery queue and executed asynchronously.\n\n"
+        "When the user asks to run a workflow, list available workflows first so they can "
+        "choose the correct one."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent
@@ -22,9 +31,33 @@ class WorkflowManagerAgent(BaseAgent):
         agent: Agent[None, str] = Agent(system_prompt=self.get_system_prompt())
 
         @agent.tool_plain
-        def list_workflows() -> dict:
+        async def list_workflows(enabled_only: bool = False) -> dict:
             """List all available Angie workflows."""
-            return {"workflows": []}
+            from sqlalchemy import select
+
+            from angie.db.session import get_session_factory
+            from angie.models.workflow import Workflow
+
+            factory = get_session_factory()
+            async with factory() as session:
+                stmt = select(Workflow).order_by(Workflow.name)
+                if enabled_only:
+                    stmt = stmt.where(Workflow.is_enabled.is_(True))
+                result = await session.execute(stmt)
+                workflows = result.scalars().all()
+                return {
+                    "workflows": [
+                        {
+                            "id": w.id,
+                            "name": w.name,
+                            "slug": w.slug,
+                            "description": w.description,
+                            "is_enabled": w.is_enabled,
+                            "trigger_event": w.trigger_event,
+                        }
+                        for w in workflows
+                    ]
+                }
 
         @agent.tool_plain
         def trigger_workflow(workflow_id: str) -> dict:

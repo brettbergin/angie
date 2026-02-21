@@ -63,7 +63,7 @@ def test_base_agent_get_system_prompt():
         prompt = agent_obj.get_system_prompt()
 
     assert prompt == "system prompt text"
-    mock_pm.compose_for_agent.assert_called_once_with("dummy")
+    mock_pm.compose_for_agent.assert_called_once_with("dummy", agent_instructions="")
 
 
 async def test_base_agent_ask_llm():
@@ -338,7 +338,19 @@ def test_task_manager_list_tool():
 
     a = TaskManagerAgent()
     tool = a.build_pydantic_agent()._function_toolset.tools["list_tasks"]
-    result = tool.function()
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    mock_factory = MagicMock(return_value=mock_session)
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        import asyncio
+
+        result = asyncio.get_event_loop().run_until_complete(tool.function())
     assert "tasks" in result
     assert result["tasks"] == []
 
@@ -359,7 +371,37 @@ def test_task_manager_retry_tool():
 
     a = TaskManagerAgent()
     tool = a.build_pydantic_agent()._function_toolset.tools["retry_task"]
-    result = tool.function(task_id="task42")
+
+    mock_task = MagicMock()
+    mock_task.id = "task42"
+    mock_task.status = MagicMock()
+    mock_task.status.__eq__ = MagicMock(return_value=False)
+
+    from angie.models.task import TaskStatus
+
+    mock_task.status = TaskStatus.FAILURE
+    mock_task.retry_count = 0
+    mock_task.error = "some error"
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_task
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.execute = AsyncMock(return_value=mock_result)
+    mock_session.commit = AsyncMock()
+
+    mock_factory = MagicMock(return_value=mock_session)
+    mock_celery_result = MagicMock()
+    mock_celery_result.id = "celery-retry-123"
+    with (
+        patch("angie.db.session.get_session_factory", return_value=mock_factory),
+        patch("angie.queue.workers.execute_task") as mock_exec,
+    ):
+        mock_exec.delay.return_value = mock_celery_result
+        import asyncio
+
+        result = asyncio.get_event_loop().run_until_complete(tool.function(task_id="task42"))
     assert result["retried"] is True
 
 
@@ -397,7 +439,19 @@ def test_workflow_manager_list_tool():
 
     a = WorkflowManagerAgent()
     tool = a.build_pydantic_agent()._function_toolset.tools["list_workflows"]
-    result = tool.function()
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    mock_factory = MagicMock(return_value=mock_session)
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        import asyncio
+
+        result = asyncio.get_event_loop().run_until_complete(tool.function())
     assert "workflows" in result
     assert result["workflows"] == []
 
@@ -451,7 +505,19 @@ def test_event_manager_list_tool():
 
     a = EventManagerAgent()
     tool = a.build_pydantic_agent()._function_toolset.tools["list_events"]
-    result = tool.function()
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    mock_factory = MagicMock(return_value=mock_session)
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        import asyncio
+
+        result = asyncio.get_event_loop().run_until_complete(tool.function())
     assert "events" in result
     assert result["events"] == []
 

@@ -27,6 +27,17 @@ class HueAgent(BaseAgent):
         "color",
         "dim",
     ]
+    instructions: ClassVar[str] = (
+        "You control Philips Hue smart lights via the Hue Bridge.\n\n"
+        "Available tools:\n"
+        "- list_lights: List all lights with their current on/off state.\n"
+        "- turn_on_light: Turn on a specific light by name, or all lights if no name given.\n"
+        "- turn_off_light: Turn off a specific light by name, or all lights if no name given.\n"
+        "- set_brightness: Set brightness (0-254) for a specific light or all lights.\n"
+        "- set_color: Set color using hue (0-65535) and saturation (0-254) values.\n\n"
+        "Requires HUE_BRIDGE_IP environment variable pointing to the Hue Bridge on the "
+        "local network."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

@@ -8,7 +8,7 @@ def _mock_settings(github_token=None, openai_api_key=None):
     s.github_token = github_token
     s.openai_api_key = openai_api_key
     s.copilot_model = "gpt-4o"
-    s.copilot_api_base = "https://api.githubcopilot.com"
+    s.github_models_api_base = "https://models.github.ai/inference"
     return s
 
 
@@ -65,22 +65,6 @@ def test_get_llm_model_expired():
     llm_mod._model_expires_at = 0.0
 
 
-def test_exchange_copilot_token():
-    import angie.llm as llm_mod
-
-    mock_response = MagicMock()
-    mock_response.json.return_value = {"token": "copilot-tok"}
-    mock_response.raise_for_status.return_value = None
-
-    with patch("httpx.get", return_value=mock_response) as mock_get:
-        token, expires_at = llm_mod._exchange_copilot_token("gh-token")
-        assert token == "copilot-tok"
-        assert expires_at > 0
-        mock_get.assert_called_once()
-        call_args = mock_get.call_args
-        assert "Authorization" in call_args.kwargs["headers"]
-
-
 def test_build_model_with_github_token():
     import angie.llm as llm_mod
 
@@ -92,12 +76,17 @@ def test_build_model_with_github_token():
 
     with (
         patch("angie.config.get_settings", return_value=mock_settings),
-        patch.object(llm_mod, "_exchange_copilot_token", return_value=("tok", 9999.0)),
         patch("pydantic_ai.models.openai.OpenAIModel", mock_openai_model_cls),
         patch("pydantic_ai.providers.openai.OpenAIProvider", mock_provider_cls),
     ):
         model, expires_at = llm_mod._build_model()
-        assert expires_at == 9999.0
+        import math
+
+        assert math.isinf(expires_at)
+        mock_provider_cls.assert_called_once_with(
+            base_url="https://models.github.ai/inference",
+            api_key="gh-tok",
+        )
 
 
 def test_build_model_with_openai_key():

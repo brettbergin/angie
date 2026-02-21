@@ -6,6 +6,13 @@ import { api, type ChannelConfig } from "@/lib/api";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
+
+const TIMEZONES: string[] =
+  typeof Intl !== "undefined" &&
+  typeof (Intl as Record<string, unknown>).supportedValuesOf === "function"
+    ? Intl.supportedValuesOf("timeZone")
+    : ["UTC", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney"];
 
 const CHANNELS = [
   { key: "slack", label: "Slack", field: "token", placeholder: "xoxb-..." },
@@ -19,6 +26,17 @@ export default function SettingsPage() {
   const [channelValues, setChannelValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [profileForm, setProfileForm] = useState({ full_name: "", timezone: "" });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [tzOpen, setTzOpen] = useState(false);
+  const [tzSearch, setTzSearch] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({ full_name: user.full_name ?? "", timezone: user.timezone ?? "UTC" });
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!token) return;
@@ -31,6 +49,17 @@ export default function SettingsPage() {
       setChannelValues(vals);
     });
   }, [token]);
+
+  const handleSaveProfile = async () => {
+    if (!token) return;
+    setProfileSaving(true);
+    try {
+      const updated = await api.users.updateMe(token, profileForm);
+      setProfileForm({ full_name: updated.full_name ?? "", timezone: updated.timezone ?? "UTC" });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2000);
+    } finally { setProfileSaving(false); }
+  };
 
   const handleSaveChannels = async () => {
     if (!token) return;
@@ -63,9 +92,39 @@ export default function SettingsPage() {
         <div className="space-y-3">
           <Input label="Username" value={user?.username ?? ""} readOnly className="opacity-60" />
           <Input label="Email" value={user?.email ?? ""} readOnly className="opacity-60" />
-          <Input label="Full name" defaultValue={user?.full_name ?? ""} placeholder="Your full name" />
-          <Input label="Timezone" defaultValue={user?.timezone ?? "UTC"} placeholder="America/New_York" />
-          <Button variant="secondary">Save profile</Button>
+          <Input label="Full name" value={profileForm.full_name} placeholder="Your full name"
+            onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Timezone</label>
+            <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setTzOpen(false); }}>
+              <button type="button" onClick={() => { setTzOpen(!tzOpen); setTzSearch(""); }}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-200 hover:border-gray-600 transition-colors text-left">
+                <span>{profileForm.timezone || "Select timezone…"}</span>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${tzOpen ? "rotate-180" : ""}`} />
+              </button>
+              {tzOpen && (
+                <div className="absolute z-20 w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                  <div className="p-2 border-b border-gray-800">
+                    <input autoFocus type="text" placeholder="Search timezones…" value={tzSearch}
+                      onChange={(e) => setTzSearch(e.target.value)}
+                      className="w-full px-2 py-1.5 rounded bg-gray-800 border border-gray-700 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-angie-500" />
+                  </div>
+                  <div className="max-h-56 overflow-y-auto">
+                    {TIMEZONES.filter((tz) => !tzSearch || tz.toLowerCase().includes(tzSearch.toLowerCase())).map((tz) => (
+                      <button key={tz} type="button"
+                        onClick={() => { setProfileForm({ ...profileForm, timezone: tz }); setTzOpen(false); setTzSearch(""); }}
+                        className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${tz === profileForm.timezone ? "bg-angie-600/20 text-angie-300" : "text-gray-300 hover:bg-gray-800"}`}>
+                        {tz}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <Button variant="secondary" onClick={handleSaveProfile} disabled={profileSaving}>
+            {profileSaved ? "Saved ✓" : profileSaving ? "Saving…" : "Save profile"}
+          </Button>
         </div>
       </Card>
 

@@ -161,7 +161,9 @@ async def test_correspondence_draft_no_body():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
 
     agent = EmailCorrespondenceAgent()
-    result = await agent.execute({"input_data": {"action": "draft_reply", "email_body": ""}})
+
+    with patch("angie.llm.is_llm_configured", return_value=False):
+        result = await agent.execute({"input_data": {"action": "draft_reply", "email_body": ""}})
     assert "error" in result
 
 
@@ -224,8 +226,18 @@ async def test_correspondence_unknown():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
 
     agent = EmailCorrespondenceAgent()
-    result = await agent.execute({"input_data": {"action": "unknown"}})
-    assert "error" in result
+
+    mock_result = MagicMock(output="I can help draft emails.")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+
+    with (
+        patch("angie.llm.is_llm_configured", return_value=True),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        patch.object(agent, "_get_agent", return_value=mock_pai),
+    ):
+        result = await agent.execute({"input_data": {"action": "unknown"}})
+    assert "draft" in result
 
 
 # ── SpotifyAgent ──────────────────────────────────────────────────────────────

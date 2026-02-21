@@ -15,6 +15,14 @@ class OutlookAgent(BaseAgent):
     slug: ClassVar[str] = "outlook"
     description: ClassVar[str] = "Office 365 email management."
     capabilities: ClassVar[list[str]] = ["outlook", "office365", "email", "send email"]
+    instructions: ClassVar[str] = (
+        "You manage an Office 365 / Outlook mailbox.\n\n"
+        "Available tools:\n"
+        "- list_messages: List emails from a folder (default: inbox).\n"
+        "- send_message: Send an email. Requires to, subject, and body.\n\n"
+        "Note: This agent is not yet fully implemented. Operations will return a "
+        "'not_implemented' status until the O365 SDK integration is complete."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

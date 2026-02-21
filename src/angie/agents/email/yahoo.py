@@ -15,6 +15,14 @@ class YahooMailAgent(BaseAgent):
     slug: ClassVar[str] = "yahoo-mail"
     description: ClassVar[str] = "Yahoo Mail management."
     capabilities: ClassVar[list[str]] = ["yahoo", "yahoo mail", "email"]
+    instructions: ClassVar[str] = (
+        "You manage a Yahoo Mail inbox.\n\n"
+        "Available tools:\n"
+        "- list_messages: List emails from a folder (default: inbox).\n"
+        "- send_message: Send an email. Requires to, subject, and body.\n\n"
+        "Note: This agent is not yet fully implemented. Operations will return a "
+        "'not_implemented' status until the IMAP/SMTP integration is complete."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

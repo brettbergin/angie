@@ -35,6 +35,7 @@ class BaseAgent(ABC):
     slug: ClassVar[str]
     description: ClassVar[str]
     capabilities: ClassVar[list[str]] = []
+    instructions: ClassVar[str] = ""
 
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -91,7 +92,9 @@ class BaseAgent(ABC):
         return any(cap.lower() in title for cap in self.capabilities)
 
     def get_system_prompt(self) -> str:
-        return self.prompt_manager.compose_for_agent(self.slug)
+        return self.prompt_manager.compose_for_agent(
+            self.slug, agent_instructions=self.instructions
+        )
 
     async def ask_llm(
         self,

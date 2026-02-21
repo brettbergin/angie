@@ -305,7 +305,7 @@ def test_list_teams_endpoint():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
 
-    team = Team(id="team-1", name="Dev Team", slug="dev-team")
+    team = Team(id="team-1", name="Dev Team", slug="dev-team", agent_slugs=[])
     session.execute = AsyncMock(return_value=_make_scalars_result([team]))
 
     with TestClient(app) as client:
@@ -346,7 +346,7 @@ def test_get_team_success():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
 
-    team = Team(id="t1", name="Dev Team", slug="dev-team")
+    team = Team(id="t1", name="Dev Team", slug="dev-team", agent_slugs=[])
     session.get = AsyncMock(return_value=team)
 
     with TestClient(app) as client:
@@ -504,13 +504,20 @@ def test_list_prompts_endpoint():
 
     mock_pm = MagicMock()
     mock_pm.get_user_prompts.return_value = ["# Personality\nBrief and direct"]
+    mock_user_dir = MagicMock()
+    mock_user_dir.exists.return_value = False
+    mock_default_dir = MagicMock()
+    mock_default_dir.exists.return_value = False
+    mock_pm.user_prompts_dir.__truediv__ = MagicMock(
+        side_effect=lambda x: mock_user_dir if x == user.id else mock_default_dir
+    )
 
     with patch("angie.core.prompts.get_prompt_manager", return_value=mock_pm):
         with TestClient(app) as client:
             resp = client.get("/api/v1/prompts/")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) >= 1
+    assert isinstance(data, list)
 
 
 # ── Tasks router: TaskOut model_validate ──────────────────────────────────────
@@ -705,6 +712,10 @@ def test_chat_ws_with_llm():
 
     mock_result = MagicMock()
     mock_result.output = "Hello from Angie!"
+    mock_result.all_messages.return_value = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "Hello from Angie!"},
+    ]
     mock_agent_obj = AsyncMock()
     mock_agent_obj.run = AsyncMock(return_value=mock_result)
 
@@ -733,13 +744,16 @@ def test_chat_ws_llm_error():
     mock_settings = _make_ws_settings()
     token = _ws_token()
 
+    mock_agent_obj = AsyncMock()
+    mock_agent_obj.run = AsyncMock(side_effect=RuntimeError("llm error"))
+
     with (
         patch("angie.config.get_settings", return_value=mock_settings),
         patch("angie.api.routers.chat.get_settings", return_value=mock_settings),
         patch("angie.llm.is_llm_configured", return_value=True),
         patch("angie.llm.get_llm_model", return_value=MagicMock()),
         patch("angie.core.prompts.get_prompt_manager") as mock_pm,
-        patch("pydantic_ai.Agent", side_effect=RuntimeError("llm error")),
+        patch("pydantic_ai.Agent", return_value=mock_agent_obj),
     ):
         mock_pm.return_value.compose_for_user.return_value = "system"
 

@@ -16,6 +16,17 @@ class CronAgent(BaseAgent):
     slug: ClassVar[str] = "cron"
     description: ClassVar[str] = "Create, delete, and list cron scheduled tasks."
     capabilities: ClassVar[list[str]] = ["cron", "schedule", "recurring", "scheduled task"]
+    instructions: ClassVar[str] = (
+        "You manage recurring scheduled tasks using cron expressions.\n\n"
+        "Available tools:\n"
+        "- create_scheduled_task: Create a recurring task with a 5-part cron expression "
+        "(e.g. '0 9 * * 1-5' for weekdays at 9 AM). Requires expression, task_name, and user_id.\n"
+        "- delete_scheduled_task: Remove a scheduled task by its job ID.\n"
+        "- list_scheduled_tasks: List all currently scheduled cron tasks.\n\n"
+        "When creating tasks, validate that the user provides a cron expression and a "
+        "descriptive task name. If the user describes a schedule in natural language, "
+        "convert it to a cron expression."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

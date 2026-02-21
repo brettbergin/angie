@@ -63,6 +63,10 @@ async def test_gmail_build_service_success(tmp_path):
         "googleapiclient.discovery": mock_discovery,
     }
 
+    mock_result = MagicMock(output="No messages.")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+
     os.environ["GMAIL_TOKEN_FILE"] = str(token_file)
     # Remove cached module so fresh import picks up mocks
     sys.modules.pop("angie.agents.email.gmail", None)
@@ -70,11 +74,15 @@ async def test_gmail_build_service_success(tmp_path):
         import angie.agents.email.gmail as _gmail_mod
 
         agent = _gmail_mod.GmailAgent()
-        result = await agent.execute(_task("list"))
+        with (
+            patch.object(agent, "_get_agent", return_value=mock_pai),
+            patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        ):
+            result = await agent.execute(_task("list"))
     os.environ.pop("GMAIL_TOKEN_FILE", None)
     sys.modules.pop("angie.agents.email.gmail", None)
 
-    assert "messages" in result or "error" in result
+    assert "result" in result or "error" in result
 
 
 @pytest.mark.asyncio
@@ -129,17 +137,25 @@ async def test_gcal_build_service_success(tmp_path):
         "googleapiclient.discovery": mock_discovery,
     }
 
+    mock_result = MagicMock(output="No events.")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+
     os.environ["GCAL_TOKEN_FILE"] = str(token_file)
     sys.modules.pop("angie.agents.calendar.gcal", None)
     with patch.dict("sys.modules", modules_to_mock):
         import angie.agents.calendar.gcal as _gcal_mod
 
         agent = _gcal_mod.GoogleCalendarAgent()
-        result = await agent.execute(_task("list"))
+        with (
+            patch.object(agent, "_get_agent", return_value=mock_pai),
+            patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        ):
+            result = await agent.execute(_task("list"))
     os.environ.pop("GCAL_TOKEN_FILE", None)
     sys.modules.pop("angie.agents.calendar.gcal", None)
 
-    assert "events" in result or "error" in result
+    assert "result" in result or "error" in result
 
 
 @pytest.mark.asyncio
@@ -262,7 +278,13 @@ async def test_home_assistant_generic_exception():
         import angie.agents.smart_home.home_assistant as _ha_mod
 
         agent = _ha_mod.HomeAssistantAgent()
-        result = await agent.execute(_task("states"))
+        mock_pai = MagicMock()
+        mock_pai.run = AsyncMock(side_effect=RuntimeError("network error"))
+        with (
+            patch.object(agent, "_get_agent", return_value=mock_pai),
+            patch("angie.llm.get_llm_model", return_value=MagicMock()),
+        ):
+            result = await agent.execute(_task("states"))
     sys.modules.pop("angie.agents.smart_home.home_assistant", None)
 
     os.environ.pop("HOME_ASSISTANT_URL", None)
@@ -372,8 +394,8 @@ async def test_correspondence_send_reply_returns_draft_error():
     from angie.agents.email.correspondence import EmailCorrespondenceAgent
 
     agent = EmailCorrespondenceAgent()
-    # _draft_reply will return error because email_body is missing
-    result = await agent.execute(_task("send_reply"))  # no email_body
+    with patch("angie.llm.is_llm_configured", return_value=False):
+        result = await agent.execute(_task("send_reply"))  # no email_body
     assert "error" in result
 
 

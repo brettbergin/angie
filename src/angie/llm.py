@@ -1,8 +1,8 @@
 """LLM factory — returns a configured pydantic-ai model.
 
 Priority:
-  1. GitHub Copilot (GITHUB_TOKEN set) — exchanges for a short-lived Copilot token,
-     then uses the OpenAI-compatible endpoint
+  1. GitHub Models API (GITHUB_TOKEN set) — uses the OpenAI-compatible
+     inference endpoint at models.inference.ai.azure.com
   2. OpenAI (OPENAI_API_KEY set)
   3. Raises RuntimeError if neither is configured
 """
@@ -18,40 +18,17 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_COPILOT_TOKEN_TTL = 25 * 60  # refresh 5 min before the 30-min Copilot token expiry
-
 _model_cache: Model | None = None
 _model_expires_at: float = 0.0
 
 
 def get_llm_model(*, force_refresh: bool = False) -> Model:
-    """Return a cached pydantic-ai model instance, refreshing when the token is near expiry."""
+    """Return a cached pydantic-ai model instance."""
     global _model_cache, _model_expires_at
     if _model_cache is not None and not force_refresh and time.monotonic() < _model_expires_at:
         return _model_cache
     _model_cache, _model_expires_at = _build_model()
     return _model_cache
-
-
-def _exchange_copilot_token(github_token: str) -> tuple[str, float]:
-    """Exchange a GitHub token for a short-lived Copilot session token.
-
-    Returns the Copilot token and a monotonic expiry timestamp.
-    """
-    import httpx
-
-    response = httpx.get(
-        "https://api.github.com/copilot_internal/v2/token",
-        headers={
-            "Authorization": f"token {github_token}",
-            "Accept": "application/json",
-        },
-        timeout=10,
-    )
-    response.raise_for_status()
-    token = response.json()["token"]
-    expires_at = time.monotonic() + _COPILOT_TOKEN_TTL
-    return token, expires_at
 
 
 def _build_model() -> tuple[Model, float]:
@@ -63,13 +40,12 @@ def _build_model() -> tuple[Model, float]:
     settings = get_settings()
 
     if settings.github_token:
-        logger.info("LLM: using GitHub Copilot endpoint (%s)", settings.copilot_api_base)
-        copilot_token, expires_at = _exchange_copilot_token(settings.github_token)
+        logger.info("LLM: using GitHub Models API (%s)", settings.github_models_api_base)
         provider = OpenAIProvider(
-            base_url=settings.copilot_api_base,
-            api_key=copilot_token,
+            base_url=settings.github_models_api_base,
+            api_key=settings.github_token,
         )
-        return OpenAIModel(settings.copilot_model, provider=provider), expires_at
+        return OpenAIModel(settings.copilot_model, provider=provider), float("inf")
 
     if settings.openai_api_key:
         logger.info("LLM: using OpenAI (model=%s)", settings.copilot_model)
@@ -77,7 +53,7 @@ def _build_model() -> tuple[Model, float]:
         return OpenAIModel(settings.copilot_model, provider=provider), float("inf")
 
     raise RuntimeError(
-        "No LLM configured. Set GITHUB_TOKEN (GitHub Copilot) "
+        "No LLM configured. Set GITHUB_TOKEN (GitHub Models) "
         "or OPENAI_API_KEY (OpenAI) in your .env file."
     )
 
