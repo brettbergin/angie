@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -27,19 +29,10 @@ class ConversationUpdate(BaseModel):
 class ConversationOut(BaseModel):
     id: str
     title: str
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
-
-    @classmethod
-    def model_validate(cls, obj, **kw):
-        data = super().model_validate(obj, **kw)
-        if hasattr(obj, "created_at") and obj.created_at:
-            data.created_at = obj.created_at.isoformat()
-        if hasattr(obj, "updated_at") and obj.updated_at:
-            data.updated_at = obj.updated_at.isoformat()
-        return data
 
 
 class ChatMessageOut(BaseModel):
@@ -47,16 +40,9 @@ class ChatMessageOut(BaseModel):
     conversation_id: str
     role: str
     content: str
-    created_at: str | None = None
+    created_at: datetime
 
     model_config = {"from_attributes": True}
-
-    @classmethod
-    def model_validate(cls, obj, **kw):
-        data = super().model_validate(obj, **kw)
-        if hasattr(obj, "created_at") and obj.created_at:
-            data.created_at = obj.created_at.isoformat()
-        return data
 
 
 @router.get("/", response_model=list[ConversationOut])
