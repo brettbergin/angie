@@ -21,7 +21,7 @@ class PromptManager:
         settings = get_settings()
         self.prompts_dir = Path(prompts_dir or settings.prompts_dir)
         self.user_prompts_dir = Path(settings.user_prompts_dir)
-        self._env = Environment(
+        self._env = Environment(  # noqa: S701  # nosec B701 — markdown prompts, not HTML
             loader=FileSystemLoader([str(self.prompts_dir), str(self.user_prompts_dir)]),
             undefined=StrictUndefined,
             trim_blocks=True,
