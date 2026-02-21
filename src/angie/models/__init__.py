@@ -3,6 +3,7 @@
 from angie.models.agent import Agent
 from angie.models.base import TimestampMixin
 from angie.models.channel import ChannelConfig, ChannelType
+from angie.models.conversation import ChatMessage, Conversation, MessageRole
 from angie.models.event import Event, EventType
 from angie.models.prompt import Prompt, PromptType
 from angie.models.task import Task, TaskStatus
@@ -26,4 +27,7 @@ __all__ = [
     "PromptType",
     "ChannelConfig",
     "ChannelType",
+    "Conversation",
+    "ChatMessage",
+    "MessageRole",
 ]

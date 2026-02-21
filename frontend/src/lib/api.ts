@@ -100,6 +100,21 @@ export type ChannelConfig = {
   config: Record<string, string>;
 };
 
+export type Conversation = {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+};
+
 export const api = {
   auth: {
     login: (username: string, password: string) => {
@@ -173,5 +188,20 @@ export const api = {
       request<{ detail: string }>(`/api/v1/prompts/${name}`, { method: "DELETE", token }),
     reset: (token: string) =>
       request<{ detail: string }>("/api/v1/prompts/reset", { method: "POST", token }),
+  },
+
+  conversations: {
+    list: (token: string) =>
+      request<Conversation[]>("/api/v1/conversations/", { token }),
+    create: (token: string, title?: string) =>
+      request<Conversation>("/api/v1/conversations/", { method: "POST", body: { title }, token }),
+    get: (token: string, id: string) =>
+      request<Conversation>(`/api/v1/conversations/${id}`, { token }),
+    getMessages: (token: string, id: string) =>
+      request<ChatMessage[]>(`/api/v1/conversations/${id}/messages`, { token }),
+    update: (token: string, id: string, title: string) =>
+      request<Conversation>(`/api/v1/conversations/${id}`, { method: "PATCH", body: { title }, token }),
+    delete: (token: string, id: string) =>
+      request<void>(`/api/v1/conversations/${id}`, { method: "DELETE", token }),
   },
 };
