@@ -2,9 +2,9 @@
 
 > Your 24/7 personal AI assistant. Always on. Always working.
 
-Angie is a self-hosted, event-driven AI assistant that runs as a persistent background daemon on your infrastructure. She connects to your real-world tools — email, calendar, smart home devices, music, GitHub, Slack, Discord, and more — and acts on your behalf through a fleet of specialized agents powered by GitHub Copilot's LLM.
+Angie is a self-hosted, event-driven AI assistant that runs as a persistent background daemon on your infrastructure. Angie connects to your real-world tools — email, calendar, smart home devices, music, GitHub, Slack, Discord, and more — and acts on your behalf through a fleet of specialized agents powered by GitHub Copilot's LLM.
 
-Unlike chat-only AI tools, Angie is **proactive and persistent**: she wakes up on a schedule, monitors your channels, executes multi-step workflows, and reports back without being asked. She remembers context about you through a layered prompt hierarchy, so every interaction is personalized to your preferences, communication style, and routines.
+Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up on a schedule, monitors your channels, executes multi-step workflows, and reports back without being asked. Angie remembers context about you through a layered prompt hierarchy, so every interaction is personalized to your preferences, communication style, and routines.
 
 ### What Angie can do
 
