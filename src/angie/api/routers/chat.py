@@ -103,8 +103,9 @@ def _build_agents_catalog(team_map: dict[str, list[str]] | None = None) -> str:
     return "\n".join(lines)
 
 
-# Regex pattern to extract @agent-slug or @team-slug mentions from user messages
-_MENTION_PATTERN = re.compile(r"@([a-z][a-z0-9_-]*)", re.IGNORECASE)
+# Regex pattern to extract @agent-slug or @team-slug mentions from user messages.
+# Requires start-of-string or whitespace before @ to avoid matching emails.
+_MENTION_PATTERN = re.compile(r"(?:^|(?<=\s))@([a-z][a-z0-9_-]*)", re.IGNORECASE)
 
 
 def _extract_mention(
@@ -131,7 +132,9 @@ def _extract_mention(
     return None, None, message
 
 
-def _build_chat_agent(system_prompt: str, user_id: str, conversation_id_ref: list):
+def _build_chat_agent(
+    system_prompt: str, user_id: str, conversation_id_ref: list, dispatch_flag: list
+):
     """Build a pydantic-ai Agent with dispatch_task tool for the chat session."""
     from pydantic_ai import Agent
 
@@ -182,6 +185,7 @@ def _build_chat_agent(system_prompt: str, user_id: str, conversation_id_ref: lis
         )
 
         if result.get("dispatched"):
+            dispatch_flag.append(True)
             return (
                 f"Task dispatched successfully. Task ID: {result['task_id']}. "
                 f"The {result.get('agent', 'appropriate')} agent will handle this. "
@@ -264,9 +268,11 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
         except Exception as exc:
             logger.warning("Could not load conversation history: %s", exc)
 
+    # Mutable flag set by dispatch_task tool to signal task was dispatched
+    dispatch_flag: list[bool] = []
     agent = None
     if is_llm_configured():
-        agent = _build_chat_agent(system_prompt, user_id, conversation_id_ref)
+        agent = _build_chat_agent(system_prompt, user_id, conversation_id_ref, dispatch_flag)
 
     try:
         while True:
@@ -342,19 +348,14 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
                 reply = "⚠️ No LLM configured. Set GITHUB_TOKEN or OPENAI_API_KEY in your .env."
             else:
                 try:
+                    dispatch_flag.clear()
                     result = await agent.run(
                         llm_message,
                         message_history=message_history if message_history else None,
                     )
                     reply = str(result.output)
                     message_history = result.all_messages()
-                    # Check if dispatch_task was called by looking at tool calls
-                    task_dispatched = any(
-                        getattr(m, "part_kind", None) == "tool-call"
-                        and getattr(m, "tool_name", None) == "dispatch_task"
-                        for msg in result.all_messages()
-                        for m in (getattr(msg, "parts", None) or [])
-                    )
+                    task_dispatched = bool(dispatch_flag)
                 except Exception as exc:
                     logger.error("LLM error in chat: %s", exc)
                     reply = f"⚠️ Sorry, I ran into an error: {exc}"

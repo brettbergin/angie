@@ -36,8 +36,9 @@ function ChatPageInner() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const currentConvoRef = useRef<string | null>(null);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageCountRef = useRef<number>(0);
+  const tokenRef = useRef(token);
   // Skip DB reload when we just created the conversation via WS
   const skipNextReloadRef = useRef(false);
 
@@ -58,6 +59,9 @@ function ChatPageInner() {
     api.agents.list(token).then(setAgents).catch(() => {});
     api.teams.list(token).then(setTeams).catch(() => {});
   }, [token]);
+
+  // Keep tokenRef in sync so interval callbacks always use the latest token
+  useEffect(() => { tokenRef.current = token; }, [token]);
 
   const resizeTextarea = useCallback(() => {
     const el = textareaRef.current;
@@ -102,22 +106,22 @@ function ChatPageInner() {
 
   // Poll for task results (worker persists to DB; WebSocket push from worker is unreliable)
   const startPolling = useCallback((convoId: string) => {
-    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-    if (!token) return;
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    if (!tokenRef.current) return;
     let attempts = 0;
     const maxAttempts = 20; // 60 seconds at 3s intervals
-    pollTimerRef.current = setInterval(async () => {
+
+    const poll = async () => {
       attempts++;
       if (attempts > maxAttempts) {
-        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
         return;
       }
+      const currentToken = tokenRef.current;
+      if (!currentToken) return;
       try {
-        const msgs = await api.conversations.getMessages(token, convoId);
+        const msgs = await api.conversations.getMessages(currentToken, convoId);
         if (msgs.length > messageCountRef.current) {
-          // Reload all messages from DB to ensure correct ordering
-          // (worker result may be inserted before LLM ack in DB)
           setMessages(
             msgs.map((m: ChatMessageType) => ({
               id: m.id,
@@ -127,19 +131,23 @@ function ChatPageInner() {
             }))
           );
           messageCountRef.current = msgs.length;
-          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
           pollTimerRef.current = null;
+          return; // Stop polling — got new messages
         }
       } catch {
         // Polling error — ignore and retry
       }
-    }, 3000);
-  }, [token]);
+      // Schedule next poll only after current one completes
+      pollTimerRef.current = setTimeout(poll, 3000);
+    };
+
+    pollTimerRef.current = setTimeout(poll, 3000);
+  }, []);
 
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
   }, []);
 

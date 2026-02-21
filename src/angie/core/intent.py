@@ -27,8 +27,8 @@ async def dispatch_task(
     Called by the chat agent's ``dispatch_task`` tool when the LLM
     decides a user message requires real work rather than conversation.
 
-    If ``team_slug`` is provided, resolve the first capable agent via
-    the team's agent list and use that agent_slug for dispatch.
+    If ``team_slug`` is provided, pick the first agent from the team's
+    ``agent_slugs`` list and use that as the ``agent_slug`` for dispatch.
 
     Returns a confirmation dict the LLM can use to acknowledge the user.
     """
