@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, type Team, type Agent } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -21,18 +21,28 @@ export default function TeamsPage() {
   const [search, setSearch] = useState("");
   const [agentSearch, setAgentSearch] = useState("");
   const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchTeams = () => {
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setAgentDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const fetchTeams = useCallback(() => {
     if (!token) return;
     api.teams.list(token).then((t) => setTeams(t ?? [])).finally(() => setLoading(false));
-  };
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
     fetchTeams();
     api.agents.list(token).then((a) => setAgents(a ?? []));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, fetchTeams]);
 
   const toggleAgent = (slug: string) => {
     setSelectedSlugs((prev) =>
@@ -54,9 +64,9 @@ export default function TeamsPage() {
 
   const handleDelete = async (id: string) => {
     if (!token || !confirm("Delete this team?")) return;
-    setTeams((prev) => prev.filter((t) => t.id !== id));
     try {
       await api.teams.delete(token, id);
+      setTeams((prev) => prev.filter((t) => t.id !== id));
     } catch {
       fetchTeams();
     }
@@ -101,7 +111,7 @@ export default function TeamsPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Add Agents</label>
-              <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setAgentDropdownOpen(false); }}>
+              <div className="relative" ref={dropdownRef}>
                 <Input placeholder="Click to browse or type to search agents…" value={agentSearch}
                   onFocus={() => setAgentDropdownOpen(true)}
                   onChange={(e) => { setAgentSearch(e.target.value); setAgentDropdownOpen(true); }} />

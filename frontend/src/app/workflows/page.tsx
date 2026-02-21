@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, type Workflow } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -19,13 +19,12 @@ export default function WorkflowsPage() {
   const [form, setForm] = useState({ name: "", slug: "", description: "", trigger_event: "" });
   const [search, setSearch] = useState("");
 
-  const fetchWorkflows = () => {
+  const fetchWorkflows = useCallback(() => {
     if (!token) return;
     api.workflows.list(token).then((w) => setWorkflows(w ?? [])).finally(() => setLoading(false));
-  };
+  }, [token]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchWorkflows(); }, [token]);
+  useEffect(() => { fetchWorkflows(); }, [fetchWorkflows]);
 
   const handleCreate = async () => {
     if (!token || !form.name || !form.slug) return;

@@ -8,7 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 
-const TIMEZONES = Intl.supportedValuesOf("timeZone");
+const TIMEZONES: string[] =
+  typeof Intl !== "undefined" &&
+  typeof (Intl as Record<string, unknown>).supportedValuesOf === "function"
+    ? Intl.supportedValuesOf("timeZone")
+    : ["UTC", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney"];
 
 const CHANNELS = [
   { key: "slack", label: "Slack", field: "token", placeholder: "xoxb-..." },
@@ -18,7 +22,7 @@ const CHANNELS = [
 ];
 
 export default function SettingsPage() {
-  const { user, token, refreshUser } = useAuth();
+  const { user, token } = useAuth();
   const [channelValues, setChannelValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -52,7 +56,6 @@ export default function SettingsPage() {
     try {
       const updated = await api.users.updateMe(token, profileForm);
       setProfileForm({ full_name: updated.full_name ?? "", timezone: updated.timezone ?? "UTC" });
-      if (refreshUser) refreshUser();
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2000);
     } finally { setProfileSaving(false); }

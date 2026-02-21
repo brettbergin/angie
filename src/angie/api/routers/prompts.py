@@ -74,7 +74,7 @@ async def delete_prompt(name: str, current_user: User = Depends(get_current_user
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Prompt '{name}' not found"
         )
-    path.unlink()
+    path.unlink(missing_ok=True)
     pm.invalidate_cache()
     return {"detail": f"Prompt '{name}' deleted"}
 

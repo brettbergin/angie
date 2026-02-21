@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, WebSocketException, status
 from jose import JWTError, jwt
@@ -11,12 +12,15 @@ from jose import JWTError, jwt
 from angie.channels.web_chat import WebChatChannel
 from angie.config import get_settings
 
+if TYPE_CHECKING:
+    from angie.models.user import User
+
 router = APIRouter()
 _web_channel = WebChatChannel()
 logger = logging.getLogger(__name__)
 
 
-def _build_user_context(user) -> str:  # noqa: ANN001
+def _build_user_context(user: User) -> str:
     """Build a user profile block for injection into the system prompt."""
     parts = [f"## Current User\n- **Name**: {user.full_name or user.username}"]
     parts.append(f"- **Username**: {user.username}")

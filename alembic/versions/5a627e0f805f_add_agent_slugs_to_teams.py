@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column("teams", sa.Column("agent_slugs", sa.JSON(), nullable=True))
     op.execute("UPDATE teams SET agent_slugs = '[]' WHERE agent_slugs IS NULL")
-    op.alter_column("teams", "agent_slugs", nullable=False, existing_type=sa.JSON())
+    op.alter_column("teams", "agent_slugs", nullable=False, existing_type=sa.JSON)
 
 
 def downgrade() -> None:
