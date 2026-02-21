@@ -32,7 +32,7 @@ def get_llm_model(*, force_refresh: bool = False) -> Model:
 
 
 def _build_model() -> tuple[Model, float]:
-    from pydantic_ai.models.openai import OpenAIModel
+    from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
 
     from angie.config import get_settings
@@ -45,12 +45,12 @@ def _build_model() -> tuple[Model, float]:
             base_url=settings.github_models_api_base,
             api_key=settings.github_token,
         )
-        return OpenAIModel(settings.copilot_model, provider=provider), float("inf")
+        return OpenAIChatModel(settings.copilot_model, provider=provider), float("inf")
 
     if settings.openai_api_key:
         logger.info("LLM: using OpenAI (model=%s)", settings.copilot_model)
         provider = OpenAIProvider(api_key=settings.openai_api_key)
-        return OpenAIModel(settings.copilot_model, provider=provider), float("inf")
+        return OpenAIChatModel(settings.copilot_model, provider=provider), float("inf")
 
     raise RuntimeError(
         "No LLM configured. Set GITHUB_TOKEN (GitHub Models) "
