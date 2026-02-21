@@ -172,6 +172,9 @@ def test_execute_task_success_path():
 
     with (
         patch("angie.agents.registry.get_registry", return_value=mock_registry),
+        patch("angie.queue.workers._update_task_in_db", new_callable=AsyncMock),
+        patch("angie.queue.workers._send_reply", new_callable=AsyncMock),
+        patch("angie.queue.workers.reset_engine"),
         patch("asyncio.run", side_effect=fake_run),
     ):
         result = execute_task.__wrapped__.__func__(mock_self, task_dict)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -28,6 +30,7 @@ class EventOut(BaseModel):
     user_id: str | None
     payload: dict
     processed: bool
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

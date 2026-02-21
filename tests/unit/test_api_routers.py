@@ -136,6 +136,8 @@ def _make_scalars_result(items):
 
 
 def test_list_events_endpoint():
+    from datetime import datetime
+
     app, user, session = _make_app_with_overrides()
 
     from angie.models.event import Event, EventType
@@ -143,6 +145,7 @@ def test_list_events_endpoint():
     event = Event(
         id="evt-1", type=EventType.USER_MESSAGE, user_id="user-1", payload={}, processed=False
     )
+    event.created_at = datetime(2026, 1, 1, 12, 0, 0)
     session.execute = AsyncMock(return_value=_make_scalars_result([event]))
 
     with TestClient(app) as client:
@@ -151,6 +154,8 @@ def test_list_events_endpoint():
 
 
 def test_create_event_endpoint():
+    from datetime import datetime
+
     app, user, session = _make_app_with_overrides()
 
     from angie.models.event import Event, EventType  # noqa: F401
@@ -162,6 +167,7 @@ def test_create_event_endpoint():
         obj.source_channel = None
         obj.user_id = "user-1"
         obj.type = EventType.USER_MESSAGE
+        obj.created_at = datetime(2026, 1, 1, 12, 0, 0)
 
     session.refresh = mock_refresh
 

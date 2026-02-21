@@ -8,6 +8,8 @@ from typing import Any
 
 from celery import shared_task
 
+from angie.db.session import reset_engine
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,38 +119,47 @@ async def _send_reply(source_channel: str | None, user_id: str | None, text: str
 # ── Tasks ─────────────────────────────────────────────────────────────────────
 
 
-@shared_task(bind=True, name="angie.queue.workers.execute_task", max_retries=3)
-def execute_task(self, task_dict: dict[str, Any]) -> dict[str, Any]:
-    """Execute a single AngieTask and write result + reply back."""
+async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
+    """Run agent, persist results, and deliver reply — all in one event loop."""
+    reset_engine()
+
     task_id = task_dict.get("id")
     source_channel = task_dict.get("source_channel")
     user_id = task_dict.get("user_id")
     input_data = task_dict.get("input_data", {})
     conversation_id = input_data.get("conversation_id")
+
+    agent = _resolve_agent(task_dict)
+    if agent is None:
+        raise ValueError(f"No agent found for task '{task_dict.get('title')}'")
+
+    result = await agent.execute(task_dict)
+
+    if task_id:
+        await _update_task_in_db(task_id, "success", result, None)
+
+    summary = result.get("summary") or result.get("message") or "✅ Task complete."
+
+    if conversation_id and user_id:
+        await _deliver_chat_result(conversation_id, user_id, summary)
+    else:
+        await _send_reply(source_channel, user_id, summary)
+
+    return {"status": "success", "result": result, "task_id": task_id}
+
+
+@shared_task(bind=True, name="angie.queue.workers.execute_task", max_retries=3)
+def execute_task(self, task_dict: dict[str, Any]) -> dict[str, Any]:
+    """Execute a single AngieTask and write result + reply back."""
+    task_id = task_dict.get("id")
+    input_data = task_dict.get("input_data", {})
+    conversation_id = input_data.get("conversation_id")
+    user_id = task_dict.get("user_id")
+    source_channel = task_dict.get("source_channel")
     logger.info("Executing task %s", task_id)
 
     try:
-        agent = _resolve_agent(task_dict)
-        if agent is None:
-            raise ValueError(f"No agent found for task '{task_dict.get('title')}'")
-
-        result = asyncio.run(agent.execute(task_dict))
-
-        if task_id:
-            asyncio.run(_update_task_in_db(task_id, "success", result, None))
-
-        # Build result summary
-        summary = result.get("summary") or result.get("message") or "✅ Task complete."
-
-        # Deliver result to the originating chat conversation
-        if conversation_id and user_id:
-            asyncio.run(_deliver_chat_result(conversation_id, user_id, summary))
-        else:
-            # D2: reply to originating channel (non-chat sources)
-            asyncio.run(_send_reply(source_channel, user_id, summary))
-
-        return {"status": "success", "result": result, "task_id": task_id}
-
+        return asyncio.run(_run_task(task_dict))
     except Exception as exc:
         logger.exception("Task %s failed: %s", task_id, exc)
         if task_id:
@@ -158,10 +169,13 @@ def execute_task(self, task_dict: dict[str, Any]) -> dict[str, Any]:
                 pass
 
         error_msg = f"❌ Task failed: {exc}"
-        if conversation_id and user_id:
-            asyncio.run(_deliver_chat_result(conversation_id, user_id, error_msg))
-        else:
-            asyncio.run(_send_reply(source_channel, user_id, error_msg))
+        try:
+            if conversation_id and user_id:
+                asyncio.run(_deliver_chat_result(conversation_id, user_id, error_msg))
+            else:
+                asyncio.run(_send_reply(source_channel, user_id, error_msg))
+        except Exception:
+            pass
 
         raise self.retry(exc=exc, countdown=2**self.request.retries) from exc
 
