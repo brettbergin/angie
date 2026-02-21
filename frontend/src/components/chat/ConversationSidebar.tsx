@@ -47,7 +47,7 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
 
   useEffect(() => {
     loadConversations();
-  }, [loadConversations, refreshKey]);
+  }, [loadConversations, refreshKey, activeId]);
 
   useEffect(() => {
     if (editingId && editRef.current) {
