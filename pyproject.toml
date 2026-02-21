@@ -115,3 +115,7 @@ pythonpath = ["src"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = ["B101"]
