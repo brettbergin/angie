@@ -20,6 +20,7 @@ class TeamCreate(BaseModel):
     slug: str
     description: str | None = None
     goal: str | None = None
+    agent_slugs: list[str] = []
 
 
 class TeamOut(BaseModel):
@@ -28,6 +29,7 @@ class TeamOut(BaseModel):
     slug: str
     description: str | None
     goal: str | None
+    agent_slugs: list[str]
 
     model_config = {"from_attributes": True}
 
@@ -63,6 +65,30 @@ async def get_team(
     team = await session.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
+    return team
+
+
+class TeamUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    goal: str | None = None
+    agent_slugs: list[str] | None = None
+
+
+@router.patch("/{team_id}", response_model=TeamOut)
+async def update_team(
+    team_id: str,
+    body: TeamUpdate,
+    _: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    team = await session.get(Team, team_id)
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(team, field, value)
+    await session.flush()
+    await session.refresh(team)
     return team
 
 

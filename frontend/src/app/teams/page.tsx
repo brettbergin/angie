@@ -2,36 +2,50 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { api, type Team } from "@/lib/api";
+import { api, type Team, type Agent } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Users, Plus, Trash2, X } from "lucide-react";
+import { Users, Plus, Trash2, X, Bot, Check } from "lucide-react";
 
 export default function TeamsPage() {
   const { token } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", slug: "", description: "", goal: "" });
+  const [selectedSlugs, setSelectedSlugs] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [agentSearch, setAgentSearch] = useState("");
 
   const fetchTeams = () => {
     if (!token) return;
     api.teams.list(token).then((t) => setTeams(t ?? [])).finally(() => setLoading(false));
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchTeams(); }, [token]);
+  useEffect(() => {
+    if (!token) return;
+    fetchTeams();
+    api.agents.list(token).then((a) => setAgents(a ?? []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  const toggleAgent = (slug: string) => {
+    setSelectedSlugs((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    );
+  };
 
   const handleCreate = async () => {
     if (!token || !form.name || !form.slug) return;
     setCreating(true);
     try {
-      await api.teams.create(token, form);
+      await api.teams.create(token, { ...form, agent_slugs: selectedSlugs });
       setForm({ name: "", slug: "", description: "", goal: "" });
+      setSelectedSlugs([]);
       setShowCreate(false);
       fetchTeams();
     } finally { setCreating(false); }
@@ -47,6 +61,10 @@ export default function TeamsPage() {
     !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.slug.toLowerCase().includes(search.toLowerCase())
   );
 
+  const filteredAgents = agents.filter((a) =>
+    !agentSearch || a.name.toLowerCase().includes(agentSearch.toLowerCase()) || a.slug.toLowerCase().includes(agentSearch.toLowerCase())
+  );
+
   if (loading) return <div className="flex justify-center p-16"><Spinner className="w-8 h-8" /></div>;
 
   return (
@@ -56,7 +74,7 @@ export default function TeamsPage() {
           <h1 className="text-2xl font-bold text-gray-100">Teams</h1>
           <p className="text-sm text-gray-400 mt-1">Groups of agents that collaborate on workflows</p>
         </div>
-        <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
+        <Button size="sm" onClick={() => { setShowCreate(!showCreate); if (showCreate) { setSelectedSlugs([]); setAgentSearch(""); } }}>
           {showCreate ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           {showCreate ? "Cancel" : "New Team"}
         </Button>
@@ -64,7 +82,7 @@ export default function TeamsPage() {
 
       {showCreate && (
         <Card className="border-angie-600/40">
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Input label="Name" placeholder="Email Team" value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value, slug: form.slug || e.target.value.toLowerCase().replace(/\s+/g, "-") })} />
@@ -75,6 +93,35 @@ export default function TeamsPage() {
               onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <Input label="Goal" placeholder="Manage all email-related tasks" value={form.goal}
               onChange={(e) => setForm({ ...form, goal: e.target.value })} />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Agents ({selectedSlugs.length} selected)
+              </label>
+              <Input placeholder="Search agents…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
+              <div className="mt-2 max-h-48 overflow-y-auto border border-gray-700 rounded-lg divide-y divide-gray-800">
+                {filteredAgents.map((agent) => {
+                  const selected = selectedSlugs.includes(agent.slug);
+                  return (
+                    <button key={agent.slug} type="button" onClick={() => toggleAgent(agent.slug)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${selected ? "bg-angie-600/10" : "hover:bg-gray-800/50"}`}>
+                      <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${selected ? "bg-angie-600 border-angie-500" : "border-gray-600"}`}>
+                        {selected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <Bot className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-sm text-gray-200">{agent.name}</span>
+                        <span className="text-xs text-gray-500 ml-2 font-mono">{agent.slug}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+                {filteredAgents.length === 0 && (
+                  <div className="px-3 py-4 text-center text-sm text-gray-500">No agents match</div>
+                )}
+              </div>
+            </div>
+
             <Button size="sm" onClick={handleCreate} disabled={creating || !form.name || !form.slug}>
               {creating ? "Creating…" : "Create Team"}
             </Button>
@@ -96,6 +143,15 @@ export default function TeamsPage() {
                   <h3 className="font-semibold text-gray-100">{team.name}</h3>
                   <p className="text-xs text-gray-500 font-mono">{team.slug}</p>
                   {team.description && <p className="text-sm text-gray-400 mt-1">{team.description}</p>}
+                  {team.agent_slugs?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {team.agent_slugs.map((slug) => (
+                        <span key={slug} className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <Bot className="w-3 h-3" />{slug}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <button onClick={() => handleDelete(team.id)}

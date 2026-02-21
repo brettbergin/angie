@@ -305,7 +305,7 @@ def test_list_teams_endpoint():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
 
-    team = Team(id="team-1", name="Dev Team", slug="dev-team")
+    team = Team(id="team-1", name="Dev Team", slug="dev-team", agent_slugs=[])
     session.execute = AsyncMock(return_value=_make_scalars_result([team]))
 
     with TestClient(app) as client:
@@ -346,7 +346,7 @@ def test_get_team_success():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
 
-    team = Team(id="t1", name="Dev Team", slug="dev-team")
+    team = Team(id="t1", name="Dev Team", slug="dev-team", agent_slugs=[])
     session.get = AsyncMock(return_value=team)
 
     with TestClient(app) as client:
