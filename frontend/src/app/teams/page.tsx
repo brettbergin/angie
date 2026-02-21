@@ -9,6 +9,98 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Users, Plus, Trash2, X, Bot } from "lucide-react";
 
+function TeamDetailModal({ teamId, agents, onClose }: { teamId: string; agents: Agent[]; onClose: () => void }) {
+  const { token } = useAuth();
+  const [team, setTeam] = useState<Team | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token) return;
+    api.teams.get(token, teamId).then(setTeam).finally(() => setLoading(false));
+  }, [token, teamId]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col mx-4" onClick={(e) => e.stopPropagation()}>
+        {loading ? (
+          <div className="flex justify-center p-16"><Spinner className="w-8 h-8" /></div>
+        ) : team ? (
+          <>
+            <div className="flex items-start justify-between p-6 border-b border-gray-800">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-lg bg-purple-600/20 border border-purple-600/30 flex items-center justify-center flex-shrink-0">
+                  <Users className="w-6 h-6 text-purple-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-100">{team.name}</h2>
+                  <p className="text-sm text-gray-500 font-mono">@{team.slug}</p>
+                </div>
+              </div>
+              <button onClick={onClose} className="text-gray-500 hover:text-gray-300 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-6 space-y-5 flex-1">
+              {team.description && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Description</h3>
+                  <p className="text-sm text-gray-300">{team.description}</p>
+                </div>
+              )}
+
+              {team.goal && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Goal</h3>
+                  <p className="text-sm text-gray-300">{team.goal}</p>
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  Member Agents — {team.agent_slugs.length} agent{team.agent_slugs.length !== 1 ? "s" : ""}
+                </h3>
+                {team.agent_slugs.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {team.agent_slugs.map((slug) => {
+                      const agent = agents.find((a) => a.slug === slug);
+                      return (
+                        <div key={slug}
+                          className="flex flex-col items-center gap-2 p-3 rounded-lg border border-angie-600/30 bg-angie-600/5">
+                          <div className="w-10 h-10 rounded-full bg-angie-600/20 border border-angie-600/30 flex items-center justify-center">
+                            <Bot className="w-5 h-5 text-angie-400" />
+                          </div>
+                          <div className="text-center min-w-0 w-full">
+                            <p className="text-sm font-medium text-gray-200 truncate">{agent?.name ?? slug}</p>
+                            <p className="text-xs text-gray-500 font-mono truncate">{slug}</p>
+                            {agent?.description && (
+                              <p className="text-xs text-gray-400 mt-1 line-clamp-2">{agent.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">No agents assigned to this team.</p>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="p-16 text-center text-gray-500">Team not found.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TeamsPage() {
   const { token } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
@@ -21,6 +113,7 @@ export default function TeamsPage() {
   const [search, setSearch] = useState("");
   const [agentSearch, setAgentSearch] = useState("");
   const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -179,7 +272,7 @@ export default function TeamsPage() {
 
       <div className="grid grid-cols-3 gap-4">
         {filtered.map((team) => (
-          <Card key={team.id} className="hover:border-angie-600/40 transition-colors group">
+          <Card key={team.id} className="hover:border-angie-600/40 transition-colors group cursor-pointer" onClick={() => setSelectedTeamId(team.id)}>
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-purple-600/20 border border-purple-600/30 flex items-center justify-center flex-shrink-0">
@@ -200,7 +293,7 @@ export default function TeamsPage() {
                   )}
                 </div>
               </div>
-              <button onClick={() => handleDelete(team.id)}
+              <button onClick={(e) => { e.stopPropagation(); handleDelete(team.id); }}
                 className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all">
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -214,6 +307,8 @@ export default function TeamsPage() {
           </div>
         )}
       </div>
+
+      {selectedTeamId && <TeamDetailModal teamId={selectedTeamId} agents={agents} onClose={() => setSelectedTeamId(null)} />}
     </div>
   );
 }

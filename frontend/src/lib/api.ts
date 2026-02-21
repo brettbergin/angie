@@ -82,6 +82,7 @@ export type Team = {
   name: string;
   slug: string;
   description: string | null;
+  goal: string | null;
   agent_slugs: string[];
 };
 
@@ -155,6 +156,7 @@ export const api = {
 
   teams: {
     list: (token: string) => request<Team[]>("/api/v1/teams/", { token }),
+    get: (token: string, id: string) => request<Team>(`/api/v1/teams/${id}`, { token }),
     create: (token: string, data: { name: string; slug: string; description?: string; goal?: string; agent_slugs?: string[] }) =>
       request<Team>("/api/v1/teams/", { method: "POST", body: data, token }),
     update: (token: string, id: string, data: { name?: string; description?: string; goal?: string; agent_slugs?: string[] }) =>
