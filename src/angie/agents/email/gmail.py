@@ -25,6 +25,18 @@ class GmailAgent(BaseAgent):
         "search email",
         "inbox",
     ]
+    instructions: ClassVar[str] = (
+        "You manage a Gmail inbox via the Gmail API (OAuth2 authenticated).\n\n"
+        "Available tools:\n"
+        "- list_messages: Search messages using Gmail query syntax (e.g. 'is:unread', "
+        "'from:alice@example.com', 'subject:invoice'). Returns up to 10 messages with "
+        "sender, subject, and date.\n"
+        "- send_message: Send an email. Requires to, subject, and body.\n"
+        "- trash_message: Move a message to trash by its message ID.\n"
+        "- mark_message_read: Mark a message as read by its message ID.\n\n"
+        "When listing messages, default to 'is:unread' unless the user specifies otherwise. "
+        "Requires Gmail OAuth credentials configured via 'angie config gmail'."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

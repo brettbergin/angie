@@ -15,6 +15,15 @@ class EventManagerAgent(BaseAgent):
     slug: ClassVar[str] = "event-manager"
     description: ClassVar[str] = "Query, filter, and manage Angie events."
     capabilities: ClassVar[list[str]] = ["event", "list events", "event history"]
+    instructions: ClassVar[str] = (
+        "You query and inspect Angie's event log.\n\n"
+        "Available tools:\n"
+        "- list_events: List recent events, optionally filtered by type "
+        "(USER_MESSAGE, CRON, WEBHOOK, TASK_COMPLETE, TASK_FAILED, SYSTEM, "
+        "CHANNEL_MESSAGE, API_CALL). Defaults to the 20 most recent.\n\n"
+        "Use this to help users understand what has happened in the system, "
+        "trace event origins, and debug processing issues."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

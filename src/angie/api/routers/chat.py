@@ -16,6 +16,18 @@ _web_channel = WebChatChannel()
 logger = logging.getLogger(__name__)
 
 
+def _build_user_context(user) -> str:  # noqa: ANN001
+    """Build a user profile block for injection into the system prompt."""
+    parts = [f"## Current User\n- **Name**: {user.full_name or user.username}"]
+    parts.append(f"- **Username**: {user.username}")
+    parts.append(f"- **Email**: {user.email}")
+    if user.timezone:
+        parts.append(f"- **Timezone**: {user.timezone}")
+    if user.preferred_channel:
+        parts.append(f"- **Preferred Channel**: {user.preferred_channel}")
+    return "\n".join(parts)
+
+
 @router.websocket("/ws")
 async def chat_ws(websocket: WebSocket, token: str):
     settings = get_settings()
@@ -30,12 +42,35 @@ async def chat_ws(websocket: WebSocket, token: str):
     await websocket.accept()
     _web_channel.register_connection(user_id, websocket)
 
-    # Build system prompt and agent once per connection
+    # Load user from DB for profile context and prompt lookup
     from angie.core.prompts import get_prompt_manager
+    from angie.db.session import get_session_factory
     from angie.llm import get_llm_model, is_llm_configured
+    from angie.models.user import User
 
     pm = get_prompt_manager()
-    system_prompt = pm.compose_for_user(user_id)
+    prompt_user_id = user_id
+    user_context = ""
+
+    try:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            user = await session.get(User, user_id)
+            if user:
+                prompt_user_id = user.username
+                user_context = _build_user_context(user)
+    except Exception as exc:
+        logger.warning("Could not load user profile for chat context: %s", exc)
+
+    # Compose system prompt: SYSTEM > ANGIE > USER_PROMPTS
+    # Try user-specific prompts first, fall back to "default"
+    system_prompt = pm.compose_for_user(prompt_user_id)
+    if not pm.get_user_prompts(prompt_user_id) and prompt_user_id != "default":
+        system_prompt = pm.compose_for_user("default")
+
+    # Inject user profile into the prompt
+    if user_context:
+        system_prompt = f"{system_prompt}\n\n---\n\n{user_context}"
 
     # Conversation history persists across messages in this WebSocket session
     message_history: list = []

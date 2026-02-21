@@ -15,6 +15,15 @@ class WorkflowManagerAgent(BaseAgent):
     slug: ClassVar[str] = "workflow-manager"
     description: ClassVar[str] = "Manage and trigger Angie workflows."
     capabilities: ClassVar[list[str]] = ["workflow", "run workflow", "trigger workflow"]
+    instructions: ClassVar[str] = (
+        "You manage and trigger Angie workflows — ordered sequences of steps across agents.\n\n"
+        "Available tools:\n"
+        "- list_workflows: List all workflows. Set enabled_only=true to filter to active ones.\n"
+        "- trigger_workflow: Start a workflow by its ID. The workflow is dispatched to "
+        "the Celery queue and executed asynchronously.\n\n"
+        "When the user asks to run a workflow, list available workflows first so they can "
+        "choose the correct one."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

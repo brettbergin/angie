@@ -27,6 +27,17 @@ class GoogleCalendarAgent(BaseAgent):
         "reminder",
         "upcoming events",
     ]
+    instructions: ClassVar[str] = (
+        "You manage Google Calendar events via the Calendar API (OAuth2 authenticated).\n\n"
+        "Available tools:\n"
+        "- list_upcoming_events: List events within the next N days (default: 7). "
+        "Supports specifying a calendar_id (default: primary).\n"
+        "- create_event: Create an event with summary, start/end times (ISO 8601), "
+        "optional description, timezone, and calendar_id.\n"
+        "- delete_event: Delete an event by its ID.\n\n"
+        "When creating events, ensure start and end times are in ISO 8601 format. "
+        "Requires Google Calendar OAuth credentials configured via 'angie config gmail'."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

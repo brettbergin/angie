@@ -15,6 +15,16 @@ class TaskManagerAgent(BaseAgent):
     slug: ClassVar[str] = "task-manager"
     description: ClassVar[str] = "List, cancel, and retry Angie tasks."
     capabilities: ClassVar[list[str]] = ["task", "cancel task", "retry task", "list tasks"]
+    instructions: ClassVar[str] = (
+        "You manage Angie's internal task queue.\n\n"
+        "Available tools:\n"
+        "- list_tasks: List recent tasks, optionally filtered by status "
+        "(queued, running, success, failure, cancelled). Defaults to the 20 most recent.\n"
+        "- cancel_task: Cancel a running task by its ID. Uses Celery revoke with terminate.\n"
+        "- retry_task: Re-queue a failed or cancelled task for another attempt.\n\n"
+        "Only failed or cancelled tasks can be retried. Always confirm the task ID with "
+        "the user before cancelling."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

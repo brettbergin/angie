@@ -17,6 +17,16 @@ class SpamAgent(BaseAgent):
     slug: ClassVar[str] = "email-spam"
     description: ClassVar[str] = "Email spam detection and deletion across providers."
     capabilities: ClassVar[list[str]] = ["spam", "spam email", "delete spam", "clean inbox"]
+    instructions: ClassVar[str] = (
+        "You detect and clean up spam emails across providers.\n\n"
+        "Available tools:\n"
+        "- scan_for_spam: Scan the Gmail inbox for likely spam using keyword heuristics "
+        "(unsubscribe, click here, winner, free money, limited offer, act now). Returns "
+        "a list of suspected spam messages with IDs and subjects.\n"
+        "- delete_spam_messages: Trash a list of spam messages by their IDs.\n\n"
+        "Always scan first to identify spam, present findings to the user, then delete "
+        "only after confirmation."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

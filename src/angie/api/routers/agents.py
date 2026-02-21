@@ -47,7 +47,7 @@ async def get_agent(slug: str, _: User = Depends(get_current_user)):
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{slug}' not found")
     module_path = type(agent).__module__
-    instructions = agent.prompt_manager.get_agent_prompt(agent.slug)
+    instructions = agent.instructions or agent.prompt_manager.get_agent_prompt(agent.slug)
     return AgentDetailOut(
         slug=agent.slug,
         name=agent.name,

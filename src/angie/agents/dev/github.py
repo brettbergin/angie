@@ -25,6 +25,17 @@ class GitHubAgent(BaseAgent):
         "repository",
         "commit",
     ]
+    instructions: ClassVar[str] = (
+        "You manage GitHub repositories, pull requests, and issues via the GitHub API.\n\n"
+        "Available tools:\n"
+        "- list_repositories: List the authenticated user's repos (up to 20).\n"
+        "- list_pull_requests: List PRs for a repo. Specify repo as 'owner/name' and "
+        "optionally filter by state (open, closed, all).\n"
+        "- list_issues: List issues for a repo. Same repo format and state filter.\n"
+        "- create_issue: Create a new issue. Requires repo, title, and optional body.\n"
+        "- get_repository: Get repo details including stars, forks, and default branch.\n\n"
+        "Requires GITHUB_TOKEN environment variable. Repo names must be in 'owner/repo' format."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

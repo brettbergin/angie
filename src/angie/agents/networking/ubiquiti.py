@@ -22,6 +22,14 @@ class UbiquitiAgent(BaseAgent):
         "clients",
         "bandwidth",
     ]
+    instructions: ClassVar[str] = (
+        "You manage a UniFi network via the UniFi Controller API.\n\n"
+        "Available tools:\n"
+        "- list_clients: List all connected network clients.\n"
+        "- get_network_stats: Get current network throughput and statistics.\n\n"
+        "Note: This agent is not yet fully implemented. Operations will return a "
+        "'not_implemented' status until the pyunifi/aiounifi SDK integration is complete."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

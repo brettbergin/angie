@@ -72,12 +72,15 @@ class PromptManager:
         self,
         agent_slug: str,
         context: dict | None = None,
+        agent_instructions: str = "",
     ) -> str:
-        """Compose: SYSTEM > ANGIE > AGENT_PROMPT."""
+        """Compose: SYSTEM > ANGIE > AGENT_PROMPT/INSTRUCTIONS."""
+        # Use inline instructions if provided, otherwise load from file
+        agent_prompt = agent_instructions or self.get_agent_prompt(agent_slug, context)
         parts = [
             self.get_system_prompt(context),
             self.get_angie_prompt(context),
-            self.get_agent_prompt(agent_slug, context),
+            agent_prompt,
         ]
         return "\n\n---\n\n".join(p for p in parts if p.strip())
 

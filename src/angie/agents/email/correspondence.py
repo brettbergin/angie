@@ -21,6 +21,14 @@ class EmailCorrespondenceAgent(BaseAgent):
         "email reply",
         "compose email",
     ]
+    instructions: ClassVar[str] = (
+        "You draft context-aware email replies using the LLM.\n\n"
+        "Available tools:\n"
+        "- send_email_reply: Send a drafted reply via Gmail. Requires to, subject, and body.\n\n"
+        "When drafting a reply, consider the original email body, any additional context "
+        "provided, and the requested tone (default: professional). The draft is generated "
+        "by the LLM and can optionally be sent via the GmailAgent."
+    )
 
     def build_pydantic_agent(self) -> Agent:
         from pydantic_ai import Agent

@@ -63,7 +63,7 @@ def test_base_agent_get_system_prompt():
         prompt = agent_obj.get_system_prompt()
 
     assert prompt == "system prompt text"
-    mock_pm.compose_for_agent.assert_called_once_with("dummy")
+    mock_pm.compose_for_agent.assert_called_once_with("dummy", agent_instructions="")
 
 
 async def test_base_agent_ask_llm():

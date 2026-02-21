@@ -95,12 +95,9 @@ def test_compose_for_agent(tmp_path):
 
     (tmp_path / "system.md").write_text("system content", encoding="utf-8")
     (tmp_path / "angie.md").write_text("angie content", encoding="utf-8")
-    agents_dir = tmp_path / "agents"
-    agents_dir.mkdir()
-    (agents_dir / "gmail.md").write_text("gmail content", encoding="utf-8")
     pm = PromptManager(prompts_dir=str(tmp_path))
     pm.user_prompts_dir = tmp_path / "user"
-    result = pm.compose_for_agent("gmail")
+    result = pm.compose_for_agent("gmail", agent_instructions="gmail content")
     assert "system content" in result
     assert "angie content" in result
     assert "gmail content" in result
