@@ -34,7 +34,13 @@ class GitHubAgent(BaseAgent):
         "- list_issues: List issues for a repo. Same repo format and state filter.\n"
         "- create_issue: Create a new issue. Requires repo, title, and optional body.\n"
         "- get_repository: Get repo details including stars, forks, and default branch.\n\n"
-        "Requires GITHUB_TOKEN environment variable. Repo names must be in 'owner/repo' format."
+        "Requires GITHUB_TOKEN environment variable. Repo names must be in 'owner/repo' format.\n\n"
+        "IMPORTANT — formatting rules for your response:\n"
+        "- Always render PR and issue references as Markdown hyperlinks using the url field "
+        "from tool results, e.g. [#42](https://github.com/owner/repo/pull/42).\n"
+        "- Repository names should link to the repo, e.g. "
+        "[owner/repo](https://github.com/owner/repo).\n"
+        "- Never output bare numbers like #42 without a hyperlink."
     )
 
     def build_pydantic_agent(self) -> Agent:
@@ -67,6 +73,7 @@ class GitHubAgent(BaseAgent):
                         "title": pr.title,
                         "state": pr.state,
                         "author": pr.user.login,
+                        "url": pr.html_url,
                     }
                 )
                 if len(pulls) >= 20:
@@ -86,6 +93,7 @@ class GitHubAgent(BaseAgent):
                         "title": i.title,
                         "state": i.state,
                         "author": i.user.login,
+                        "url": i.html_url,
                     }
                 )
                 if len(issues) >= 20:
@@ -111,6 +119,7 @@ class GitHubAgent(BaseAgent):
                 "forks": r.forks_count,
                 "open_issues": r.open_issues_count,
                 "default_branch": r.default_branch,
+                "url": r.html_url,
             }
 
         return agent
