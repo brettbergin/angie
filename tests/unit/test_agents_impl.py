@@ -193,7 +193,7 @@ async def test_github_agent_list_issues():
         ):
             result = await agent.execute(_make_task("list_issues", repo="org/repo"))
 
-    assert "result" in result or "error" in result
+    assert "summary" in result or "result" in result or "error" in result
 
 
 @pytest.mark.asyncio
@@ -288,7 +288,7 @@ async def test_spotify_agent_current():
         ):
             result = await agent.execute(_make_task("current"))
 
-    assert "result" in result or "error" in result
+    assert "summary" in result or "result" in result or "error" in result
 
 
 @pytest.mark.asyncio

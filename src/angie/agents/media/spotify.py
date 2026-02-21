@@ -124,17 +124,37 @@ class SpotifyAgent(BaseAgent):
         import spotipy
         from spotipy.oauth2 import SpotifyOAuth
 
-        return spotipy.Spotify(
-            auth_manager=SpotifyOAuth(
-                client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
-                client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", ""),
-                redirect_uri=os.environ.get(
-                    "SPOTIFY_REDIRECT_URI", "http://localhost:8888/callback"
-                ),
-                scope="user-read-playback-state user-modify-playback-state user-read-currently-playing",
-                cache_path=os.environ.get("SPOTIFY_TOKEN_CACHE", ".spotify_cache"),
-            )
+        cache_path = os.environ.get("SPOTIFY_TOKEN_CACHE", ".spotify_cache")
+        auth_manager = SpotifyOAuth(
+            client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
+            client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", ""),
+            redirect_uri=os.environ.get("SPOTIFY_REDIRECT_URI", "http://localhost:8080/callback"),
+            scope="user-read-playback-state user-modify-playback-state user-read-currently-playing",
+            cache_path=cache_path,
+            open_browser=False,
         )
+
+        # Check if we have a cached token and ensure it is valid / refreshed
+        token_info = auth_manager.cache_handler.get_cached_token()
+        if token_info and auth_manager.is_token_expired(token_info):
+            try:
+                refresh_token = token_info.get("refresh_token")
+                if refresh_token:
+                    token_info = auth_manager.refresh_access_token(refresh_token)
+                else:
+                    token_info = None
+            except Exception:  # noqa: BLE001
+                token_info = None
+
+        if not token_info:
+            auth_url = auth_manager.get_authorize_url()
+            raise RuntimeError(
+                f"Spotify authorization required. "
+                f"[Click here to authorize Spotify]({auth_url}), "
+                f"then follow the Spotify authorization flow to complete setup."
+            )
+
+        return spotipy.Spotify(auth_manager=auth_manager)
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
         self.logger.info("SpotifyAgent executing")
@@ -146,9 +166,13 @@ class SpotifyAgent(BaseAgent):
 
             intent = self._extract_intent(task, fallback="what is currently playing?")
             result = await self._get_agent().run(intent, model=get_llm_model(), deps=sp)
-            return {"result": str(result.output)}
+            output = str(result.output)
+            return {"summary": output}
         except ImportError:
-            return {"error": "spotipy not installed"}
+            return {
+                "summary": "Spotify error: spotipy is not installed.",
+                "error": "spotipy is not installed",
+            }
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("SpotifyAgent error")
-            return {"error": str(exc)}
+            return {"summary": f"Spotify error: {exc}", "error": str(exc)}
