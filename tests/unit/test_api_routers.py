@@ -712,6 +712,10 @@ def test_chat_ws_with_llm():
 
     mock_result = MagicMock()
     mock_result.output = "Hello from Angie!"
+    mock_result.all_messages.return_value = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "Hello from Angie!"},
+    ]
     mock_agent_obj = AsyncMock()
     mock_agent_obj.run = AsyncMock(return_value=mock_result)
 
@@ -740,13 +744,16 @@ def test_chat_ws_llm_error():
     mock_settings = _make_ws_settings()
     token = _ws_token()
 
+    mock_agent_obj = AsyncMock()
+    mock_agent_obj.run = AsyncMock(side_effect=RuntimeError("llm error"))
+
     with (
         patch("angie.config.get_settings", return_value=mock_settings),
         patch("angie.api.routers.chat.get_settings", return_value=mock_settings),
         patch("angie.llm.is_llm_configured", return_value=True),
         patch("angie.llm.get_llm_model", return_value=MagicMock()),
         patch("angie.core.prompts.get_prompt_manager") as mock_pm,
-        patch("pydantic_ai.Agent", side_effect=RuntimeError("llm error")),
+        patch("pydantic_ai.Agent", return_value=mock_agent_obj),
     ):
         mock_pm.return_value.compose_for_user.return_value = "system"
 

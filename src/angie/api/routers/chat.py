@@ -30,12 +30,22 @@ async def chat_ws(websocket: WebSocket, token: str):
     await websocket.accept()
     _web_channel.register_connection(user_id, websocket)
 
-    # Build system prompt for this user
+    # Build system prompt and agent once per connection
     from angie.core.prompts import get_prompt_manager
     from angie.llm import get_llm_model, is_llm_configured
 
     pm = get_prompt_manager()
     system_prompt = pm.compose_for_user(user_id)
+
+    # Conversation history persists across messages in this WebSocket session
+    message_history: list = []
+
+    agent = None
+    if is_llm_configured():
+        from pydantic_ai import Agent
+
+        model = get_llm_model()
+        agent = Agent(model=model, system_prompt=system_prompt)
 
     try:
         while True:
@@ -46,16 +56,17 @@ async def chat_ws(websocket: WebSocket, token: str):
             except json.JSONDecodeError:
                 user_message = raw
 
-            if not is_llm_configured():
+            if agent is None:
                 reply = "⚠️ No LLM configured. Set GITHUB_TOKEN or OPENAI_API_KEY in your .env."
             else:
                 try:
-                    from pydantic_ai import Agent
-
-                    model = get_llm_model()
-                    agent = Agent(model=model, system_prompt=system_prompt)
-                    result = await agent.run(user_message)
+                    result = await agent.run(
+                        user_message,
+                        message_history=message_history if message_history else None,
+                    )
                     reply = str(result.output)
+                    # Update history with the full conversation so far
+                    message_history = result.all_messages()
                 except Exception as exc:
                     logger.error("LLM error in chat: %s", exc)
                     reply = f"⚠️ Sorry, I ran into an error: {exc}"
