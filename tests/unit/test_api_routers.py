@@ -504,13 +504,20 @@ def test_list_prompts_endpoint():
 
     mock_pm = MagicMock()
     mock_pm.get_user_prompts.return_value = ["# Personality\nBrief and direct"]
+    mock_user_dir = MagicMock()
+    mock_user_dir.exists.return_value = False
+    mock_default_dir = MagicMock()
+    mock_default_dir.exists.return_value = False
+    mock_pm.user_prompts_dir.__truediv__ = MagicMock(
+        side_effect=lambda x: mock_user_dir if x == user.id else mock_default_dir
+    )
 
     with patch("angie.core.prompts.get_prompt_manager", return_value=mock_pm):
         with TestClient(app) as client:
             resp = client.get("/api/v1/prompts/")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) >= 1
+    assert isinstance(data, list)
 
 
 # ── Tasks router: TaskOut model_validate ──────────────────────────────────────

@@ -22,9 +22,33 @@ class WorkflowManagerAgent(BaseAgent):
         agent: Agent[None, str] = Agent(system_prompt=self.get_system_prompt())
 
         @agent.tool_plain
-        def list_workflows() -> dict:
+        async def list_workflows(enabled_only: bool = False) -> dict:
             """List all available Angie workflows."""
-            return {"workflows": []}
+            from sqlalchemy import select
+
+            from angie.db.session import get_session_factory
+            from angie.models.workflow import Workflow
+
+            factory = get_session_factory()
+            async with factory() as session:
+                stmt = select(Workflow).order_by(Workflow.name)
+                if enabled_only:
+                    stmt = stmt.where(Workflow.is_enabled.is_(True))
+                result = await session.execute(stmt)
+                workflows = result.scalars().all()
+                return {
+                    "workflows": [
+                        {
+                            "id": w.id,
+                            "name": w.name,
+                            "slug": w.slug,
+                            "description": w.description,
+                            "is_enabled": w.is_enabled,
+                            "trigger_event": w.trigger_event,
+                        }
+                        for w in workflows
+                    ]
+                }
 
         @agent.tool_plain
         def trigger_workflow(workflow_id: str) -> dict:

@@ -15,10 +15,19 @@ const CHANNELS = [
 ];
 
 export default function SettingsPage() {
-  const { user, token } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const [channelValues, setChannelValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [profileForm, setProfileForm] = useState({ full_name: "", timezone: "" });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({ full_name: user.full_name ?? "", timezone: user.timezone ?? "UTC" });
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!token) return;
@@ -31,6 +40,17 @@ export default function SettingsPage() {
       setChannelValues(vals);
     });
   }, [token]);
+
+  const handleSaveProfile = async () => {
+    if (!token) return;
+    setProfileSaving(true);
+    try {
+      await api.users.updateMe(token, profileForm);
+      if (refreshUser) refreshUser();
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2000);
+    } finally { setProfileSaving(false); }
+  };
 
   const handleSaveChannels = async () => {
     if (!token) return;
@@ -63,9 +83,13 @@ export default function SettingsPage() {
         <div className="space-y-3">
           <Input label="Username" value={user?.username ?? ""} readOnly className="opacity-60" />
           <Input label="Email" value={user?.email ?? ""} readOnly className="opacity-60" />
-          <Input label="Full name" defaultValue={user?.full_name ?? ""} placeholder="Your full name" />
-          <Input label="Timezone" defaultValue={user?.timezone ?? "UTC"} placeholder="America/New_York" />
-          <Button variant="secondary">Save profile</Button>
+          <Input label="Full name" value={profileForm.full_name} placeholder="Your full name"
+            onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
+          <Input label="Timezone" value={profileForm.timezone} placeholder="America/New_York"
+            onChange={(e) => setProfileForm({ ...profileForm, timezone: e.target.value })} />
+          <Button variant="secondary" onClick={handleSaveProfile} disabled={profileSaving}>
+            {profileSaved ? "Saved ✓" : profileSaving ? "Saving…" : "Save profile"}
+          </Button>
         </div>
       </Card>
 

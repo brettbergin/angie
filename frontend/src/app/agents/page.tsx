@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, type Agent } from "@/lib/api";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Bot } from "lucide-react";
 
@@ -11,11 +12,18 @@ export default function AgentsPage() {
   const { token } = useAuth();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!token) return;
     api.agents.list(token).then((a) => setAgents(a ?? [])).finally(() => setLoading(false));
   }, [token]);
+
+  const filtered = agents.filter((a) =>
+    !search || a.name.toLowerCase().includes(search.toLowerCase()) ||
+    a.slug.toLowerCase().includes(search.toLowerCase()) ||
+    a.capabilities.some((c) => c.toLowerCase().includes(search.toLowerCase()))
+  );
 
   if (loading) return <div className="flex justify-center p-16"><Spinner className="w-8 h-8" /></div>;
 
@@ -26,8 +34,10 @@ export default function AgentsPage() {
         <p className="text-sm text-gray-400 mt-1">{agents.length} agents registered</p>
       </div>
 
+      <Input placeholder="Search agents by name, slug, or capability…" value={search} onChange={(e) => setSearch(e.target.value)} />
+
       <div className="grid grid-cols-3 gap-4">
-        {agents.map((agent) => (
+        {filtered.map((agent) => (
           <Card key={agent.slug} className="hover:border-angie-600/40 transition-colors">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-angie-600/20 border border-angie-600/30 flex items-center justify-center flex-shrink-0">
@@ -53,11 +63,10 @@ export default function AgentsPage() {
             </div>
           </Card>
         ))}
-        {agents.length === 0 && (
+        {filtered.length === 0 && (
           <div className="col-span-3 text-center py-16 text-gray-500">
             <Bot className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No agents registered yet.</p>
-            <p className="text-sm mt-1">Run <code className="bg-gray-800 px-1 rounded">angie setup</code> to onboard Angie.</p>
+            <p>{search ? "No agents match your search." : "No agents registered yet."}</p>
           </div>
         )}
       </div>
