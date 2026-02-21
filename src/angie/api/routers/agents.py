@@ -17,6 +17,7 @@ class AgentOut(BaseModel):
 
 
 class AgentDetailOut(AgentOut):
+    instructions: str
     system_prompt: str
     module_path: str
 
@@ -46,11 +47,13 @@ async def get_agent(slug: str, _: User = Depends(get_current_user)):
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{slug}' not found")
     module_path = type(agent).__module__
+    instructions = agent.prompt_manager.get_agent_prompt(agent.slug)
     return AgentDetailOut(
         slug=agent.slug,
         name=agent.name,
         description=agent.description,
         capabilities=agent.capabilities,
+        instructions=instructions or "No agent-specific instructions configured.",
         system_prompt=agent.get_system_prompt(),
         module_path=module_path,
     )

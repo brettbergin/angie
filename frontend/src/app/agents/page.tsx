@@ -7,12 +7,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Bot, X, Copy, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function AgentDetailModal({ slug, onClose }: { slug: string; onClose: () => void }) {
   const { token } = useAuth();
   const [agent, setAgent] = useState<AgentDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -27,7 +29,7 @@ function AgentDetailModal({ slug, onClose }: { slug: string; onClose: () => void
 
   const copyPrompt = () => {
     if (!agent) return;
-    navigator.clipboard.writeText(agent.system_prompt);
+    navigator.clipboard.writeText(agent.instructions);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -84,8 +86,23 @@ function AgentDetailModal({ slug, onClose }: { slug: string; onClose: () => void
                   </button>
                 </div>
                 <pre className="text-sm text-gray-300 bg-gray-950 border border-gray-800 rounded-lg p-4 whitespace-pre-wrap font-mono leading-relaxed max-h-64 overflow-y-auto">
-                  {agent.system_prompt || "No instructions configured."}
+                  {agent.instructions}
                 </pre>
+              </div>
+
+              <div>
+                <button
+                  onClick={() => setShowSystemPrompt(!showSystemPrompt)}
+                  className="flex items-center gap-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
+                >
+                  <span className={cn("transition-transform", showSystemPrompt ? "rotate-90" : "")}>▶</span>
+                  Full System Prompt
+                </button>
+                {showSystemPrompt && (
+                  <pre className="mt-2 text-sm text-gray-400 bg-gray-950 border border-gray-800 rounded-lg p-4 whitespace-pre-wrap font-mono leading-relaxed max-h-64 overflow-y-auto">
+                    {agent.system_prompt}
+                  </pre>
+                )}
               </div>
             </div>
           </>
