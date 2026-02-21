@@ -102,8 +102,11 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
+      - name: Create venv
+        run: uv venv
+
       - name: Install bandit
-        run: uv pip install bandit[toml] --python .venv/bin/python
+        run: uv pip install bandit[toml]
 
       - name: Run Bandit
         run: .venv/bin/bandit -r src/ -c pyproject.toml -f json -o bandit-report.json || true
