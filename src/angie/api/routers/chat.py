@@ -43,8 +43,24 @@ def _generate_title(text: str) -> str:
     return title
 
 
-def _build_agents_catalog() -> str:
-    """Build a prompt section listing all available agents and their capabilities."""
+async def _load_team_slugs() -> dict[str, list[str]]:
+    """Load team slugs and their agent_slugs from the database."""
+    try:
+        from angie.db.session import get_session_factory
+        from angie.models.team import Team
+
+        factory = get_session_factory()
+        async with factory() as session:
+            result = await session.execute(select(Team))
+            teams = result.scalars().all()
+            return {t.slug: t.agent_slugs for t in teams}
+    except Exception as exc:
+        logger.warning("Could not load teams: %s", exc)
+        return {}
+
+
+def _build_agents_catalog(team_map: dict[str, list[str]] | None = None) -> str:
+    """Build a prompt section listing all available agents/teams and their capabilities."""
     from angie.agents.registry import get_registry
 
     registry = get_registry()
@@ -62,36 +78,57 @@ def _build_agents_catalog() -> str:
     lines.append("")
     lines.append(
         "### @-Mentions\n"
-        "Users can @-mention an agent by slug (e.g. `@spotify play some jazz`). "
-        "When a message contains an @-mention, you MUST use that agent's slug as the "
-        "`agent_slug` parameter in `dispatch_task`. Strip the @-mention from the intent text."
+        "Users can @-mention an agent by slug (e.g. `@spotify play some jazz`) or a team "
+        "by slug (e.g. `@media-team check my music`). "
+        "When a message contains an agent @-mention, use that agent's slug as the "
+        "`agent_slug` parameter in `dispatch_task`. "
+        "When a message contains a team @-mention, use that team's slug as the "
+        "`team_slug` parameter in `dispatch_task`. "
+        "Strip the @-mention from the intent text."
     )
     lines.append("")
     for agent in agents:
         caps = ", ".join(agent.capabilities) if agent.capabilities else "general"
-        lines.append(f"- **{agent.name}** (`{agent.slug}`): {agent.description}")
+        lines.append(f"- **{agent.name}** (`@{agent.slug}`): {agent.description}")
         lines.append(f"  Capabilities: {caps}")
+
+    if team_map:
+        lines.append("")
+        lines.append("## Available Teams")
+        lines.append("")
+        for slug, agent_slugs in team_map.items():
+            members = ", ".join(f"`@{s}`" for s in agent_slugs)
+            lines.append(f"- **{slug}** (`@{slug}`): Members: {members}")
+
     return "\n".join(lines)
 
 
-# Regex pattern to extract @agent-slug mentions from user messages
+# Regex pattern to extract @agent-slug or @team-slug mentions from user messages
 _MENTION_PATTERN = re.compile(r"@([a-z][a-z0-9_-]*)", re.IGNORECASE)
 
 
-def _extract_mention(message: str) -> tuple[str | None, str]:
-    """Extract @agent-slug from message. Returns (slug_or_none, cleaned_message)."""
+def _extract_mention(
+    message: str, team_slugs: set[str] | None = None
+) -> tuple[str | None, str | None, str]:
+    """Extract @mention from message.
+
+    Returns (slug, kind, cleaned_message) where kind is "agent", "team", or None.
+    """
     from angie.agents.registry import get_registry
 
     registry = get_registry()
-    slugs = {a.slug for a in registry.list_all()}
+    agent_slugs = {a.slug for a in registry.list_all()}
+    _team_slugs = team_slugs or set()
 
     match = _MENTION_PATTERN.search(message)
     if match:
         slug = match.group(1).lower()
-        if slug in slugs:
-            cleaned = message[: match.start()] + message[match.end() :]
-            return slug, cleaned.strip()
-    return None, message
+        cleaned = (message[: match.start()] + message[match.end() :]).strip()
+        if slug in agent_slugs:
+            return slug, "agent", cleaned
+        if slug in _team_slugs:
+            return slug, "team", cleaned
+    return None, None, message
 
 
 def _build_chat_agent(system_prompt: str, user_id: str, conversation_id_ref: list):
@@ -108,9 +145,10 @@ def _build_chat_agent(system_prompt: str, user_id: str, conversation_id_ref: lis
         title: str,
         intent: str,
         agent_slug: str = "",
+        team_slug: str = "",
         parameters: str = "{}",
     ) -> str:
-        """Dispatch a task to an Angie agent for async execution.
+        """Dispatch a task to an Angie agent or team for async execution.
 
         Use this tool when the user asks you to DO something that requires
         a real-world action (send email, control smart home, manage tasks,
@@ -122,6 +160,8 @@ def _build_chat_agent(system_prompt: str, user_id: str, conversation_id_ref: lis
             intent: Full natural-language description of what the user wants done
             agent_slug: The slug of the agent to handle this (e.g. "hue", "gmail").
                         Leave empty for auto-resolution.
+            team_slug: The slug of the team to handle this (e.g. "media-team").
+                       Leave empty unless @-mentioning a team.
             parameters: JSON string of extracted key-value parameters relevant to the task
         """
         from angie.core.intent import dispatch_task as do_dispatch
@@ -137,6 +177,7 @@ def _build_chat_agent(system_prompt: str, user_id: str, conversation_id_ref: lis
             user_id=user_id,
             conversation_id=conversation_id_ref[0] if conversation_id_ref else None,
             agent_slug=agent_slug or None,
+            team_slug=team_slug or None,
             parameters=params,
         )
 
@@ -192,8 +233,12 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
     if user_context:
         system_prompt = f"{system_prompt}\n\n---\n\n{user_context}"
 
-    # Inject available agents catalog
-    agents_catalog = _build_agents_catalog()
+    # Load teams from DB for @-mention support
+    team_map = await _load_team_slugs()
+    team_slug_set = set(team_map.keys())
+
+    # Inject available agents & teams catalog
+    agents_catalog = _build_agents_catalog(team_map)
     if agents_catalog:
         system_prompt = f"{system_prompt}\n\n---\n\n{agents_catalog}"
 
@@ -276,13 +321,20 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
                 except Exception as exc:
                     logger.warning("Could not persist user message: %s", exc)
 
-            # Extract @-mention if present
-            mentioned_slug, cleaned_message = _extract_mention(user_message)
+            # Extract @-mention if present (agent or team)
+            mentioned_slug, mention_kind, cleaned_message = _extract_mention(
+                user_message, team_slug_set
+            )
             llm_message = user_message
-            if mentioned_slug:
+            if mentioned_slug and mention_kind == "agent":
                 llm_message = (
                     f"[The user @-mentioned the `{mentioned_slug}` agent. "
                     f"Use agent_slug='{mentioned_slug}' when dispatching.]\n\n{cleaned_message}"
+                )
+            elif mentioned_slug and mention_kind == "team":
+                llm_message = (
+                    f"[The user @-mentioned the `{mentioned_slug}` team. "
+                    f"Use team_slug='{mentioned_slug}' when dispatching.]\n\n{cleaned_message}"
                 )
 
             task_dispatched = False

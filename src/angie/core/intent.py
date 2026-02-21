@@ -19,6 +19,7 @@ async def dispatch_task(
     user_id: str,
     conversation_id: str | None = None,
     agent_slug: str | None = None,
+    team_slug: str | None = None,
     parameters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create an event + task and enqueue for async execution.
@@ -26,8 +27,30 @@ async def dispatch_task(
     Called by the chat agent's ``dispatch_task`` tool when the LLM
     decides a user message requires real work rather than conversation.
 
+    If ``team_slug`` is provided, resolve the first capable agent via
+    the team's agent list and use that agent_slug for dispatch.
+
     Returns a confirmation dict the LLM can use to acknowledge the user.
     """
+    # Resolve team_slug to an agent_slug if provided
+    resolved_agent = agent_slug
+    if team_slug and not agent_slug:
+        try:
+            from sqlalchemy import select as sa_select
+
+            from angie.db.session import get_session_factory
+            from angie.models.team import Team
+
+            factory = get_session_factory()
+            async with factory() as session:
+                result = await session.execute(sa_select(Team).where(Team.slug == team_slug))
+                team = result.scalar_one_or_none()
+                if team and team.agent_slugs:
+                    # Use the first agent in the team as default
+                    resolved_agent = team.agent_slugs[0]
+                    logger.info("Resolved team %r to agent %r", team_slug, resolved_agent)
+        except Exception as exc:
+            logger.warning("Could not resolve team %r: %s", team_slug, exc)
     payload: dict[str, Any] = {
         "intent": intent,
         "conversation_id": conversation_id,
@@ -90,7 +113,7 @@ async def dispatch_task(
         title=title,
         user_id=user_id,
         input_data=payload,
-        agent_slug=agent_slug,
+        agent_slug=resolved_agent,
         source_event_id=event.id,
         source_channel="web",
     )
@@ -101,10 +124,11 @@ async def dispatch_task(
     try:
         celery_id = get_dispatcher().dispatch(task)
         logger.info(
-            "Dispatched task %r (celery=%s, agent=%s)",
+            "Dispatched task %r (celery=%s, agent=%s, team=%s)",
             title,
             celery_id,
-            agent_slug or "auto",
+            resolved_agent or "auto",
+            team_slug or "none",
         )
 
         # Update the DB record with the celery task ID
@@ -128,7 +152,8 @@ async def dispatch_task(
             "task_id": task_record_id or task.id,
             "celery_id": celery_id,
             "title": title,
-            "agent": agent_slug or "auto-resolved",
+            "agent": resolved_agent or "auto-resolved",
+            "team": team_slug,
         }
     except Exception as exc:
         logger.error("Failed to dispatch task: %s", exc)
