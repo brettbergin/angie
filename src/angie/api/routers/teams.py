@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +21,7 @@ class TeamCreate(BaseModel):
     description: str | None = None
     goal: str | None = None
     agent_slugs: list[str] = []
+    is_enabled: bool = True
 
 
 class TeamOut(BaseModel):
@@ -30,16 +31,21 @@ class TeamOut(BaseModel):
     description: str | None
     goal: str | None
     agent_slugs: list[str]
+    is_enabled: bool
 
     model_config = {"from_attributes": True}
 
 
 @router.get("/", response_model=list[TeamOut])
 async def list_teams(
+    enabled_only: bool = Query(False),
     _: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    result = await session.execute(select(Team).order_by(Team.name))
+    stmt = select(Team).order_by(Team.name)
+    if enabled_only:
+        stmt = stmt.where(Team.is_enabled.is_(True))
+    result = await session.execute(stmt)
     return result.scalars().all()
 
 
@@ -73,6 +79,7 @@ class TeamUpdate(BaseModel):
     description: str | None = None
     goal: str | None = None
     agent_slugs: list[str] | None = None
+    is_enabled: bool | None = None
 
 
 @router.patch("/{team_id}", response_model=TeamOut)

@@ -84,6 +84,7 @@ export type Team = {
   description: string | null;
   goal: string | null;
   agent_slugs: string[];
+  is_enabled: boolean;
 };
 
 export type Workflow = {
@@ -155,11 +156,12 @@ export const api = {
   },
 
   teams: {
-    list: (token: string) => request<Team[]>("/api/v1/teams/", { token }),
+    list: (token: string, enabledOnly?: boolean) =>
+      request<Team[]>(`/api/v1/teams/${enabledOnly ? "?enabled_only=true" : ""}`, { token }),
     get: (token: string, id: string) => request<Team>(`/api/v1/teams/${id}`, { token }),
-    create: (token: string, data: { name: string; slug: string; description?: string; goal?: string; agent_slugs?: string[] }) =>
+    create: (token: string, data: { name: string; slug: string; description?: string; goal?: string; agent_slugs?: string[]; is_enabled?: boolean }) =>
       request<Team>("/api/v1/teams/", { method: "POST", body: data, token }),
-    update: (token: string, id: string, data: { name?: string; description?: string; goal?: string; agent_slugs?: string[] }) =>
+    update: (token: string, id: string, data: { name?: string; description?: string; goal?: string; agent_slugs?: string[]; is_enabled?: boolean }) =>
       request<Team>(`/api/v1/teams/${id}`, { method: "PATCH", body: data, token }),
     delete: (token: string, id: string) =>
       request<void>(`/api/v1/teams/${id}`, { method: "DELETE", token }),

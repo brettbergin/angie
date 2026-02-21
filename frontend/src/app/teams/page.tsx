@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, type Team, type Agent } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,6 +166,17 @@ export default function TeamsPage() {
     }
   };
 
+  const handleToggleEnabled = async (team: Team, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!token) return;
+    try {
+      const updated = await api.teams.update(token, team.id, { is_enabled: !team.is_enabled });
+      setTeams((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    } catch {
+      fetchTeams();
+    }
+  };
+
   const filtered = teams.filter((t) =>
     !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.slug.toLowerCase().includes(search.toLowerCase())
   );
@@ -272,7 +284,10 @@ export default function TeamsPage() {
 
       <div className="grid grid-cols-3 gap-4">
         {filtered.map((team) => (
-          <Card key={team.id} className="hover:border-angie-600/40 transition-colors group cursor-pointer" onClick={() => setSelectedTeamId(team.id)}>
+          <Card key={team.id} className={cn(
+            "hover:border-angie-600/40 transition-colors group cursor-pointer",
+            !team.is_enabled && "opacity-50"
+          )} onClick={() => setSelectedTeamId(team.id)}>
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-purple-600/20 border border-purple-600/30 flex items-center justify-center flex-shrink-0">
@@ -293,10 +308,25 @@ export default function TeamsPage() {
                   )}
                 </div>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); handleDelete(team.id); }}
-                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => handleToggleEnabled(team, e)}
+                  className={cn(
+                    "relative w-9 h-5 rounded-full transition-colors flex-shrink-0",
+                    team.is_enabled ? "bg-green-500" : "bg-gray-600"
+                  )}
+                  title={team.is_enabled ? "Disable team" : "Enable team"}
+                >
+                  <span className={cn(
+                    "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                    team.is_enabled && "translate-x-4"
+                  )} />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(team.id); }}
+                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </Card>
         ))}

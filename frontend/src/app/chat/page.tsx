@@ -28,10 +28,11 @@ function ChatPageInner() {
   const searchParams = useSearchParams();
   const conversationId = searchParams.get("c");
 
+  type WsStatus = "disconnected" | "connecting" | "connected";
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [connected, setConnected] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [wsStatus, setWsStatus] = useState<WsStatus>("disconnected");
   const [loadingMessages, setLoadingMessages] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -41,6 +42,9 @@ function ChatPageInner() {
   const pollGenRef = useRef(0);
   const messageCountRef = useRef<number>(0);
   const tokenRef = useRef(token);
+  const reconnectAttempts = useRef(0);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Skip DB reload when we just created the conversation via WS
   const skipNextReloadRef = useRef(false);
 
@@ -59,7 +63,7 @@ function ChatPageInner() {
   useEffect(() => {
     if (!token) return;
     api.agents.list(token).then(setAgents).catch(() => {});
-    api.teams.list(token).then(setTeams).catch(() => {});
+    api.teams.list(token, true).then(setTeams).catch(() => {});
   }, [token]);
 
   // Keep tokenRef in sync so interval callbacks always use the latest token
@@ -159,63 +163,122 @@ function ChatPageInner() {
   useEffect(() => {
     if (!token) return;
 
+    // Cancel any pending reconnect
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+
     // Close previous connection
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
+    if (heartbeatRef.current) {
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
 
     currentConvoRef.current = conversationId;
-    setConnecting(true);
+    reconnectAttempts.current = 0;
 
-    const wsUrl = conversationId
-      ? `${WS_URL}/api/v1/chat/ws?token=${token}&conversation_id=${conversationId}`
-      : `${WS_URL}/api/v1/chat/ws?token=${token}`;
+    function connectWebSocket() {
+      if (!tokenRef.current) return;
+      setWsStatus("connecting");
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+      const wsUrl = currentConvoRef.current
+        ? `${WS_URL}/api/v1/chat/ws?token=${tokenRef.current}&conversation_id=${currentConvoRef.current}`
+        : `${WS_URL}/api/v1/chat/ws?token=${tokenRef.current}`;
 
-    ws.onopen = () => { setConnected(true); setConnecting(false); };
-    ws.onclose = () => { setConnected(false); setConnecting(false); };
-    ws.onerror = () => setConnecting(false);
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-    ws.onmessage = (evt) => {
-      const data = JSON.parse(evt.data);
+      ws.onopen = () => {
+        setWsStatus("connected");
+        reconnectAttempts.current = 0;
+        // Start heartbeat
+        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+        heartbeatRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 30_000);
+      };
 
-      // If server created a new conversation, navigate to it
-      if (data.conversation_id && !currentConvoRef.current) {
-        currentConvoRef.current = data.conversation_id;
-        skipNextReloadRef.current = true;
-        router.push(`/chat?c=${data.conversation_id}`);
+      ws.onclose = (event) => {
+        setWsStatus("disconnected");
+        if (heartbeatRef.current) {
+          clearInterval(heartbeatRef.current);
+          heartbeatRef.current = null;
+        }
+        // Reconnect on unclean close with exponential backoff
+        if (!event.wasClean) {
+          const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 30_000);
+          reconnectAttempts.current++;
+          reconnectTimerRef.current = setTimeout(connectWebSocket, delay);
+        }
+      };
+
+      ws.onerror = () => {
+        // onerror is always followed by onclose, so status update happens there
+      };
+
+      ws.onmessage = (evt) => {
+        const data = JSON.parse(evt.data);
+
+        // Ignore pong responses from heartbeat
+        if (data.type === "pong") return;
+
+        // If server created a new conversation, navigate to it
+        if (data.conversation_id && !currentConvoRef.current) {
+          currentConvoRef.current = data.conversation_id;
+          skipNextReloadRef.current = true;
+          router.push(`/chat?c=${data.conversation_id}`);
+        }
+
+        // Task results for a different conversation — ignore (already persisted in DB)
+        if (data.type === "task_result" && data.conversation_id && data.conversation_id !== currentConvoRef.current) {
+          return;
+        }
+
+        setMessages((prev) => {
+          const updated = [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant" as const,
+              content: data.content ?? data.message ?? JSON.stringify(data),
+              ts: Date.now(),
+              type: data.type,
+            },
+          ];
+          messageCountRef.current = updated.length;
+          return updated;
+        });
+
+        // If a task was dispatched, start polling for the result
+        if (data.task_dispatched && currentConvoRef.current) {
+          startPolling(currentConvoRef.current);
+        }
+      };
+    }
+
+    connectWebSocket();
+
+    return () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
       }
-
-      // Task results for a different conversation — ignore (already persisted in DB)
-      if (data.type === "task_result" && data.conversation_id && data.conversation_id !== currentConvoRef.current) {
-        return;
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
       }
-
-      setMessages((prev) => {
-        const updated = [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant" as const,
-            content: data.content ?? data.message ?? JSON.stringify(data),
-            ts: Date.now(),
-            type: data.type,
-          },
-        ];
-        messageCountRef.current = updated.length;
-        return updated;
-      });
-
-      // If a task was dispatched, start polling for the result
-      if (data.task_dispatched && currentConvoRef.current) {
-        startPolling(currentConvoRef.current);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
       }
     };
-
-    return () => ws.close();
   }, [token, conversationId, router, startPolling]);
 
   useEffect(() => {
@@ -296,16 +359,16 @@ function ChatPageInner() {
           <textarea
             ref={textareaRef}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-angie-500 focus:border-transparent transition resize-none min-h-[44px] max-h-[200px]"
-            placeholder={connected ? "Message Angie… (type @ to mention an agent)" : "Waiting for connection…"}
+            placeholder={wsStatus === "connected" ? "Message Angie… (type @ to mention an agent)" : "Waiting for connection…"}
             value={input}
             onChange={handleTextareaChange}
             onKeyDown={handleTextareaKeyDown}
-            disabled={!connected}
+            disabled={wsStatus !== "connected"}
             rows={1}
           />
         </div>
-        <Button type="submit" disabled={!connected || !input.trim()} className="h-[44px]">
-          {connecting ? <Spinner className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+        <Button type="submit" disabled={wsStatus !== "connected" || !input.trim()} className="h-[44px]">
+          {wsStatus === "connecting" ? <Spinner className="w-4 h-4" /> : <Send className="w-4 h-4" />}
         </Button>
       </form>
     </div>
@@ -321,8 +384,11 @@ function ChatPageInner() {
             <p className="text-xs text-gray-500">Your personal AI assistant</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-400">
-            <span className={cn("w-2 h-2 rounded-full", connected ? "bg-green-400" : "bg-gray-600")} />
-            {connecting ? "Connecting…" : connected ? "Connected" : "Disconnected"}
+            <span className={cn(
+              "w-2 h-2 rounded-full",
+              wsStatus === "connected" ? "bg-green-400" : wsStatus === "connecting" ? "bg-amber-400 animate-pulse" : "bg-gray-600"
+            )} />
+            {wsStatus === "connecting" ? "Connecting…" : wsStatus === "connected" ? "Connected" : "Disconnected"}
           </div>
         </div>
 
@@ -392,8 +458,11 @@ function ChatPageInner() {
           <p className="text-xs text-gray-500">Your personal AI assistant</p>
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-400">
-          <span className={cn("w-2 h-2 rounded-full", connected ? "bg-green-400" : "bg-gray-600")} />
-          {connecting ? "Connecting…" : connected ? "Connected" : "Disconnected"}
+          <span className={cn(
+            "w-2 h-2 rounded-full",
+            wsStatus === "connected" ? "bg-green-400" : wsStatus === "connecting" ? "bg-amber-400 animate-pulse" : "bg-gray-600"
+          )} />
+          {wsStatus === "connecting" ? "Connecting…" : wsStatus === "connected" ? "Connected" : "Disconnected"}
         </div>
       </div>
 

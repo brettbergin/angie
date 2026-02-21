@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -311,7 +312,7 @@ def test_list_teams_endpoint():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
 
-    team = Team(id="team-1", name="Dev Team", slug="dev-team", agent_slugs=[])
+    team = Team(id="team-1", name="Dev Team", slug="dev-team", agent_slugs=[], is_enabled=True)
     session.execute = AsyncMock(return_value=_make_scalars_result([team]))
 
     with TestClient(app) as client:
@@ -329,6 +330,7 @@ def test_create_team_endpoint():
         obj.slug = "my-team"
         obj.description = None
         obj.agent_slugs = []
+        obj.is_enabled = True
         obj.created_at = None
         obj.updated_at = None
 
@@ -352,7 +354,7 @@ def test_get_team_success():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
 
-    team = Team(id="t1", name="Dev Team", slug="dev-team", agent_slugs=[])
+    team = Team(id="t1", name="Dev Team", slug="dev-team", agent_slugs=[], is_enabled=True)
     session.get = AsyncMock(return_value=team)
 
     with TestClient(app) as client:
@@ -373,12 +375,59 @@ def test_delete_team_success():
     app, user, session = _make_app_with_overrides()
     from angie.models.team import Team
 
-    team = Team(id="t1", name="Dev Team", slug="dev-team")
+    team = Team(id="t1", name="Dev Team", slug="dev-team", is_enabled=True)
     session.get = AsyncMock(return_value=team)
 
     with TestClient(app) as client:
         resp = client.delete("/api/v1/teams/t1")
     assert resp.status_code in (200, 204)
+
+
+def test_list_teams_enabled_only():
+    app, user, session = _make_app_with_overrides()
+    from angie.models.team import Team
+
+    enabled_team = Team(id="t1", name="Enabled", slug="enabled", agent_slugs=[], is_enabled=True)
+    disabled_team = Team(
+        id="t2", name="Disabled", slug="disabled", agent_slugs=[], is_enabled=False
+    )
+    all_teams = [enabled_team, disabled_team]
+
+    async def mock_execute(stmt):
+        """Return filtered results based on enabled_only query param."""
+        stmt_str = str(stmt)
+        if "is_enabled" in stmt_str:
+            return _make_scalars_result([enabled_team])
+        return _make_scalars_result(all_teams)
+
+    session.execute = AsyncMock(side_effect=mock_execute)
+
+    with TestClient(app) as client:
+        # Without filter — returns all
+        resp = client.get("/api/v1/teams/")
+        assert resp.status_code == 200
+
+        # With enabled_only — returns filtered
+        resp = client.get("/api/v1/teams/?enabled_only=true")
+        assert resp.status_code == 200
+
+
+def test_update_team_is_enabled():
+    app, user, session = _make_app_with_overrides()
+    from angie.models.team import Team
+
+    team = Team(id="t1", name="Dev Team", slug="dev-team", agent_slugs=[], is_enabled=True)
+    session.get = AsyncMock(return_value=team)
+
+    async def mock_refresh(obj):
+        pass  # Keep current attrs
+
+    session.refresh = mock_refresh
+
+    with TestClient(app) as client:
+        resp = client.patch("/api/v1/teams/t1", json={"is_enabled": False})
+    assert resp.status_code == 200
+    assert team.is_enabled is False
 
 
 # ── Workflows router ───────────────────────────────────────────────────────────
@@ -781,6 +830,30 @@ def test_chat_ws_no_sub_claim():
             with pytest.raises(WebSocketDisconnect):
                 with client.websocket_connect(f"/api/v1/chat/ws?token={token}") as ws:
                     ws.receive_text()
+
+
+def test_chat_ws_ping_pong():
+    """Cover heartbeat ping/pong handling — server responds with pong, skips LLM."""
+    mock_settings = _make_ws_settings()
+    token = _ws_token()
+
+    with (
+        patch("angie.config.get_settings", return_value=mock_settings),
+        patch("angie.api.routers.chat.get_settings", return_value=mock_settings),
+        patch("angie.llm.is_llm_configured", return_value=False),
+        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+    ):
+        mock_pm.return_value.compose_for_user.return_value = "system"
+
+        from angie.api.app import create_app
+
+        app = create_app()
+        with TestClient(app) as client:
+            with client.websocket_connect(f"/api/v1/chat/ws?token={token}") as ws:
+                ws.send_text('{"type": "ping"}')
+                reply = ws.receive_text()
+                data = json.loads(reply)
+                assert data["type"] == "pong"
 
 
 # ── api/routers/channels.py upsert update path (lines 52-67) ─────────────────

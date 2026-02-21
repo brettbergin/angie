@@ -44,14 +44,14 @@ def _generate_title(text: str) -> str:
 
 
 async def _load_team_slugs() -> dict[str, list[str]]:
-    """Load team slugs and their agent_slugs from the database."""
+    """Load enabled team slugs and their agent_slugs from the database."""
     try:
         from angie.db.session import get_session_factory
         from angie.models.team import Team
 
         factory = get_session_factory()
         async with factory() as session:
-            result = await session.execute(select(Team))
+            result = await session.execute(select(Team).where(Team.is_enabled.is_(True)))
             teams = result.scalars().all()
             return {t.slug: t.agent_slugs for t in teams}
     except Exception as exc:
@@ -279,6 +279,10 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
             raw = await websocket.receive_text()
             try:
                 data = json.loads(raw)
+                # Handle heartbeat ping
+                if data.get("type") == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+                    continue
                 user_message = data.get("content", raw)
             except json.JSONDecodeError:
                 user_message = raw

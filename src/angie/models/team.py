@@ -1,6 +1,6 @@
 """Team and TeamAgent models."""
 
-from sqlalchemy import JSON, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from angie.db.session import Base
@@ -29,6 +29,7 @@ class Team(Base, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text)
     goal: Mapped[str | None] = mapped_column(Text)
     agent_slugs: Mapped[list] = mapped_column(JSON, default=list)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
     team_agents: Mapped[list[TeamAgent]] = relationship(
         back_populates="team", cascade="all, delete-orphan"
