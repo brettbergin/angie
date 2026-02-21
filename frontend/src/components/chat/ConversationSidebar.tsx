@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, Conversation } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, parseUTC } from "@/lib/utils";
 import { MessageSquarePlus, Trash2, Pencil, Check, X } from "lucide-react";
 
 type Props = {
@@ -13,8 +13,8 @@ type Props = {
   refreshKey: number;
 };
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+export function timeAgo(dateStr: string): string {
+  const diff = Date.now() - parseUTC(dateStr).getTime();
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;

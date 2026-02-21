@@ -4,7 +4,7 @@ UV           := uv
 PYTEST       := .venv/bin/pytest
 RUFF         := .venv/bin/ruff
 
-.PHONY: help install lint lint-fix format format-fix check fix test test-single \
+.PHONY: help install lint lint-fix format format-fix check fix test test-frontend test-backend test-single \
         build docker-build docker-up docker-down docker-restart docker-logs migrate clean
 
 help: ## Show this help
@@ -33,7 +33,14 @@ fix: lint-fix format-fix ## Auto-fix all lint and format issues
 typecheck: ## Run mypy type checks
 	$(UV) run mypy src/
 
-test: ## Run all tests
+test: ## Run all tests (backend + frontend)
+	$(PYTEST) tests/ -v
+	cd frontend && npx vitest run
+
+test-frontend: ## Run frontend unit tests only
+	cd frontend && npx vitest run
+
+test-backend: ## Run backend tests only
 	$(PYTEST) tests/ -v
 
 test-single: ## Run a single test by keyword: make test-single K=test_name

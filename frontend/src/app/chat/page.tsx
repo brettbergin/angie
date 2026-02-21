@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api, Agent, Team, ChatMessage as ChatMessageType } from "@/lib/api";
+import { parseUTC } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ChatMessageBubble } from "@/components/chat/ChatMessage";
@@ -37,6 +38,7 @@ function ChatPageInner() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const currentConvoRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollGenRef = useRef(0);
   const messageCountRef = useRef<number>(0);
   const tokenRef = useRef(token);
   // Skip DB reload when we just created the conversation via WS
@@ -92,7 +94,7 @@ function ChatPageInner() {
         id: m.id,
         role: m.role,
         content: m.content,
-        ts: new Date(m.created_at).getTime(),
+        ts: parseUTC(m.created_at).getTime(),
       }));
       setMessages(mapped);
       messageCountRef.current = mapped.length;
@@ -108,10 +110,12 @@ function ChatPageInner() {
   const startPolling = useCallback((convoId: string) => {
     if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     if (!tokenRef.current) return;
+    const gen = ++pollGenRef.current;
     let attempts = 0;
     const maxAttempts = 20; // 60 seconds at 3s intervals
 
     const poll = async () => {
+      if (gen !== pollGenRef.current) return; // stale poll — newer one took over
       attempts++;
       if (attempts > maxAttempts) {
         pollTimerRef.current = null;
@@ -127,16 +131,16 @@ function ChatPageInner() {
               id: m.id,
               role: m.role as "user" | "assistant",
               content: m.content,
-              ts: new Date(m.created_at).getTime(),
+              ts: parseUTC(m.created_at).getTime(),
             }))
           );
           messageCountRef.current = msgs.length;
-          pollTimerRef.current = null;
-          return; // Stop polling — got new messages
+          // Don't stop — keep polling for more results (multiple tasks may be in flight)
         }
       } catch {
         // Polling error — ignore and retry
       }
+      if (gen !== pollGenRef.current) return; // check again after async work
       // Schedule next poll only after current one completes
       pollTimerRef.current = setTimeout(poll, 3000);
     };
