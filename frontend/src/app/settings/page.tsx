@@ -50,7 +50,8 @@ export default function SettingsPage() {
     if (!token) return;
     setProfileSaving(true);
     try {
-      await api.users.updateMe(token, profileForm);
+      const updated = await api.users.updateMe(token, profileForm);
+      setProfileForm({ full_name: updated.full_name ?? "", timezone: updated.timezone ?? "UTC" });
       if (refreshUser) refreshUser();
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2000);
