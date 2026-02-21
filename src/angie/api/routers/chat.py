@@ -42,6 +42,87 @@ def _generate_title(text: str) -> str:
     return title
 
 
+def _build_agents_catalog() -> str:
+    """Build a prompt section listing all available agents and their capabilities."""
+    from angie.agents.registry import get_registry
+
+    registry = get_registry()
+    agents = registry.list_all()
+    if not agents:
+        return ""
+
+    lines = ["## Available Agents", ""]
+    lines.append(
+        "When the user asks you to perform a real-world action (not just answer a question), "
+        "use the `dispatch_task` tool to route the work to the appropriate agent below. "
+        "If the user is just making conversation or asking a question you can answer directly, "
+        "respond normally without dispatching a task."
+    )
+    lines.append("")
+    for agent in agents:
+        caps = ", ".join(agent.capabilities) if agent.capabilities else "general"
+        lines.append(f"- **{agent.name}** (`{agent.slug}`): {agent.description}")
+        lines.append(f"  Capabilities: {caps}")
+    return "\n".join(lines)
+
+
+def _build_chat_agent(system_prompt: str, user_id: str, conversation_id_ref: list):
+    """Build a pydantic-ai Agent with dispatch_task tool for the chat session."""
+    from pydantic_ai import Agent
+
+    from angie.llm import get_llm_model
+
+    model = get_llm_model()
+    agent: Agent[None, str] = Agent(model=model, system_prompt=system_prompt)
+
+    @agent.tool_plain
+    async def dispatch_task(
+        title: str,
+        intent: str,
+        agent_slug: str = "",
+        parameters: str = "{}",
+    ) -> str:
+        """Dispatch a task to an Angie agent for async execution.
+
+        Use this tool when the user asks you to DO something that requires
+        a real-world action (send email, control smart home, manage tasks,
+        check calendar, etc.). Do NOT use this for questions you can answer
+        directly through conversation.
+
+        Args:
+            title: Short descriptive title of the task (e.g. "Turn off living room lights")
+            intent: Full natural-language description of what the user wants done
+            agent_slug: The slug of the agent to handle this (e.g. "hue", "gmail").
+                        Leave empty for auto-resolution.
+            parameters: JSON string of extracted key-value parameters relevant to the task
+        """
+        from angie.core.intent import dispatch_task as do_dispatch
+
+        try:
+            params = json.loads(parameters) if parameters else {}
+        except json.JSONDecodeError:
+            params = {}
+
+        result = await do_dispatch(
+            title=title,
+            intent=intent,
+            user_id=user_id,
+            conversation_id=conversation_id_ref[0] if conversation_id_ref else None,
+            agent_slug=agent_slug or None,
+            parameters=params,
+        )
+
+        if result.get("dispatched"):
+            return (
+                f"Task dispatched successfully. Task ID: {result['task_id']}. "
+                f"The {result.get('agent', 'appropriate')} agent will handle this. "
+                "I'll update you here when it's done."
+            )
+        return f"Failed to dispatch task: {result.get('error', 'unknown error')}"
+
+    return agent
+
+
 @router.websocket("/ws")
 async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None = None):
     settings = get_settings()
@@ -58,7 +139,7 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
 
     from angie.core.prompts import get_prompt_manager
     from angie.db.session import get_session_factory
-    from angie.llm import get_llm_model, is_llm_configured
+    from angie.llm import is_llm_configured
     from angie.models.user import User
 
     pm = get_prompt_manager()
@@ -83,9 +164,16 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
     if user_context:
         system_prompt = f"{system_prompt}\n\n---\n\n{user_context}"
 
+    # Inject available agents catalog
+    agents_catalog = _build_agents_catalog()
+    if agents_catalog:
+        system_prompt = f"{system_prompt}\n\n---\n\n{agents_catalog}"
+
     # If conversation_id provided, load existing message history from DB
     message_history: list = []
     is_first_message = True
+    # Mutable ref so the tool closure can access the current conversation_id
+    conversation_id_ref: list[str | None] = [conversation_id]
 
     if conversation_id:
         try:
@@ -105,10 +193,7 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
 
     agent = None
     if is_llm_configured():
-        from pydantic_ai import Agent
-
-        model = get_llm_model()
-        agent = Agent(model=model, system_prompt=system_prompt)
+        agent = _build_chat_agent(system_prompt, user_id, conversation_id_ref)
 
     try:
         while True:
@@ -131,6 +216,7 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
                         await session.flush()
                         await session.refresh(convo)
                         conversation_id = convo.id
+                        conversation_id_ref[0] = convo.id
                         await session.commit()
                     is_first_message = False
                 except Exception as exc:

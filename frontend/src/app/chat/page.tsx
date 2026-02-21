@@ -17,6 +17,7 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   ts: number;
+  type?: "task_result";
 };
 
 function ChatPageInner() {
@@ -103,6 +104,11 @@ function ChatPageInner() {
         router.push(`/chat?c=${data.conversation_id}`);
       }
 
+      // Task results for a different conversation — ignore (already persisted in DB)
+      if (data.type === "task_result" && data.conversation_id && data.conversation_id !== currentConvoRef.current) {
+        return;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
@@ -110,6 +116,7 @@ function ChatPageInner() {
           role: "assistant",
           content: data.content ?? data.message ?? JSON.stringify(data),
           ts: Date.now(),
+          type: data.type,
         },
       ]);
     };
@@ -220,6 +227,7 @@ function ChatPageInner() {
             role={msg.role}
             content={msg.content}
             username={user?.username}
+            type={msg.type}
           />
         ))}
         <div ref={bottomRef} />

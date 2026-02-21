@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -28,11 +29,29 @@ class WebChatChannel(BaseChannel):
     def unregister_connection(self, user_id: str) -> None:
         self._connections.pop(user_id, None)
 
-    async def send(self, user_id: str, text: str, **kwargs: Any) -> None:
+    async def send(
+        self,
+        user_id: str,
+        text: str,
+        *,
+        conversation_id: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         ws = self._connections.get(user_id)
         if ws:
             try:
-                await ws.send_text(text)
+                if conversation_id:
+                    payload = json.dumps(
+                        {
+                            "content": text,
+                            "role": "assistant",
+                            "conversation_id": conversation_id,
+                            "type": "task_result",
+                        }
+                    )
+                    await ws.send_text(payload)
+                else:
+                    await ws.send_text(text)
             except Exception as e:
                 logger.warning("WebSocket send to %s failed: %s", user_id, e)
                 self.unregister_connection(user_id)

@@ -32,6 +32,48 @@ async def _update_task_in_db(
             await session.commit()
 
 
+async def _deliver_chat_result(
+    conversation_id: str,
+    user_id: str,
+    text: str,
+) -> None:
+    """Persist a task result as a ChatMessage and push via WebSocket."""
+    from sqlalchemy import func
+
+    from angie.db.session import get_session_factory
+    from angie.models.conversation import ChatMessage, Conversation, MessageRole
+
+    # Persist the result as an assistant message in the conversation
+    try:
+        factory = get_session_factory()
+        async with factory() as session:
+            msg = ChatMessage(
+                conversation_id=conversation_id,
+                role=MessageRole.ASSISTANT,
+                content=text,
+            )
+            session.add(msg)
+            # Touch conversation updated_at
+            convo = await session.get(Conversation, conversation_id)
+            if convo:
+                convo.updated_at = func.now()
+            await session.commit()
+    except Exception as exc:
+        logger.warning("Failed to persist chat result to conversation: %s", exc)
+
+    # Push via WebSocket if user is connected
+    try:
+        from angie.api.routers.chat import _web_channel
+
+        await _web_channel.send(
+            user_id,
+            text,
+            conversation_id=conversation_id,
+        )
+    except Exception as exc:
+        logger.debug("WebSocket push failed (user may be offline): %s", exc)
+
+
 # ── D3: Intent routing ────────────────────────────────────────────────────────
 
 
@@ -81,6 +123,8 @@ def execute_task(self, task_dict: dict[str, Any]) -> dict[str, Any]:
     task_id = task_dict.get("id")
     source_channel = task_dict.get("source_channel")
     user_id = task_dict.get("user_id")
+    input_data = task_dict.get("input_data", {})
+    conversation_id = input_data.get("conversation_id")
     logger.info("Executing task %s", task_id)
 
     try:
@@ -93,9 +137,15 @@ def execute_task(self, task_dict: dict[str, Any]) -> dict[str, Any]:
         if task_id:
             asyncio.run(_update_task_in_db(task_id, "success", result, None))
 
-        # D2: reply to originating channel
+        # Build result summary
         summary = result.get("summary") or result.get("message") or "✅ Task complete."
-        asyncio.run(_send_reply(source_channel, user_id, summary))
+
+        # Deliver result to the originating chat conversation
+        if conversation_id and user_id:
+            asyncio.run(_deliver_chat_result(conversation_id, user_id, summary))
+        else:
+            # D2: reply to originating channel (non-chat sources)
+            asyncio.run(_send_reply(source_channel, user_id, summary))
 
         return {"status": "success", "result": result, "task_id": task_id}
 
@@ -106,7 +156,13 @@ def execute_task(self, task_dict: dict[str, Any]) -> dict[str, Any]:
                 asyncio.run(_update_task_in_db(task_id, "failure", {}, str(exc)))
             except Exception:
                 pass
-        asyncio.run(_send_reply(source_channel, user_id, f"❌ Task failed: {exc}"))
+
+        error_msg = f"❌ Task failed: {exc}"
+        if conversation_id and user_id:
+            asyncio.run(_deliver_chat_result(conversation_id, user_id, error_msg))
+        else:
+            asyncio.run(_send_reply(source_channel, user_id, error_msg))
+
         raise self.retry(exc=exc, countdown=2**self.request.retries) from exc
 
 
