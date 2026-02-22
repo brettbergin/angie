@@ -117,6 +117,46 @@ export type ChatMessage = {
   created_at: string;
 };
 
+export type ConnectionStatus = "connected" | "expired" | "error" | "disconnected";
+export type AuthType = "oauth2" | "api_key" | "token" | "credentials";
+
+export type ServiceField = {
+  key: string;
+  label: string;
+  type: string;
+};
+
+export type ServiceDefinition = {
+  key: string;
+  name: string;
+  description: string;
+  auth_type: AuthType;
+  color: string;
+  fields: ServiceField[];
+  agent_slug: string | null;
+};
+
+export type Connection = {
+  id: string;
+  service_type: string;
+  display_name: string | null;
+  auth_type: AuthType;
+  status: ConnectionStatus;
+  masked_credentials: Record<string, string>;
+  scopes: string | null;
+  token_expires_at: string | null;
+  last_used_at: string | null;
+  last_tested_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type TestResult = {
+  success: boolean;
+  message: string;
+  status: ConnectionStatus;
+};
+
 export const api = {
   auth: {
     login: (username: string, password: string) => {
@@ -207,5 +247,22 @@ export const api = {
       request<Conversation>(`/api/v1/conversations/${id}`, { method: "PATCH", body: { title }, token }),
     delete: (token: string, id: string) =>
       request<void>(`/api/v1/conversations/${id}`, { method: "DELETE", token }),
+  },
+
+  connections: {
+    services: (token: string) =>
+      request<ServiceDefinition[]>("/api/v1/connections/services", { token }),
+    list: (token: string) =>
+      request<Connection[]>("/api/v1/connections/", { token }),
+    get: (token: string, id: string) =>
+      request<Connection>(`/api/v1/connections/${id}`, { token }),
+    create: (token: string, data: { service_type: string; credentials: Record<string, string>; display_name?: string }) =>
+      request<Connection>("/api/v1/connections/", { method: "POST", body: data, token }),
+    update: (token: string, id: string, data: { credentials?: Record<string, string>; display_name?: string }) =>
+      request<Connection>(`/api/v1/connections/${id}`, { method: "PATCH", body: data, token }),
+    delete: (token: string, id: string) =>
+      request<void>(`/api/v1/connections/${id}`, { method: "DELETE", token }),
+    test: (token: string, id: string) =>
+      request<TestResult>(`/api/v1/connections/${id}/test`, { method: "POST", token }),
   },
 };

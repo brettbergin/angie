@@ -139,8 +139,10 @@ class HomeAssistantAgent(BaseAgent):
         return agent
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
-        ha_url = os.environ.get("HOME_ASSISTANT_URL", "")
-        ha_token = os.environ.get("HOME_ASSISTANT_TOKEN", "")
+        user_id = task.get("user_id")
+        creds = await self.get_credentials(user_id, "home_assistant")
+        ha_url = (creds or {}).get("url") or os.environ.get("HOME_ASSISTANT_URL", "")
+        ha_token = (creds or {}).get("token") or os.environ.get("HOME_ASSISTANT_TOKEN", "")
         if not ha_url or not ha_token:
             return {"error": "HOME_ASSISTANT_URL and HOME_ASSISTANT_TOKEN must be set"}
         self.logger.info("HomeAssistantAgent executing")

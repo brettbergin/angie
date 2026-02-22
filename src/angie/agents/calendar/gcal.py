@@ -110,17 +110,28 @@ class GoogleCalendarAgent(BaseAgent):
 
         return agent
 
-    def _build_service(self) -> Any:
+    def _build_service(self, creds_data: dict[str, str] | None = None) -> Any:
         from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
 
-        token_file = os.environ.get("GCAL_TOKEN_FILE", "gcal_token.json")
         scopes = ["https://www.googleapis.com/auth/calendar"]
-        from pathlib import Path
 
-        if not Path(token_file).exists():
-            raise RuntimeError(f"Google Calendar token not found at {token_file}.")
-        creds = Credentials.from_authorized_user_file(token_file, scopes)
+        if creds_data and creds_data.get("token"):
+            creds = Credentials(
+                token=creds_data.get("token"),
+                refresh_token=creds_data.get("refresh_token"),
+                token_uri=creds_data.get("token_uri", "https://oauth2.googleapis.com/token"),
+                client_id=creds_data.get("client_id"),
+                client_secret=creds_data.get("client_secret"),
+                scopes=scopes,
+            )
+        else:
+            token_file = os.environ.get("GCAL_TOKEN_FILE", "gcal_token.json")
+            from pathlib import Path
+
+            if not Path(token_file).exists():
+                raise RuntimeError(f"Google Calendar token not found at {token_file}.")
+            creds = Credentials.from_authorized_user_file(token_file, scopes)
         return build("calendar", "v3", credentials=creds)
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
@@ -128,7 +139,9 @@ class GoogleCalendarAgent(BaseAgent):
 
         self.logger.info("GoogleCalendarAgent executing")
         try:
-            svc = await asyncio.get_event_loop().run_in_executor(None, self._build_service)
+            user_id = task.get("user_id")
+            creds = await self.get_credentials(user_id, "gcal")
+            svc = await asyncio.get_event_loop().run_in_executor(None, self._build_service, creds)
             from angie.llm import get_llm_model
 
             intent = self._extract_intent(task, fallback="list upcoming events")

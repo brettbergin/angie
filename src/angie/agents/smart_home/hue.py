@@ -104,7 +104,9 @@ class HueAgent(BaseAgent):
         try:
             from phue import Bridge
 
-            bridge_ip = os.environ.get("HUE_BRIDGE_IP", "")
+            user_id = task.get("user_id")
+            creds = await self.get_credentials(user_id, "hue")
+            bridge_ip = (creds or {}).get("bridge_ip") or os.environ.get("HUE_BRIDGE_IP", "")
             if not bridge_ip:
                 return {"error": "HUE_BRIDGE_IP not configured"}
             bridge = Bridge(bridge_ip)

@@ -976,3 +976,131 @@ def test_upsert_channel_config_create():
             headers={"Authorization": "Bearer fake"},
         )
     assert resp.status_code == 200
+
+
+# ── Connections router ────────────────────────────────────────────────────────
+
+
+def test_list_services():
+    app, _user, _session = _make_app_with_overrides()
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/connections/services", headers={"Authorization": "Bearer fake"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) >= 10
+    keys = {s["key"] for s in data}
+    assert "github" in keys
+    assert "spotify" in keys
+    for svc in data:
+        assert "name" in svc
+        assert "fields" in svc
+        assert "color" in svc
+
+
+def test_list_connections_empty():
+    app, _user, session = _make_app_with_overrides()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/connections/", headers={"Authorization": "Bearer fake"})
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_create_connection():
+    from angie.core.crypto import reset_fernet
+    from angie.models.connection import ConnectionStatus
+
+    reset_fernet()
+
+    app, user, session = _make_app_with_overrides()
+
+    # Simulate no existing connection
+    mock_existing = MagicMock()
+    mock_existing.scalars.return_value.first.return_value = None
+    session.execute = AsyncMock(return_value=mock_existing)
+
+    created_conn = None
+
+    def capture_add(obj):
+        nonlocal created_conn
+        created_conn = obj
+
+    session.add = capture_add
+
+    async def refresh_conn(obj):
+        obj.id = "conn-1"
+        obj.created_at = "2024-01-01T00:00:00"
+        obj.updated_at = "2024-01-01T00:00:00"
+
+    session.refresh = AsyncMock(side_effect=refresh_conn)
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/v1/connections/",
+            json={"service_type": "github", "credentials": {"token": "ghp_test123"}},
+            headers={"Authorization": "Bearer fake"},
+        )
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["service_type"] == "github"
+    assert data["status"] == ConnectionStatus.CONNECTED
+    assert created_conn is not None
+    assert created_conn.user_id == user.id
+
+    reset_fernet()
+
+
+def test_create_connection_unknown_service():
+    app, _user, _session = _make_app_with_overrides()
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/v1/connections/",
+            json={"service_type": "nonexistent", "credentials": {"token": "x"}},
+            headers={"Authorization": "Bearer fake"},
+        )
+    assert resp.status_code == 400
+    assert "Unknown service type" in resp.json()["detail"]
+
+
+def test_delete_connection():
+    from angie.models.connection import Connection
+
+    app, _user, session = _make_app_with_overrides()
+    mock_conn = MagicMock(spec=Connection)
+    mock_conn.user_id = "user-1"
+    session.get = AsyncMock(return_value=mock_conn)
+
+    with TestClient(app) as client:
+        resp = client.delete("/api/v1/connections/conn-1", headers={"Authorization": "Bearer fake"})
+    assert resp.status_code == 204
+    session.delete.assert_called_once_with(mock_conn)
+
+
+def test_delete_connection_not_found():
+    app, _user, session = _make_app_with_overrides()
+    session.get = AsyncMock(return_value=None)
+
+    with TestClient(app) as client:
+        resp = client.delete(
+            "/api/v1/connections/nonexistent", headers={"Authorization": "Bearer fake"}
+        )
+    assert resp.status_code == 404
+
+
+def test_delete_connection_wrong_user():
+    from angie.models.connection import Connection
+
+    app, _user, session = _make_app_with_overrides()
+    mock_conn = MagicMock(spec=Connection)
+    mock_conn.user_id = "other-user"
+    session.get = AsyncMock(return_value=mock_conn)
+
+    with TestClient(app) as client:
+        resp = client.delete("/api/v1/connections/conn-1", headers={"Authorization": "Bearer fake"})
+    assert resp.status_code == 404

@@ -105,23 +105,33 @@ class GmailAgent(BaseAgent):
 
         return agent
 
-    def _build_service(self) -> Any:
+    def _build_service(self, creds_data: dict[str, str] | None = None) -> Any:
         """Build a Gmail API service using stored OAuth credentials."""
         from google.oauth2.credentials import Credentials
         from googleapiclient.discovery import build
 
-        creds_file = os.environ.get("GMAIL_CREDENTIALS_FILE", "gmail_credentials.json")  # noqa: F841
-        token_file = os.environ.get("GMAIL_TOKEN_FILE", "gmail_token.json")
         scopes = ["https://www.googleapis.com/auth/gmail.modify"]
 
-        from pathlib import Path
-
-        if Path(token_file).exists():
-            creds = Credentials.from_authorized_user_file(token_file, scopes)
-        else:
-            raise RuntimeError(
-                f"Gmail token not found at {token_file}. Run 'angie config gmail' to authenticate."
+        if creds_data and creds_data.get("token"):
+            creds = Credentials(
+                token=creds_data.get("token"),
+                refresh_token=creds_data.get("refresh_token"),
+                token_uri=creds_data.get("token_uri", "https://oauth2.googleapis.com/token"),
+                client_id=creds_data.get("client_id"),
+                client_secret=creds_data.get("client_secret"),
+                scopes=scopes,
             )
+        else:
+            creds_file = os.environ.get("GMAIL_CREDENTIALS_FILE", "gmail_credentials.json")  # noqa: F841
+            token_file = os.environ.get("GMAIL_TOKEN_FILE", "gmail_token.json")
+            from pathlib import Path
+
+            if Path(token_file).exists():
+                creds = Credentials.from_authorized_user_file(token_file, scopes)
+            else:
+                raise RuntimeError(
+                    f"Gmail token not found at {token_file}. Run 'angie config gmail' to authenticate."
+                )
         return build("gmail", "v1", credentials=creds)
 
     async def execute(self, task: dict[str, Any]) -> dict[str, Any]:
@@ -129,7 +139,9 @@ class GmailAgent(BaseAgent):
 
         self.logger.info("GmailAgent executing")
         try:
-            svc = await asyncio.get_event_loop().run_in_executor(None, self._build_service)
+            user_id = task.get("user_id")
+            creds = await self.get_credentials(user_id, "gmail")
+            svc = await asyncio.get_event_loop().run_in_executor(None, self._build_service, creds)
             from angie.llm import get_llm_model
 
             intent = self._extract_intent(task, fallback="list unread emails")

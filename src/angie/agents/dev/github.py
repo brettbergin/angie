@@ -131,7 +131,9 @@ class GitHubAgent(BaseAgent):
             return {"error": "PyGithub not installed"}
         self.logger.info("GitHubAgent executing")
         try:
-            token = os.environ.get("GITHUB_TOKEN", "")
+            user_id = task.get("user_id")
+            creds = await self.get_credentials(user_id, "github")
+            token = (creds or {}).get("token") or os.environ.get("GITHUB_TOKEN", "")
             g = gh_module.Github(token) if token else gh_module.Github()
             from angie.llm import get_llm_model
 

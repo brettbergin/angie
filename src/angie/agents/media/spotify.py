@@ -120,15 +120,22 @@ class SpotifyAgent(BaseAgent):
 
         return agent
 
-    def _build_client(self) -> Any:
+    def _build_client(self, creds: dict[str, str] | None = None) -> Any:
         import spotipy
         from spotipy.oauth2 import SpotifyOAuth
 
+        client_id = (creds or {}).get("client_id") or os.environ.get("SPOTIFY_CLIENT_ID", "")
+        client_secret = (creds or {}).get("client_secret") or os.environ.get(
+            "SPOTIFY_CLIENT_SECRET", ""
+        )
+        redirect_uri = (creds or {}).get("redirect_uri") or os.environ.get(
+            "SPOTIFY_REDIRECT_URI", "http://localhost:8080/callback"
+        )
         cache_path = os.environ.get("SPOTIFY_TOKEN_CACHE", ".spotify_cache")
         auth_manager = SpotifyOAuth(
-            client_id=os.environ.get("SPOTIFY_CLIENT_ID", ""),
-            client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", ""),
-            redirect_uri=os.environ.get("SPOTIFY_REDIRECT_URI", "http://localhost:8080/callback"),
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
             scope="user-read-playback-state user-modify-playback-state user-read-currently-playing",
             cache_path=cache_path,
             open_browser=False,
@@ -161,7 +168,9 @@ class SpotifyAgent(BaseAgent):
         try:
             import spotipy  # noqa: F401 — verify installed
 
-            sp = self._build_client()
+            user_id = task.get("user_id")
+            creds = await self.get_credentials(user_id, "spotify")
+            sp = self._build_client(creds)
             from angie.llm import get_llm_model
 
             intent = self._extract_intent(task, fallback="what is currently playing?")
