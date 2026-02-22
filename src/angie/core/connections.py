@@ -32,6 +32,7 @@ SERVICE_REGISTRY: dict[str, dict[str, Any]] = {
             {"key": "client_secret", "label": "Client Secret", "type": "password"},
             {"key": "access_token", "label": "Access Token", "type": "password"},
             {"key": "refresh_token", "label": "Refresh Token", "type": "password"},
+            {"key": "redirect_uri", "label": "Redirect URI", "type": "text"},
         ],
         "test_endpoint": "https://api.spotify.com/v1/me",
         "agent_slug": "spotify",

@@ -198,7 +198,23 @@ async def update_connection(
     if body.display_name is not None:
         conn.display_name = body.display_name
     if body.credentials is not None:
-        conn.credentials_encrypted = encrypt_json(body.credentials)
+        # Merge provided credentials into existing ones to avoid wiping secrets
+        try:
+            existing_credentials = (
+                decrypt_json(conn.credentials_encrypted) if conn.credentials_encrypted else {}
+            )
+        except ValueError:
+            # If decryption fails, fall back to treating existing credentials as empty
+            existing_credentials = {}
+
+        updated_credentials = dict(existing_credentials)
+        for key, value in body.credentials.items():
+            # Ignore empty-string values so they don't overwrite existing secrets
+            if value == "":
+                continue
+            updated_credentials[key] = value
+
+        conn.credentials_encrypted = encrypt_json(updated_credentials)
         conn.status = ConnectionStatus.CONNECTED
 
     await session.flush()

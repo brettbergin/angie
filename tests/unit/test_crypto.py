@@ -1,13 +1,20 @@
 """Tests for crypto helpers (encrypt, decrypt, mask)."""
 
+import os
+
 import pytest
 
 from angie.core.crypto import decrypt_json, encrypt_json, mask_credential, reset_fernet
 
 
 @pytest.fixture(autouse=True)
-def _reset():
-    """Ensure a fresh Fernet instance each test."""
+def _reset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure a fresh Fernet instance each test and required env vars."""
+    # These env vars are required by angie.config.get_settings(), which is used
+    # by the crypto helpers. Setting them here makes this test module
+    # self-contained and avoids order-dependent failures when run in isolation.
+    monkeypatch.setenv("SECRET_KEY", os.environ.get("SECRET_KEY", "test-secret-key"))
+    monkeypatch.setenv("DB_PASSWORD", os.environ.get("DB_PASSWORD", "test-db-password"))
     reset_fernet()
     yield
     reset_fernet()

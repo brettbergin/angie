@@ -44,8 +44,11 @@ export function ConnectionModal({ service, connection, onClose, onSaved }: Props
     setError(null);
     try {
       if (connection) {
-        const hasValues = Object.values(fields).some((value) => value.trim() !== "");
-        const payload = hasValues ? { credentials: fields } : {};
+        // Only send non-empty fields on update so unchanged secrets aren't wiped
+        const nonEmpty = Object.fromEntries(
+          Object.entries(fields).filter(([, v]) => v.trim() !== "")
+        );
+        const payload = Object.keys(nonEmpty).length > 0 ? { credentials: nonEmpty } : {};
         await api.connections.update(token, connection.id, payload);
       } else {
         await api.connections.create(token, { service_type: service.key, credentials: fields });
