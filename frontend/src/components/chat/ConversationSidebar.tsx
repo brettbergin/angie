@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, Conversation } from "@/lib/api";
 import { cn, parseUTC } from "@/lib/utils";
-import { MessageSquarePlus, Trash2, Pencil, Check, X } from "lucide-react";
+import { MessageSquarePlus, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
+
+const PAGE_SIZE = 20;
 
 type Props = {
   activeId: string | null;
@@ -29,17 +31,24 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
   const { token } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
   const deletingRef = useRef<string | null>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
 
   const loadConversations = useCallback(async () => {
     if (!token) return;
     try {
-      const data = await api.conversations.list(token);
+      const data = await api.conversations.list(token, { limit: PAGE_SIZE, offset: 0 });
       const removing = deletingRef.current;
-      setConversations(removing ? data.filter((c) => c.id !== removing) : data);
+      const items = removing ? data.items.filter((c) => c.id !== removing) : data.items;
+      setConversations(items);
+      setHasMore(data.has_more);
+      offsetRef.current = PAGE_SIZE;
     } catch {
       // ignore
     } finally {
@@ -47,9 +56,37 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
     }
   }, [token]);
 
+  const loadMore = useCallback(async () => {
+    if (!token || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await api.conversations.list(token, { limit: PAGE_SIZE, offset: offsetRef.current });
+      setConversations((prev) => [...prev, ...data.items]);
+      setHasMore(data.has_more);
+      offsetRef.current += PAGE_SIZE;
+    } catch {
+      // ignore
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [token, loadingMore, hasMore]);
+
   useEffect(() => {
     loadConversations();
   }, [loadConversations, refreshKey, activeId]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
 
   useEffect(() => {
     if (editingId && editRef.current) {
@@ -177,6 +214,13 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
             )}
           </div>
         ))}
+
+        {loadingMore && (
+          <div className="flex justify-center py-3">
+            <Loader2 className="w-4 h-4 text-gray-500 animate-spin" />
+          </div>
+        )}
+        <div ref={sentinelRef} className="h-1" />
       </div>
     </div>
   );

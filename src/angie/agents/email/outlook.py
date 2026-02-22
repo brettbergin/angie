@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class OutlookAgent(BaseAgent):
     name: ClassVar[str] = "OutlookAgent"
     slug: ClassVar[str] = "outlook"
+    category: ClassVar[str] = "Communication Agents"
     description: ClassVar[str] = "Office 365 email management."
     capabilities: ClassVar[list[str]] = ["outlook", "office365", "email", "send email"]
     instructions: ClassVar[str] = (

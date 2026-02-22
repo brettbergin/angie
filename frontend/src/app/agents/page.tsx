@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, type Agent, type AgentDetail } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -8,6 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Bot, X, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const CATEGORY_ORDER = [
+  "System Agents",
+  "Communication Agents",
+  "Smart Home Agents",
+  "Social Agents",
+  "Planning Agents",
+  "Media Agents",
+];
 
 function AgentDetailModal({ slug, onClose }: { slug: string; onClose: () => void }) {
   const { token } = useAuth();
@@ -132,6 +141,20 @@ export default function AgentsPage() {
     a.capabilities.some((c) => c.toLowerCase().includes(search.toLowerCase()))
   );
 
+  const grouped = useMemo(() => {
+    const groups: Record<string, Agent[]> = {};
+    for (const agent of filtered) {
+      const cat = agent.category || "General";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(agent);
+    }
+    const ordered = CATEGORY_ORDER.filter((c) => groups[c]);
+    const remaining = Object.keys(groups).filter((c) => !CATEGORY_ORDER.includes(c)).sort();
+    return [...ordered, ...remaining].map((cat) => ({ category: cat, agents: groups[cat] }));
+  }, [filtered]);
+
+  const categoryId = (cat: string) => cat.toLowerCase().replace(/\s+/g, "-");
+
   if (loading) return <div className="flex justify-center p-16"><Spinner className="w-8 h-8" /></div>;
 
   return (
@@ -143,40 +166,60 @@ export default function AgentsPage() {
 
       <Input placeholder="Search agents by name, slug, or capability…" value={search} onChange={(e) => setSearch(e.target.value)} />
 
-      <div className="grid grid-cols-3 gap-4">
-        {filtered.map((agent) => (
-          <Card key={agent.slug} className="hover:border-angie-600/40 transition-colors cursor-pointer" onClick={() => setSelectedSlug(agent.slug)}>
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-angie-600/20 border border-angie-600/30 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-5 h-5 text-angie-400" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-gray-100 truncate">{agent.name}</h3>
-                <p className="text-xs text-gray-500 font-mono">{agent.slug}</p>
-                <p className="text-sm text-gray-400 mt-1 line-clamp-2">{agent.description}</p>
-                {agent.capabilities.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {agent.capabilities.slice(0, 3).map((cap) => (
-                      <span key={cap} className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded">
-                        {cap}
-                      </span>
-                    ))}
-                    {agent.capabilities.length > 3 && (
-                      <span className="text-xs text-gray-500">+{agent.capabilities.length - 3}</span>
+      {grouped.length > 1 && (
+        <nav className="flex gap-2 overflow-x-auto pb-1 sticky top-0 z-10 bg-gray-950/80 backdrop-blur-sm -mx-8 px-8 py-2">
+          {grouped.map(({ category }) => (
+            <a
+              key={category}
+              href={`#${categoryId(category)}`}
+              className="text-xs font-medium text-gray-400 hover:text-angie-400 whitespace-nowrap px-3 py-1.5 rounded-full border border-gray-700 hover:border-angie-600/40 transition-colors"
+            >
+              {category}
+            </a>
+          ))}
+        </nav>
+      )}
+
+      {grouped.map(({ category, agents: catAgents }) => (
+        <section key={category} id={categoryId(category)} className="scroll-mt-20">
+          <h2 className="text-lg font-semibold text-gray-200 mb-3 border-b border-gray-800 pb-2">{category}</h2>
+          <div className="grid grid-cols-3 gap-4">
+            {catAgents.map((agent) => (
+              <Card key={agent.slug} className="hover:border-angie-600/40 transition-colors cursor-pointer" onClick={() => setSelectedSlug(agent.slug)}>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-angie-600/20 border border-angie-600/30 flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-5 h-5 text-angie-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-gray-100 truncate">{agent.name}</h3>
+                    <p className="text-xs text-gray-500 font-mono">{agent.slug}</p>
+                    <p className="text-sm text-gray-400 mt-1 line-clamp-2">{agent.description}</p>
+                    {agent.capabilities.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {agent.capabilities.slice(0, 3).map((cap) => (
+                          <span key={cap} className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded">
+                            {cap}
+                          </span>
+                        ))}
+                        {agent.capabilities.length > 3 && (
+                          <span className="text-xs text-gray-500">+{agent.capabilities.length - 3}</span>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
-        {filtered.length === 0 && (
-          <div className="col-span-3 text-center py-16 text-gray-500">
-            <Bot className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>{search ? "No agents match your search." : "No agents registered yet."}</p>
+                </div>
+              </Card>
+            ))}
           </div>
-        )}
-      </div>
+        </section>
+      ))}
+
+      {grouped.length === 0 && (
+        <div className="text-center py-16 text-gray-500">
+          <Bot className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>{search ? "No agents match your search." : "No agents registered yet."}</p>
+        </div>
+      )}
 
       {selectedSlug && <AgentDetailModal slug={selectedSlug} onClose={() => setSelectedSlug(null)} />}
     </div>

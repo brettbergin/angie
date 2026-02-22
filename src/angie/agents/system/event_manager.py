@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class EventManagerAgent(BaseAgent):
     name: ClassVar[str] = "Event Manager"
     slug: ClassVar[str] = "event-manager"
+    category: ClassVar[str] = "System Agents"
     description: ClassVar[str] = "Query, filter, and manage Angie events."
     capabilities: ClassVar[list[str]] = ["event", "list events", "event history"]
     instructions: ClassVar[str] = (

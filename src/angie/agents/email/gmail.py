@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 class GmailAgent(BaseAgent):
     name: ClassVar[str] = "GmailAgent"
     slug: ClassVar[str] = "gmail"
+    category: ClassVar[str] = "Communication Agents"
     description: ClassVar[str] = "Gmail email management."
     capabilities: ClassVar[list[str]] = [
         "gmail",

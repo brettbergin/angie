@@ -14,6 +14,7 @@ class AgentOut(BaseModel):
     name: str
     description: str
     capabilities: list[str]
+    category: str
 
 
 class AgentDetailOut(AgentOut):
@@ -33,6 +34,7 @@ async def list_agents(_: User = Depends(get_current_user)):
             name=a.name,
             description=a.description,
             capabilities=a.capabilities,
+            category=a.category,
         )
         for a in registry.list_all()
     ]

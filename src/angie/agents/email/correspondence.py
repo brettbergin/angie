@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class EmailCorrespondenceAgent(BaseAgent):
     name: ClassVar[str] = "EmailCorrespondenceAgent"
     slug: ClassVar[str] = "email-correspondence"
+    category: ClassVar[str] = "Communication Agents"
     description: ClassVar[str] = "Context-aware email reply drafting."
     capabilities: ClassVar[list[str]] = [
         "reply email",

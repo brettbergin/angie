@@ -100,6 +100,7 @@ def test_list_agents_endpoint():
     mock_agent.name = "GmailAgent"
     mock_agent.description = "Gmail management"
     mock_agent.capabilities = ["email", "gmail"]
+    mock_agent.category = "Communication Agents"
 
     mock_registry = MagicMock()
     mock_registry.list_all.return_value = [mock_agent]
