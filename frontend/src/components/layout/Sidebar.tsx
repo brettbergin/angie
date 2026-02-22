@@ -17,16 +17,31 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
-const navItems = [
-  { href: "/dashboard",  label: "Dashboard",  icon: LayoutDashboard },
-  { href: "/chat",       label: "Chat",        icon: MessageSquare },
-  { href: "/agents",     label: "Agents",      icon: Bot },
-  { href: "/teams",       label: "Teams",        icon: Users },
-  { href: "/connections", label: "Connections",  icon: Plug },
-  { href: "/workflows",  label: "Workflows",   icon: GitBranch },
-  { href: "/tasks",      label: "Tasks",       icon: Activity },
-  { href: "/events",     label: "Events",      icon: Zap },
-  { href: "/settings",   label: "Settings",    icon: Settings },
+const navSections = [
+  {
+    label: "Main",
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/chat",      label: "Chat",      icon: MessageSquare },
+      { href: "/agents",    label: "Agents",    icon: Bot },
+      { href: "/teams",     label: "Teams",     icon: Users },
+    ],
+  },
+  {
+    label: "Work",
+    items: [
+      { href: "/events",    label: "Events",    icon: Zap },
+      { href: "/tasks",     label: "Tasks",     icon: Activity },
+      { href: "/workflows", label: "Workflows", icon: GitBranch },
+    ],
+  },
+  {
+    label: "Configure",
+    items: [
+      { href: "/connections", label: "Connections", icon: Plug },
+      { href: "/settings",    label: "Settings",    icon: Settings },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -47,21 +62,30 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-              pathname.startsWith(href)
-                ? "bg-angie-600/20 text-angie-400 border border-angie-600/30"
-                : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
-            )}
-          >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            {label}
-          </Link>
+      <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+        {navSections.map((section) => (
+          <div key={section.label}>
+            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-500">
+              {section.label}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map(({ href, label, icon: Icon }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    pathname.startsWith(href)
+                      ? "bg-angie-600/20 text-angie-400 border border-angie-600/30"
+                      : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
+                  )}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
