@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import click
 from rich.console import Console
 from rich.prompt import Prompt
@@ -26,13 +28,48 @@ ONBOARDING_QUESTIONS = [
 ]
 
 
+async def _save_to_db(user_id: str, name: str, content: str) -> None:
+    """Persist a user preference to the database."""
+    from sqlalchemy import select
+
+    from angie.db.session import get_session_factory
+    from angie.models.prompt import Prompt, PromptType
+
+    factory = get_session_factory()
+    async with factory() as session:
+        result = await session.execute(
+            select(Prompt).where(
+                Prompt.user_id == user_id,
+                Prompt.type == PromptType.USER,
+                Prompt.name == name,
+            )
+        )
+        prompt = result.scalar_one_or_none()
+        if prompt:
+            prompt.content = content
+            prompt.is_active = True
+        else:
+            prompt = Prompt(
+                user_id=user_id,
+                type=PromptType.USER,
+                name=name,
+                content=content,
+                is_active=True,
+            )
+            session.add(prompt)
+        await session.commit()
+
+
 @click.command()
-@click.option("--user-id", default="default", help="User ID for storing prompts")
-def setup(user_id: str):
+@click.option("--user-id", default=None, help="User ID (UUID) for storing prompts")
+def setup(user_id: str | None):
     """Interactive first-run onboarding. Generates your personal USER_PROMPTS."""
     console.print("\n[bold magenta]👋 Hi! I'm Angie, your personal AI assistant.[/bold magenta]")
     console.print("I'd like to get to know you so I can work better for you.\n")
     console.print("[dim]Answer each question — the more detail, the better I can help.[/dim]\n")
+
+    if not user_id:
+        user_id = Prompt.ask("[bold yellow]Enter your user ID (UUID)[/bold yellow]")
 
     from angie.core.prompts import get_prompt_manager
 
@@ -43,8 +80,14 @@ def setup(user_id: str):
         answer = Prompt.ask("> ")
         if answer.strip():
             content = f"# {name.title()}\n\n{answer.strip()}\n"
-            path = pm.save_user_prompt(user_id, name, content)
-            console.print(f"[dim]  ✓ saved to {path}[/dim]\n")
+            # Save to DB
+            try:
+                asyncio.run(_save_to_db(user_id, name, content))
+                console.print("[dim]  ✓ saved to database[/dim]\n")
+            except Exception:
+                # Fallback to filesystem if DB unavailable
+                path = pm.save_user_prompt(user_id, name, content)
+                console.print(f"[dim]  ✓ saved to {path} (DB unavailable)[/dim]\n")
 
     console.print("\n[bold green]✅ Setup complete! Angie knows you now.[/bold green]")
     console.print(

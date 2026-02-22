@@ -216,7 +216,6 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
     from angie.models.user import User
 
     pm = get_prompt_manager()
-    prompt_user_id = user_id
     user_context = ""
     session_factory = get_session_factory()
 
@@ -224,15 +223,31 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
         async with session_factory() as session:
             user = await session.get(User, user_id)
             if user:
-                prompt_user_id = user.username
                 user_context = _build_user_context(user)
     except Exception as exc:
         logger.warning("Could not load user profile for chat context: %s", exc)
 
-    # Compose system prompt: SYSTEM > ANGIE > USER_PROMPTS
-    system_prompt = pm.compose_for_user(prompt_user_id)
-    if not pm.get_user_prompts(prompt_user_id) and prompt_user_id != "default":
-        system_prompt = pm.compose_for_user("default")
+    # Load user preferences from DB
+    from angie.models.prompt import Prompt, PromptType
+
+    user_prompt_contents: list[str] = []
+    try:
+        async with session_factory() as session:
+            result = await session.execute(
+                select(Prompt.content)
+                .where(
+                    Prompt.user_id == user_id,
+                    Prompt.type == PromptType.USER,
+                    Prompt.is_active.is_(True),
+                )
+                .order_by(Prompt.name)
+            )
+            user_prompt_contents = [row[0] for row in result.all()]
+    except Exception as exc:
+        logger.warning("Could not load user prompts from DB: %s", exc)
+
+    # Compose system prompt: SYSTEM > ANGIE > USER_PROMPTS (DB-backed)
+    system_prompt = pm.compose_with_user_prompts(user_prompt_contents)
 
     if user_context:
         system_prompt = f"{system_prompt}\n\n---\n\n{user_context}"

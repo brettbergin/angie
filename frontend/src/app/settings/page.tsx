@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, type ChannelConfig } from "@/lib/api";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -21,6 +21,8 @@ const CHANNELS = [
   { key: "email", label: "Email (SMTP host)", field: "smtp_host", placeholder: "smtp.gmail.com" },
 ];
 
+type PreferenceDef = { name: string; label: string; description: string; placeholder: string };
+
 export default function SettingsPage() {
   const { user, token } = useAuth();
   const [channelValues, setChannelValues] = useState<Record<string, string>>({});
@@ -31,6 +33,13 @@ export default function SettingsPage() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [tzOpen, setTzOpen] = useState(false);
   const [tzSearch, setTzSearch] = useState("");
+
+  // Preferences state
+  const [prefDefs, setPrefDefs] = useState<PreferenceDef[]>([]);
+  const [prefValues, setPrefValues] = useState<Record<string, string>>({});
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [prefSaved, setPrefSaved] = useState(false);
+  const [prefResetting, setPrefResetting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -49,6 +58,20 @@ export default function SettingsPage() {
       setChannelValues(vals);
     });
   }, [token]);
+
+  const loadPreferences = useCallback(async () => {
+    if (!token) return;
+    const [defs, prompts] = await Promise.all([
+      api.prompts.definitions(token),
+      api.prompts.list(token),
+    ]);
+    setPrefDefs(defs);
+    const vals: Record<string, string> = {};
+    prompts.forEach((p) => { vals[p.name] = p.content; });
+    setPrefValues(vals);
+  }, [token]);
+
+  useEffect(() => { loadPreferences(); }, [loadPreferences]);
 
   const handleSaveProfile = async () => {
     if (!token) return;
@@ -80,11 +103,42 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSavePreferences = async () => {
+    if (!token) return;
+    setPrefSaving(true);
+    try {
+      await Promise.all(
+        prefDefs.map((def) => {
+          const content = prefValues[def.name]?.trim();
+          if (content) {
+            return api.prompts.update(token, def.name, content);
+          }
+          return Promise.resolve();
+        }),
+      );
+      setPrefSaved(true);
+      setTimeout(() => setPrefSaved(false), 2000);
+    } finally {
+      setPrefSaving(false);
+    }
+  };
+
+  const handleResetPreferences = async () => {
+    if (!token) return;
+    setPrefResetting(true);
+    try {
+      await api.prompts.reset(token);
+      await loadPreferences();
+    } finally {
+      setPrefResetting(false);
+    }
+  };
+
   return (
     <div className="p-8 space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-100">Settings</h1>
-        <p className="text-sm text-gray-400 mt-1">Configure Angie&apos;s channels, prompts, and profile</p>
+        <p className="text-sm text-gray-400 mt-1">Configure Angie&apos;s channels, preferences, and profile</p>
       </div>
 
       <Card>
@@ -149,17 +203,28 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
-        <CardHeader title="Prompt Management" subtitle="Manage how Angie understands you" />
-        <div className="space-y-3">
-          <p className="text-sm text-gray-400">
-            User prompts are generated from the onboarding process and stored as markdown files.
-            Use the CLI to reconfigure:
-          </p>
-          <div className="bg-gray-950 rounded-lg p-3 font-mono text-sm text-gray-300 space-y-1">
-            <p><span className="text-angie-400">$</span> angie prompts list</p>
-            <p><span className="text-angie-400">$</span> angie prompts edit</p>
-            <p><span className="text-angie-400">$</span> angie prompts reset</p>
-            <p><span className="text-angie-400">$</span> angie setup  <span className="text-gray-600"># re-run onboarding</span></p>
+        <CardHeader title="Preferences" subtitle="Help Angie understand you — changes apply to new chats" />
+        <div className="space-y-4">
+          {prefDefs.map((def) => (
+            <div key={def.name} className="space-y-1">
+              <label className="block text-sm font-medium text-gray-300">{def.label}</label>
+              <p className="text-xs text-gray-500">{def.description}</p>
+              <textarea
+                rows={3}
+                placeholder={def.placeholder}
+                value={prefValues[def.name] ?? ""}
+                onChange={(e) => setPrefValues((v) => ({ ...v, [def.name]: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-angie-500 resize-y"
+              />
+            </div>
+          ))}
+          <div className="flex items-center gap-3">
+            <Button variant="secondary" onClick={handleSavePreferences} disabled={prefSaving}>
+              {prefSaved ? "Saved ✓" : prefSaving ? "Saving…" : "Save preferences"}
+            </Button>
+            <Button variant="secondary" onClick={handleResetPreferences} disabled={prefResetting}>
+              {prefResetting ? "Resetting…" : "Reset to defaults"}
+            </Button>
           </div>
         </div>
       </Card>

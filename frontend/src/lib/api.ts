@@ -231,6 +231,8 @@ export const api = {
   },
 
   prompts: {
+    definitions: (token: string) =>
+      request<{ name: string; label: string; description: string; placeholder: string }[]>("/api/v1/prompts/definitions", { token }),
     list: (token: string) => request<{ name: string; content: string }[]>("/api/v1/prompts/", { token }),
     get: (token: string, name: string) => request<{ name: string; content: string }>(`/api/v1/prompts/${name}`, { token }),
     update: (token: string, name: string, content: string) =>
