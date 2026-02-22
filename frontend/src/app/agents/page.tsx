@@ -129,6 +129,21 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) {
+        next.delete(cat);
+      } else {
+        next.add(cat);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedCategories(new Set());
 
   useEffect(() => {
     if (!token) return;
@@ -153,6 +168,12 @@ export default function AgentsPage() {
     return [...ordered, ...remaining].map((cat) => ({ category: cat, agents: groups[cat] }));
   }, [filtered]);
 
+  const visibleGroups = selectedCategories.size > 0
+    ? grouped.filter(({ category }) => selectedCategories.has(category))
+    : grouped;
+
+  const categoryLabel = (cat: string) => cat.replace(/ Agents$/i, "");
+
   const categoryId = (cat: string) =>
     cat
       .toLowerCase()
@@ -173,19 +194,35 @@ export default function AgentsPage() {
 
       {grouped.length > 1 && (
         <nav className="flex gap-2 overflow-x-auto pb-1 sticky top-0 z-10 bg-gray-950/80 backdrop-blur-sm -mx-8 px-8 py-2">
+          <button
+            onClick={selectAll}
+            className={cn(
+              "text-xs font-medium whitespace-nowrap px-3 py-1.5 rounded-full border transition-colors",
+              selectedCategories.size === 0
+                ? "border-angie-500 bg-angie-500/10 text-angie-300"
+                : "border-gray-700 text-gray-400 hover:text-angie-400 hover:border-angie-600/40"
+            )}
+          >
+            All
+          </button>
           {grouped.map(({ category }) => (
-            <a
+            <button
               key={category}
-              href={`#${categoryId(category)}`}
-              className="text-xs font-medium text-gray-400 hover:text-angie-400 whitespace-nowrap px-3 py-1.5 rounded-full border border-gray-700 hover:border-angie-600/40 transition-colors"
+              onClick={() => toggleCategory(category)}
+              className={cn(
+                "text-xs font-medium whitespace-nowrap px-3 py-1.5 rounded-full border transition-colors",
+                selectedCategories.has(category)
+                  ? "border-angie-500 bg-angie-500/10 text-angie-300"
+                  : "border-gray-700 text-gray-400 hover:text-angie-400 hover:border-angie-600/40"
+              )}
             >
-              {category}
-            </a>
+              {categoryLabel(category)}
+            </button>
           ))}
         </nav>
       )}
 
-      {grouped.map(({ category, agents: catAgents }) => (
+      {visibleGroups.map(({ category, agents: catAgents }) => (
         <section key={category} id={categoryId(category)} className="scroll-mt-20">
           <h2 className="text-lg font-semibold text-gray-200 mb-3 border-b border-gray-800 pb-2">{category}</h2>
           <div className="grid grid-cols-3 gap-4">
@@ -219,7 +256,7 @@ export default function AgentsPage() {
         </section>
       ))}
 
-      {grouped.length === 0 && (
+      {visibleGroups.length === 0 && (
         <div className="text-center py-16 text-gray-500">
           <Bot className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p>{search ? "No agents match your search." : "No agents registered yet."}</p>
