@@ -100,7 +100,10 @@ class SoftwareDeveloperAgent(BaseAgent):
             )
             repo_obj = g.get_repo(f"{owner}/{repo}")
             issue = repo_obj.get_issue(number)
-            comments = [{"author": c.user.login, "body": c.body} for _, c in zip(range(10), issue.get_comments(), strict=False)]
+            comments = [
+                {"author": c.user.login, "body": c.body}
+                for _, c in zip(range(10), issue.get_comments(), strict=False)
+            ]
             return {
                 "owner": owner,
                 "repo": repo,
@@ -136,7 +139,9 @@ class SoftwareDeveloperAgent(BaseAgent):
             """Create and checkout a new branch in the cloned repo."""
             if not ctx.deps.repo_dir:
                 return {"error": "No repository cloned yet. Call clone_repo first."}
-            _run_git(["git", "checkout", "-b", branch_name], cwd=ctx.deps.repo_dir, env=ctx.deps._git_env)
+            _run_git(
+                ["git", "checkout", "-b", branch_name], cwd=ctx.deps.repo_dir, env=ctx.deps._git_env
+            )
             return {"created": True, "branch": branch_name}
 
         @agent.tool
@@ -251,9 +256,7 @@ class SoftwareDeveloperAgent(BaseAgent):
                 _run_git(["git", "commit", "-m", message], cwd=cwd, env=git_env)
                 _run_git(["git", "push", "-u", "origin", "HEAD"], cwd=cwd, env=git_env)
             except subprocess.CalledProcessError as exc:
-                err_msg = _sanitize_token(
-                    exc.stderr or exc.output or "", ctx.deps.github_token
-                )
+                err_msg = _sanitize_token(exc.stderr or exc.output or "", ctx.deps.github_token)
                 return {"error": _classify_git_error(exc.returncode, err_msg)}
             branch_result = _run_git(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=cwd, env=git_env
@@ -350,9 +353,7 @@ class SoftwareDeveloperAgent(BaseAgent):
 
             # Extract issue URL and build an explicit prompt so the LLM
             # doesn't ask the user for it again.
-            issue_match = re.search(
-                r"https?://github\.com/[^/]+/[^/]+/issues/\d+", intent
-            )
+            issue_match = re.search(r"https?://github\.com/[^/]+/[^/]+/issues/\d+", intent)
             if issue_match:
                 issue_url = issue_match.group(0)
                 prompt = (
