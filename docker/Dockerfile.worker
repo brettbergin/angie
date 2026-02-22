@@ -8,7 +8,8 @@ COPY pyproject.toml uv.lock LICENSE README.md ./
 COPY src/ ./src/
 COPY prompts/ ./prompts/
 
-RUN uv sync --no-dev --no-editable
+RUN uv sync --no-dev --no-editable && \
+    rm -rf /root/.cache/uv /tmp/*
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
@@ -22,4 +23,6 @@ ENV PYTHONPATH="/app/src"
 # - To make this work, both the "api" and "worker" services must share the
 #   same "screenshots" volume (configured in docker-compose.yml) so that
 #   files created here are readable by the API.
-RUN playwright install --with-deps chromium
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    playwright install --with-deps chromium && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
