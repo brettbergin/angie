@@ -396,7 +396,7 @@ function ChatPageInner() {
           {messages.length > 0 ? (
             // Show ephemeral welcome message if received
             messages.map((msg) => (
-              <ChatMessageBubble key={msg.id} role={msg.role} content={msg.content} username={user?.username} />
+              <ChatMessageBubble key={msg.id} role={msg.role} content={msg.content} username={user?.username} token={token ?? undefined} />
             ))
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4">
@@ -508,6 +508,7 @@ function ChatPageInner() {
             content={msg.content}
             username={user?.username}
             type={msg.type}
+            token={token ?? undefined}
           />
         ))}
         <div ref={bottomRef} />

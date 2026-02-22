@@ -4,16 +4,30 @@ import { cn } from "@/lib/utils";
 import { Zap } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeSanitize from "rehype-sanitize";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames || []), "img"],
+  attributes: {
+    ...defaultSchema.attributes,
+    img: ["src", "alt", "title", "width", "height"],
+  },
+  protocols: {
+    ...defaultSchema.protocols,
+    src: ["http", "https", "/api"],
+  },
+};
 
 type Props = {
   role: "user" | "assistant";
   content: string;
   username?: string;
   type?: "task_result";
+  token?: string;
 };
 
-export function ChatMessageBubble({ role, content, username, type }: Props) {
+export function ChatMessageBubble({ role, content, username, type, token }: Props) {
   const isTaskResult = type === "task_result";
 
   return (
@@ -47,13 +61,29 @@ export function ChatMessageBubble({ role, content, username, type }: Props) {
           <div className="prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-pre:my-2 prose-code:text-angie-300 prose-a:text-angie-400 prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-700">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeSanitize]}
+              rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}
               components={{
                 a: ({ href, children }) => (
                   <a href={href} target="_blank" rel="noopener noreferrer" className="text-angie-400 underline hover:text-angie-300">
                     {children}
                   </a>
                 ),
+                img: ({ src, alt }) => {
+                  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+                  const rawSrc = typeof src === "string" ? src : "";
+                  let imgSrc = rawSrc.startsWith("/") ? `${apiBase}${rawSrc}` : rawSrc;
+                  if (imgSrc && token && imgSrc.includes("/api/v1/media/")) {
+                    imgSrc += `${imgSrc.includes("?") ? "&" : "?"}token=${token}`;
+                  }
+                  return (
+                    <img
+                      src={imgSrc}
+                      alt={alt || "Screenshot"}
+                      className="rounded-lg border border-gray-700 max-w-full mt-2"
+                      loading="lazy"
+                    />
+                  );
+                },
               }}
             >
               {content}

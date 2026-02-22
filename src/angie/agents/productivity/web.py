@@ -96,7 +96,7 @@ class WebAgent(BaseAgent):
 
         @agent.tool
         async def screenshot(ctx: RunContext[dict[str, Any]], url: str) -> str:
-            """Take a screenshot of a web page and return the file path."""
+            """Take a screenshot of a web page and return it as a markdown image."""
             url = _validate_url(url)
             try:
                 from playwright.async_api import async_playwright
@@ -129,7 +129,9 @@ class WebAgent(BaseAgent):
                 await page.screenshot(path=filepath, full_page=True)
                 await browser.close()
 
-            return f"Screenshot saved to {filepath}"
+            filename = Path(filepath).name
+            image_url = f"/api/v1/media/{filename}"
+            return f"Screenshot of {url}:\n\n![Screenshot of {url}]({image_url})"
 
         @agent.tool
         async def get_page_content(ctx: RunContext[dict[str, Any]], url: str) -> str:
