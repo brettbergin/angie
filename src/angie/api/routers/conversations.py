@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -35,6 +35,12 @@ class ConversationOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PaginatedConversations(BaseModel):
+    items: list[ConversationOut]
+    total: int
+    has_more: bool
+
+
 class ChatMessageOut(BaseModel):
     id: str
     conversation_id: str
@@ -45,17 +51,30 @@ class ChatMessageOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("/", response_model=list[ConversationOut])
+@router.get("/", response_model=PaginatedConversations)
 async def list_conversations(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    base = select(Conversation).where(Conversation.user_id == current_user.id)
+
+    total_result = await session.execute(select(func.count()).select_from(base.subquery()))
+    total = total_result.scalar() or 0
+
     result = await session.execute(
-        select(Conversation)
-        .where(Conversation.user_id == current_user.id)
-        .order_by(Conversation.updated_at.desc())
+        base.order_by(Conversation.updated_at.desc(), Conversation.id.desc())
+        .limit(limit)
+        .offset(offset)
     )
-    return result.scalars().all()
+    items = result.scalars().all()
+
+    return PaginatedConversations(
+        items=[ConversationOut.model_validate(c) for c in items],
+        total=total,
+        has_more=offset + limit < total,
+    )
 
 
 @router.post("/", response_model=ConversationOut, status_code=status.HTTP_201_CREATED)

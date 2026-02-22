@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class UbiquitiAgent(BaseAgent):
     name: ClassVar[str] = "UbiquitiAgent"
     slug: ClassVar[str] = "ubiquiti"
+    category: ClassVar[str] = "Smart Home Agents"
     description: ClassVar[str] = "UniFi network management."
     capabilities: ClassVar[list[str]] = [
         "network",

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class GoogleCalendarAgent(BaseAgent):
     name: ClassVar[str] = "GoogleCalendarAgent"
     slug: ClassVar[str] = "google-calendar"
+    category: ClassVar[str] = "Planning Agents"
     description: ClassVar[str] = "Google Calendar management."
     capabilities: ClassVar[list[str]] = [
         "calendar",

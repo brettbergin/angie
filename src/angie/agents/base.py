@@ -36,6 +36,7 @@ class BaseAgent(ABC):
     description: ClassVar[str]
     capabilities: ClassVar[list[str]] = []
     instructions: ClassVar[str] = ""
+    category: ClassVar[str] = "General"
 
     def __init__(self) -> None:
         self.settings = get_settings()

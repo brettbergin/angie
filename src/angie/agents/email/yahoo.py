@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class YahooMailAgent(BaseAgent):
     name: ClassVar[str] = "YahooMailAgent"
     slug: ClassVar[str] = "yahoo-mail"
+    category: ClassVar[str] = "Communication Agents"
     description: ClassVar[str] = "Yahoo Mail management."
     capabilities: ClassVar[list[str]] = ["yahoo", "yahoo mail", "email"]
     instructions: ClassVar[str] = (

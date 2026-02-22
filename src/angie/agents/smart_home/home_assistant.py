@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 class HomeAssistantAgent(BaseAgent):
     name: ClassVar[str] = "HomeAssistantAgent"
     slug: ClassVar[str] = "home-assistant"
+    category: ClassVar[str] = "Smart Home Agents"
     description: ClassVar[str] = "Home Assistant smart home control."
     capabilities: ClassVar[list[str]] = [
         "home assistant",

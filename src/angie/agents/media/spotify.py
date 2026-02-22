@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 class SpotifyAgent(BaseAgent):
     name: ClassVar[str] = "SpotifyAgent"
     slug: ClassVar[str] = "spotify"
+    category: ClassVar[str] = "Media Agents"
     description: ClassVar[str] = "Spotify music control."
     capabilities: ClassVar[list[str]] = [
         "spotify",

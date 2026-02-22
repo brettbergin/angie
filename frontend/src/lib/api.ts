@@ -49,6 +49,7 @@ export type Agent = {
   name: string;
   description: string;
   capabilities: string[];
+  category: string;
 };
 
 export type AgentDetail = Agent & {
@@ -107,6 +108,12 @@ export type Conversation = {
   title: string;
   created_at: string;
   updated_at: string;
+};
+
+export type PaginatedConversations = {
+  items: Conversation[];
+  total: number;
+  has_more: boolean;
 };
 
 export type ChatMessage = {
@@ -235,8 +242,11 @@ export const api = {
   },
 
   conversations: {
-    list: (token: string) =>
-      request<Conversation[]>("/api/v1/conversations/", { token }),
+    list: (token: string, params?: { limit?: number; offset?: number }) =>
+      request<PaginatedConversations>(
+        `/api/v1/conversations/?limit=${params?.limit ?? 20}&offset=${params?.offset ?? 0}`,
+        { token },
+      ),
     create: (token: string, title?: string) =>
       request<Conversation>("/api/v1/conversations/", { method: "POST", body: { title }, token }),
     get: (token: string, id: string) =>

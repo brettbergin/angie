@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class WorkflowManagerAgent(BaseAgent):
     name: ClassVar[str] = "Workflow Manager"
     slug: ClassVar[str] = "workflow-manager"
+    category: ClassVar[str] = "System Agents"
     description: ClassVar[str] = "Manage and trigger Angie workflows."
     capabilities: ClassVar[list[str]] = ["workflow", "run workflow", "trigger workflow"]
     instructions: ClassVar[str] = (

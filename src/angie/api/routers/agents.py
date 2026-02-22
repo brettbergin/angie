@@ -14,6 +14,7 @@ class AgentOut(BaseModel):
     name: str
     description: str
     capabilities: list[str]
+    category: str
 
 
 class AgentDetailOut(AgentOut):
@@ -33,6 +34,7 @@ async def list_agents(_: User = Depends(get_current_user)):
             name=a.name,
             description=a.description,
             capabilities=a.capabilities,
+            category=a.category,
         )
         for a in registry.list_all()
     ]
@@ -53,6 +55,7 @@ async def get_agent(slug: str, _: User = Depends(get_current_user)):
         name=agent.name,
         description=agent.description,
         capabilities=agent.capabilities,
+        category=agent.category,
         instructions=instructions or "No agent-specific instructions configured.",
         system_prompt=agent.get_system_prompt(),
         module_path=module_path,

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 class GitHubAgent(BaseAgent):
     name: ClassVar[str] = "GitHubAgent"
     slug: ClassVar[str] = "github"
+    category: ClassVar[str] = "Social Agents"
     description: ClassVar[str] = "GitHub repository and PR management."
     capabilities: ClassVar[list[str]] = [
         "github",

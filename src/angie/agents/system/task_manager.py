@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class TaskManagerAgent(BaseAgent):
     name: ClassVar[str] = "Task Manager"
     slug: ClassVar[str] = "task-manager"
+    category: ClassVar[str] = "System Agents"
     description: ClassVar[str] = "List, cancel, and retry Angie tasks."
     capabilities: ClassVar[list[str]] = ["task", "cancel task", "retry task", "list tasks"]
     instructions: ClassVar[str] = (

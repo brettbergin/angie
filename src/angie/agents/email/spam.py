@@ -15,6 +15,7 @@ SPAM_KEYWORDS = ["unsubscribe", "click here", "winner", "free money", "limited o
 class SpamAgent(BaseAgent):
     name: ClassVar[str] = "SpamAgent"
     slug: ClassVar[str] = "email-spam"
+    category: ClassVar[str] = "Communication Agents"
     description: ClassVar[str] = "Email spam detection and deletion across providers."
     capabilities: ClassVar[list[str]] = ["spam", "spam email", "delete spam", "clean inbox"]
     instructions: ClassVar[str] = (

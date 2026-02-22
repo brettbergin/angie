@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 class HueAgent(BaseAgent):
     name: ClassVar[str] = "HueAgent"
     slug: ClassVar[str] = "hue"
+    category: ClassVar[str] = "Smart Home Agents"
     description: ClassVar[str] = "Philips Hue smart lighting control."
     capabilities: ClassVar[list[str]] = [
         "lights",

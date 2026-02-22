@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 class CronAgent(BaseAgent):
     name: ClassVar[str] = "Cron Manager"
     slug: ClassVar[str] = "cron"
+    category: ClassVar[str] = "System Agents"
     description: ClassVar[str] = "Create, delete, and list cron scheduled tasks."
     capabilities: ClassVar[list[str]] = ["cron", "schedule", "recurring", "scheduled task"]
     instructions: ClassVar[str] = (
