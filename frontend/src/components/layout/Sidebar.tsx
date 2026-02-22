@@ -22,7 +22,6 @@ const navSections = [
   {
     label: "Main",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/chat",      label: "Chat",      icon: MessageSquare },
       { href: "/agents",    label: "Agents",    icon: Bot },
       { href: "/teams",     label: "Teams",     icon: Users },
@@ -41,7 +40,8 @@ const navSections = [
     label: "Configure",
     items: [
       { href: "/connections", label: "Connections", icon: Plug },
-      { href: "/settings",    label: "Settings",    icon: Settings },
+      { href: "/dashboard",  label: "History",     icon: LayoutDashboard },
+      { href: "/settings",   label: "Settings",    icon: Settings },
     ],
   },
 ];
