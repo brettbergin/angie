@@ -195,6 +195,7 @@ export default function AgentsPage() {
       {grouped.length > 1 && (
         <nav className="flex gap-2 overflow-x-auto pb-1 sticky top-0 z-10 bg-gray-950/80 backdrop-blur-sm -mx-8 px-8 py-2">
           <button
+            type="button"
             onClick={selectAll}
             className={cn(
               "text-xs font-medium whitespace-nowrap px-3 py-1.5 rounded-full border transition-colors",
@@ -207,6 +208,7 @@ export default function AgentsPage() {
           </button>
           {grouped.map(({ category }) => (
             <button
+              type="button"
               key={category}
               onClick={() => toggleCategory(category)}
               className={cn(
