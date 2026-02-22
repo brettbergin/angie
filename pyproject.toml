@@ -50,6 +50,10 @@ dependencies = [
     "spotipy>=2.23.0",
     "PyGithub>=2.3.0",
     "aiounifi>=76",
+    # Web/Screenshot agent
+    "playwright>=1.49.0",
+    "trafilatura>=2.0.0",
+    "beautifulsoup4>=4.12.0",
     # Utilities
     "httpx>=0.27.0",
     "python-dotenv>=1.0.0",

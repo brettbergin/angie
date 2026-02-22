@@ -7,7 +7,7 @@ vi.mock("react-markdown", () => ({
   default: ({ children }: { children: string }) => <div data-testid="markdown">{children}</div>,
 }));
 vi.mock("remark-gfm", () => ({ default: () => {} }));
-vi.mock("rehype-sanitize", () => ({ default: () => {} }));
+vi.mock("rehype-sanitize", () => ({ default: () => {}, defaultSchema: { tagNames: [], attributes: {}, protocols: {} } }));
 
 describe("ChatMessageBubble", () => {
   it("user messages render with user avatar on right side", () => {

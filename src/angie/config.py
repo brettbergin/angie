@@ -1,6 +1,7 @@
 """Application configuration via pydantic-settings."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
@@ -110,6 +111,16 @@ class Settings(BaseSettings):
 
     # GitHub
     github_pat: str | None = None
+
+    # Web/Screenshot agent
+    web_playwright_headless: bool = True
+    web_timeout_seconds: int = 30
+    web_max_screenshot_width: int = 1280
+    web_max_screenshot_height: int = 720
+    web_user_agent: str = "Angie/1.0"
+    web_screenshots_dir: str = Field(
+        default_factory=lambda: str(Path.cwd() / "data" / "screenshots")
+    )
 
     # Celery
     celery_broker_url: str | None = None

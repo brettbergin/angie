@@ -42,6 +42,8 @@ services:
       - REDIS_HOST=redis
     env_file:
       - .env
+    volumes:
+      - screenshots:/tmp/angie_screenshots
     depends_on:
       mysql:
         condition: service_healthy
@@ -63,6 +65,8 @@ services:
       - REDIS_HOST=redis
     env_file:
       - .env
+    volumes:
+      - screenshots:/tmp/angie_screenshots
     depends_on:
       mysql:
         condition: service_healthy
@@ -102,6 +106,7 @@ services:
 volumes:
   mysql_data:
   redis_data:
+  screenshots:
 
 networks:
   default:

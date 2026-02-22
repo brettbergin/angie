@@ -12,3 +12,14 @@ RUN uv sync --no-dev --no-editable
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
+
+# Install Playwright Chromium and its OS-level dependencies.
+# NOTE:
+# - Playwright is only required in this worker container, where Celery tasks
+#   perform browser automation and generate screenshots.
+# - The FastAPI "api" container does NOT install Playwright; it only serves
+#   the generated screenshot files via its media router.
+# - To make this work, both the "api" and "worker" services must share the
+#   same "screenshots" volume (configured in docker-compose.yml) so that
+#   files created here are readable by the API.
+RUN playwright install --with-deps chromium
