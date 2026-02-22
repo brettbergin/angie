@@ -84,7 +84,9 @@ def _build_agents_catalog(team_map: dict[str, list[str]] | None = None) -> str:
         "`agent_slug` parameter in `dispatch_task`. "
         "When a message contains a team @-mention, use that team's slug as the "
         "`team_slug` parameter in `dispatch_task`. "
-        "Strip the @-mention from the intent text."
+        "Strip the @-mention from the intent text.\n\n"
+        "**IMPORTANT:** Always preserve any URLs from the user's message verbatim in the "
+        "`intent` parameter. Do NOT rephrase or omit URLs — pass them exactly as written."
     )
     lines.append("")
     for agent in agents:
@@ -160,7 +162,8 @@ def _build_chat_agent(
 
         Args:
             title: Short descriptive title of the task (e.g. "Turn off living room lights")
-            intent: Full natural-language description of what the user wants done
+            intent: Full natural-language description of what the user wants done.
+                    MUST include any URLs from the user's message verbatim.
             agent_slug: The slug of the agent to handle this (e.g. "hue", "gmail").
                         Leave empty for auto-resolution.
             team_slug: The slug of the team to handle this (e.g. "media-team").
