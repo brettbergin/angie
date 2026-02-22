@@ -25,13 +25,13 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                          Channels                               │
-│          Slack · Discord · iMessage · Email · Web Chat          │
+│  Slack(soon) · Discord(soon) · iMessage (soon) · Angie UI Chat  │
 └───────────────────────────┬─────────────────────────────────────┘
                             │ events
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Angie Daemon Loop                         │
-│   EventRouter  →  TaskDispatcher  →  Celery Queue  →  Worker   │
+│   EventRouter  →  TaskDispatcher  →  Celery Queue  →  Worker    │
 │          ↑                                  ↑                   │
 │     CronEngine                       AgentRegistry              │
 └─────────────────────────────────────────────────────────────────┘
@@ -47,8 +47,8 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
                             │
                             ▼
 ┌───────────────────┐   ┌───────────┐   ┌───────────────────────┐
-│   FastAPI (API)   │   │   MySQL   │   │    Redis (cache+queue) │
-│  /api/v1/*        │   │ 9 tables  │   │   Celery broker        │
+│   FastAPI (API)   │   │   MySQL   │   │   Redis (cache+queue) │
+│  /api/v1/*        │   │ 9 tables  │   │   Celery broker       │
 └───────────────────┘   └───────────┘   └───────────────────────┘
                             │
                             ▼
