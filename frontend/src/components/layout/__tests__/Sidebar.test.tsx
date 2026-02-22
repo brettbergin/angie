@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("Sidebar", () => {
-  it("renders all 8 navigation items with correct hrefs", () => {
+  it("renders all 9 navigation items with correct hrefs and section headers", () => {
     render(<Sidebar />);
     const links = screen.getAllByRole("link");
     const hrefs = links.map((l) => l.getAttribute("href"));
@@ -33,10 +33,15 @@ describe("Sidebar", () => {
     expect(hrefs).toContain("/chat");
     expect(hrefs).toContain("/agents");
     expect(hrefs).toContain("/teams");
-    expect(hrefs).toContain("/workflows");
-    expect(hrefs).toContain("/tasks");
     expect(hrefs).toContain("/events");
+    expect(hrefs).toContain("/tasks");
+    expect(hrefs).toContain("/workflows");
+    expect(hrefs).toContain("/connections");
     expect(hrefs).toContain("/settings");
+
+    expect(screen.getByText("Main")).toBeTruthy();
+    expect(screen.getByText("Work")).toBeTruthy();
+    expect(screen.getByText("Configure")).toBeTruthy();
   });
 
   it("active route item has highlighted class", () => {

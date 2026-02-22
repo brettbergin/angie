@@ -124,5 +124,27 @@ class BaseAgent(ABC):
             self.logger.error("LLM call failed: %s", exc)
             raise
 
+    async def get_credentials(
+        self, user_id: str | None, service_type: str
+    ) -> dict[str, str] | None:
+        """Load credentials from connections DB, fall back to None.
+
+        Returns decrypted credential dict if a connection exists for the
+        given *user_id* and *service_type*, otherwise ``None`` so the
+        caller can fall back to env-var based configuration.
+        """
+        if not user_id:
+            return None
+        try:
+            from angie.core.connections import get_connection
+            from angie.core.crypto import decrypt_json
+
+            conn = await get_connection(user_id, service_type)
+            if conn and conn.credentials_encrypted:
+                return decrypt_json(conn.credentials_encrypted)
+        except Exception as exc:
+            self.logger.debug("Connection lookup failed for %s/%s: %s", user_id, service_type, exc)
+        return None
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} slug={self.slug!r}>"
