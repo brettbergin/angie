@@ -586,6 +586,122 @@ def test_list_prompts_endpoint():
     assert isinstance(data, list)
 
 
+def test_definitions_endpoint():
+    """GET /definitions returns all preference category definitions."""
+    app, _, _ = _make_app_with_overrides()
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/prompts/definitions")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+    assert len(data) == 8
+    assert all("name" in d and "label" in d and "description" in d for d in data)
+
+
+def test_get_prompt_endpoint():
+    """GET /prompts/{name} returns a single prompt."""
+    app, user, session = _make_app_with_overrides()
+
+    from angie.models.prompt import Prompt, PromptType
+
+    mock_prompt = Prompt(
+        id="p1",
+        user_id=user.id,
+        type=PromptType.USER,
+        name="personality",
+        content="# Personality\n\nBrief.",
+        is_active=True,
+    )
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_prompt
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/prompts/personality")
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "personality"
+
+
+def test_get_prompt_not_found():
+    """GET /prompts/{name} returns 404 when not found."""
+    app, _, session = _make_app_with_overrides()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/prompts/nonexistent")
+    assert resp.status_code == 404
+
+
+def test_update_prompt_endpoint():
+    """PUT /prompts/{name} creates or updates a prompt with normalized content."""
+    app, user, session = _make_app_with_overrides()
+
+    from angie.models.prompt import Prompt, PromptType
+
+    mock_prompt = Prompt(
+        id="p1",
+        user_id=user.id,
+        type=PromptType.USER,
+        name="personality",
+        content="# Personality\n\nold",
+        is_active=True,
+    )
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_prompt
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.put("/api/v1/prompts/personality", json={"content": "Brief and direct"})
+    assert resp.status_code == 200
+    # Verify content was normalized with header
+    assert mock_prompt.content.startswith("# Personality")
+
+
+def test_delete_prompt_endpoint():
+    """DELETE /prompts/{name} removes a prompt."""
+    app, user, session = _make_app_with_overrides()
+
+    from angie.models.prompt import Prompt, PromptType
+
+    mock_prompt = Prompt(
+        id="p1",
+        user_id=user.id,
+        type=PromptType.USER,
+        name="personality",
+        content="content",
+        is_active=True,
+    )
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_prompt
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.delete("/api/v1/prompts/personality")
+    assert resp.status_code == 200
+    session.delete.assert_awaited_once_with(mock_prompt)
+
+
+def test_reset_prompts_endpoint():
+    """POST /prompts/reset bulk-deletes and re-seeds."""
+    app, _, session = _make_app_with_overrides()
+
+    with patch("angie.api.routers.prompts._seed_defaults", new_callable=AsyncMock, return_value=[]):
+        with TestClient(app) as client:
+            resp = client.post("/api/v1/prompts/reset")
+    assert resp.status_code == 200
+    assert "reset" in resp.json()["detail"].lower()
+
+
+def test_update_prompt_max_length():
+    """PUT /prompts/{name} rejects content exceeding max_length."""
+    app, _, _ = _make_app_with_overrides()
+    with TestClient(app) as client:
+        resp = client.put("/api/v1/prompts/personality", json={"content": "x" * 10001})
+    assert resp.status_code == 422
+
+
 # ── Tasks router: TaskOut model_validate ──────────────────────────────────────
 
 

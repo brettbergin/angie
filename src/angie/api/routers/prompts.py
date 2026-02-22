@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
-from sqlalchemy import select
+from pydantic import BaseModel, Field
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from angie.api.auth import get_current_user
@@ -74,7 +74,7 @@ class PromptOut(BaseModel):
 
 
 class PromptUpdate(BaseModel):
-    content: str
+    content: str = Field(max_length=10000)
 
 
 class PreferenceDefinition(BaseModel):
@@ -95,6 +95,16 @@ async def _seed_defaults(user_id: str, session: AsyncSession) -> list[Prompt]:
         for md_file in sorted(default_dir.glob("*.md")):
             name = md_file.stem
             if name not in PREFERENCE_NAMES:
+                continue
+            # Check if already exists (handles concurrent seed race)
+            existing = await session.execute(
+                select(Prompt).where(
+                    Prompt.user_id == user_id,
+                    Prompt.type == PromptType.USER,
+                    Prompt.name == name,
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
                 continue
             content = md_file.read_text(encoding="utf-8")
             prompt = Prompt(
@@ -169,6 +179,12 @@ async def update_prompt(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    # Normalize: ensure consistent markdown header format
+    content = data.content.strip()
+    header = f"# {name.replace('_', ' ').title()}"
+    if not content.startswith("# "):
+        content = f"{header}\n\n{content}\n"
+
     result = await session.execute(
         select(Prompt).where(
             Prompt.user_id == current_user.id,
@@ -178,14 +194,14 @@ async def update_prompt(
     )
     prompt = result.scalar_one_or_none()
     if prompt:
-        prompt.content = data.content
+        prompt.content = content
         prompt.is_active = True
     else:
         prompt = Prompt(
             user_id=current_user.id,
             type=PromptType.USER,
             name=name,
-            content=data.content,
+            content=content,
             is_active=True,
         )
         session.add(prompt)
@@ -224,14 +240,12 @@ async def reset_prompts(
     session: AsyncSession = Depends(get_session),
 ):
     """Reset user prompts to defaults by removing and re-seeding."""
-    result = await session.execute(
-        select(Prompt).where(
+    await session.execute(
+        delete(Prompt).where(
             Prompt.user_id == current_user.id,
             Prompt.type == PromptType.USER,
         )
     )
-    for prompt in result.scalars().all():
-        await session.delete(prompt)
     await session.commit()
     await _seed_defaults(current_user.id, session)
     return {"detail": "Prompts reset to defaults"}

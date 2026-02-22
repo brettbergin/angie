@@ -234,17 +234,23 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
     try:
         async with session_factory() as session:
             result = await session.execute(
-                select(Prompt.content)
-                .where(
+                select(Prompt.content).where(
                     Prompt.user_id == user_id,
                     Prompt.type == PromptType.USER,
                     Prompt.is_active.is_(True),
                 )
-                .order_by(Prompt.name)
             )
             user_prompt_contents = [row[0] for row in result.all()]
     except Exception as exc:
         logger.warning("Could not load user prompts from DB: %s", exc)
+
+    if not user_prompt_contents:
+        logger.info(
+            "No active user prompts found in DB for user %s. "
+            "If you previously configured prompts on disk, please run "
+            "`angie setup` again or recreate them via the Settings UI.",
+            user_id,
+        )
 
     # Compose system prompt: SYSTEM > ANGIE > USER_PROMPTS (DB-backed)
     system_prompt = pm.compose_with_user_prompts(user_prompt_contents)

@@ -61,14 +61,18 @@ export default function SettingsPage() {
 
   const loadPreferences = useCallback(async () => {
     if (!token) return;
-    const [defs, prompts] = await Promise.all([
-      api.prompts.definitions(token),
-      api.prompts.list(token),
-    ]);
-    setPrefDefs(defs);
-    const vals: Record<string, string> = {};
-    prompts.forEach((p) => { vals[p.name] = p.content; });
-    setPrefValues(vals);
+    try {
+      const [defs, prompts] = await Promise.all([
+        api.prompts.definitions(token),
+        api.prompts.list(token),
+      ]);
+      setPrefDefs(defs);
+      const vals: Record<string, string> = {};
+      prompts.forEach((p) => { vals[p.name] = p.content; });
+      setPrefValues(vals);
+    } catch (err) {
+      console.error("Failed to load preferences:", err);
+    }
   }, [token]);
 
   useEffect(() => { loadPreferences(); }, [loadPreferences]);
@@ -109,15 +113,17 @@ export default function SettingsPage() {
     try {
       await Promise.all(
         prefDefs.map((def) => {
-          const content = prefValues[def.name]?.trim();
+          const content = prefValues[def.name]?.trim() ?? "";
           if (content) {
             return api.prompts.update(token, def.name, content);
           }
-          return Promise.resolve();
+          return api.prompts.delete(token, def.name).catch(() => {});
         }),
       );
       setPrefSaved(true);
       setTimeout(() => setPrefSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save preferences:", err);
     } finally {
       setPrefSaving(false);
     }
@@ -129,6 +135,8 @@ export default function SettingsPage() {
     try {
       await api.prompts.reset(token);
       await loadPreferences();
+    } catch (err) {
+      console.error("Failed to reset preferences:", err);
     } finally {
       setPrefResetting(false);
     }

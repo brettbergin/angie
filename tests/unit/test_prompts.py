@@ -54,3 +54,21 @@ def test_invalidate_cache(tmp_prompt_manager):
     assert len(tmp_prompt_manager._cache) > 0
     tmp_prompt_manager.invalidate_cache()
     assert len(tmp_prompt_manager._cache) == 0
+
+
+def test_compose_with_user_prompts(tmp_prompt_manager):
+    """compose_with_user_prompts composes system + angie + pre-loaded DB prompts."""
+    user_prompts = ["# Personality\n\nBrief and direct.", "# Interests\n\nCybersecurity."]
+    composed = tmp_prompt_manager.compose_with_user_prompts(user_prompts)
+    assert "Angie" in composed
+    assert "Brief and direct" in composed
+    assert "Cybersecurity" in composed
+    # Verify separator
+    assert "---" in composed
+
+
+def test_compose_with_user_prompts_empty(tmp_prompt_manager):
+    """compose_with_user_prompts with no user prompts still returns system + angie."""
+    composed = tmp_prompt_manager.compose_with_user_prompts([])
+    assert "Angie" in composed
+    assert len(composed) > 0

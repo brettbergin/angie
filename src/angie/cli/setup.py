@@ -84,10 +84,11 @@ def setup(user_id: str | None):
             try:
                 asyncio.run(_save_to_db(user_id, name, content))
                 console.print("[dim]  ✓ saved to database[/dim]\n")
-            except Exception:
+            except Exception as exc:
+                console.print(f"[dim yellow]  ⚠ DB save failed: {exc}[/dim yellow]")
                 # Fallback to filesystem if DB unavailable
                 path = pm.save_user_prompt(user_id, name, content)
-                console.print(f"[dim]  ✓ saved to {path} (DB unavailable)[/dim]\n")
+                console.print(f"[dim]  ✓ saved to {path} (filesystem fallback)[/dim]\n")
 
     console.print("\n[bold green]✅ Setup complete! Angie knows you now.[/bold green]")
     console.print(
