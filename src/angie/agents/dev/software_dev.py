@@ -24,6 +24,10 @@ _BLOCKED_COMMANDS = re.compile(
     r"rm\s+-rf\s+/|mkfs|dd\s+if=|shutdown|reboot|halt|poweroff|:(){ :|fork\s*bomb",
     re.IGNORECASE,
 )
+_SHELL_INJECTION = re.compile(
+    r"[;`]|\$\(|&&\s*(?:rm|curl|wget|nc|bash|sh\b)|"
+    r"\|\s*(?:rm|curl|wget|nc|bash|sh\b)|>\s*/(?:etc|dev|proc)",
+)
 _COMMAND_TIMEOUT = 120
 
 
@@ -214,7 +218,7 @@ class SoftwareDeveloperAgent(BaseAgent):
             """Run a shell command in the repository directory. Has a timeout and blocks dangerous commands."""
             if not ctx.deps.repo_dir:
                 return {"error": "No repository cloned yet."}
-            if _BLOCKED_COMMANDS.search(command):
+            if _BLOCKED_COMMANDS.search(command) or _SHELL_INJECTION.search(command):
                 return {"error": "Command blocked for safety reasons."}
             try:
                 result = subprocess.run(
