@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from sqlalchemy.exc import IntegrityError
+
 from angie.agents.base import BaseAgent
 
 if TYPE_CHECKING:
@@ -142,10 +144,13 @@ async def _create_job_in_db(
         task_payload={},
         is_enabled=True,
     )
-    async with get_session_factory()() as session:
-        session.add(job)
-        await session.commit()
-        await session.refresh(job)
+    try:
+        async with get_session_factory()() as session:
+            session.add(job)
+            await session.commit()
+            await session.refresh(job)
+    except IntegrityError:
+        return {"error": f"A schedule named '{name}' already exists"}
 
     return {
         "created": True,

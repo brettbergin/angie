@@ -185,16 +185,26 @@ class CronEngine:
             return
 
         minute, hour, day, month, day_of_week = parts
-        trigger = CronTrigger(
-            minute=minute,
-            hour=hour,
-            day=day,
-            month=month,
-            day_of_week=day_of_week,
-            timezone="UTC",
-        )
 
         job_id = job_record.id
+        try:
+            trigger = CronTrigger(
+                minute=minute,
+                hour=hour,
+                day=day,
+                month=month,
+                day_of_week=day_of_week,
+                timezone="UTC",
+            )
+        except (ValueError, KeyError):
+            logger.exception(
+                "Invalid cron trigger for job %s (%s): %s",
+                job_record.name,
+                job_id,
+                job_record.cron_expression,
+            )
+            return
+
         user_id = job_record.user_id
         agent_slug = job_record.agent_slug
         payload = {
