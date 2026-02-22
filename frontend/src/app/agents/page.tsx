@@ -153,7 +153,12 @@ export default function AgentsPage() {
     return [...ordered, ...remaining].map((cat) => ({ category: cat, agents: groups[cat] }));
   }, [filtered]);
 
-  const categoryId = (cat: string) => cat.toLowerCase().replace(/\s+/g, "-");
+  const categoryId = (cat: string) =>
+    cat
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
 
   if (loading) return <div className="flex justify-center p-16"><Spinner className="w-8 h-8" /></div>;
 

@@ -1108,3 +1108,98 @@ def test_delete_connection_wrong_user():
     with TestClient(app) as client:
         resp = client.delete("/api/v1/connections/conn-1", headers={"Authorization": "Bearer fake"})
     assert resp.status_code == 404
+
+
+# ── Conversations router (pagination) ─────────────────────────────────────────
+
+
+def _make_conversations(n, user_id="user-1"):
+    from datetime import datetime
+
+    from angie.models.conversation import Conversation
+
+    convos = []
+    for i in range(n):
+        c = Conversation(id=f"conv-{i}", user_id=user_id, title=f"Chat {i}")
+        c.created_at = datetime(2026, 1, 1, 12, 0, i)
+        c.updated_at = datetime(2026, 1, 1, 12, 0, i)
+        convos.append(c)
+    return convos
+
+
+def _mock_paginated_session(session, items, total):
+    """Mock session.execute for paginated conversations (count + data queries)."""
+    count_result = MagicMock()
+    count_result.scalar.return_value = total
+
+    calls = [count_result, _make_scalars_result(items)]
+    session.execute = AsyncMock(side_effect=calls)
+
+
+def test_list_conversations_default_pagination():
+    app, user, session = _make_app_with_overrides()
+    convos = _make_conversations(5)
+    _mock_paginated_session(session, convos, 5)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/conversations/")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["items"]) == 5
+    assert data["total"] == 5
+    assert data["has_more"] is False
+
+
+def test_list_conversations_with_limit_offset():
+    app, user, session = _make_app_with_overrides()
+    convos = _make_conversations(5)
+    _mock_paginated_session(session, convos, 25)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/conversations/?limit=5&offset=10")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["items"]) == 5
+    assert data["total"] == 25
+    assert data["has_more"] is True
+
+
+def test_list_conversations_has_more_false_at_end():
+    app, user, session = _make_app_with_overrides()
+    convos = _make_conversations(5)
+    _mock_paginated_session(session, convos, 25)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/conversations/?limit=5&offset=20")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["has_more"] is False
+
+
+def test_list_conversations_empty():
+    app, user, session = _make_app_with_overrides()
+    _mock_paginated_session(session, [], 0)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/conversations/")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["items"] == []
+    assert data["total"] == 0
+    assert data["has_more"] is False
+
+
+def test_list_conversations_limit_validation():
+    app, user, session = _make_app_with_overrides()
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/conversations/?limit=0")
+    assert resp.status_code == 422
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/conversations/?limit=101")
+    assert resp.status_code == 422
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/conversations/?offset=-1")
+    assert resp.status_code == 422

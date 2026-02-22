@@ -73,7 +73,7 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
 
   useEffect(() => {
     loadConversations();
-  }, [loadConversations, refreshKey, activeId]);
+  }, [loadConversations, refreshKey]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
