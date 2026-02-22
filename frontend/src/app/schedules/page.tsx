@@ -4,11 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, type Schedule } from "@/lib/api";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Clock, Plus, Trash2, X, Pencil } from "lucide-react";
+import { Clock, Plus, Trash2, X, Pencil, ChevronDown, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString();
+}
 
 export default function SchedulesPage() {
   const { token } = useAuth();
@@ -18,6 +23,7 @@ export default function SchedulesPage() {
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", cron_expression: "", agent_slug: "" });
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Edit modal state
   const [editing, setEditing] = useState<Schedule | null>(null);
@@ -30,6 +36,15 @@ export default function SchedulesPage() {
   }, [token]);
 
   useEffect(() => { fetchSchedules(); }, [fetchSchedules]);
+
+  const toggleExpand = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleCreate = async () => {
     if (!token || !form.name || !form.cron_expression) return;
@@ -51,19 +66,22 @@ export default function SchedulesPage() {
     }
   };
 
-  const handleToggle = async (s: Schedule) => {
+  const handleToggle = async (e: React.MouseEvent, s: Schedule) => {
+    e.stopPropagation();
     if (!token) return;
     await api.schedules.toggle(token, s.id);
     fetchSchedules();
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
     if (!token || !confirm("Delete this schedule?")) return;
     await api.schedules.delete(token, id);
     fetchSchedules();
   };
 
-  const openEdit = (s: Schedule) => {
+  const openEdit = (e: React.MouseEvent, s: Schedule) => {
+    e.stopPropagation();
     setEditing(s);
     setEditForm({
       name: s.name,
@@ -135,54 +153,127 @@ export default function SchedulesPage() {
 
       <Input placeholder="Search schedules…" value={search} onChange={(e) => setSearch(e.target.value)} />
 
-      <div className="grid grid-cols-2 gap-4">
-        {filtered.map((s) => (
-          <Card key={s.id} className="hover:border-angie-600/40 transition-colors group">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-600/20 border border-purple-600/30 flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-5 h-5 text-purple-400" />
+      <Card>
+        {/* Table header */}
+        <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-800">
+          <div className="w-5" />
+          <div className="flex-1">Name</div>
+          <div className="w-44 text-center">Schedule</div>
+          <div className="w-20 text-center">Status</div>
+          <div className="w-20" />
+        </div>
+
+        <div className="divide-y divide-gray-800">
+          {filtered.map((s) => (
+            <div key={s.id}>
+              {/* Row */}
+              <div
+                className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-gray-800/30 transition-colors group"
+                onClick={() => toggleExpand(s.id)}
+              >
+                <div className="w-5 flex items-center text-gray-500">
+                  {expanded.has(s.id) ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-100">{s.name}</h3>
-                  <p className="text-xs text-purple-400 font-mono">{s.cron_expression}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{s.cron_human}</p>
-                  {s.description && <p className="text-sm text-gray-400 mt-1">{s.description}</p>}
-                  {s.agent_slug && (
-                    <span className="inline-block mt-1 text-[10px] font-medium bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded">
-                      @{s.agent_slug}
-                    </span>
-                  )}
-                  {s.next_run_at && (
-                    <p className="text-[10px] text-gray-500 mt-1">
-                      Next: {new Date(s.next_run_at).toLocaleString()}
-                    </p>
-                  )}
+                <div className="flex-1 min-w-0">
+                  <p className={cn("text-sm font-medium", s.is_enabled ? "text-gray-100" : "text-gray-500")}>{s.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{s.cron_human}</p>
+                </div>
+                <div className="w-44 text-center">
+                  <span className="text-xs font-mono text-purple-400">{s.cron_expression}</span>
+                </div>
+                <div className="w-20 flex justify-center">
+                  <button
+                    onClick={(e) => handleToggle(e, s)}
+                    className={cn(
+                      "relative w-9 h-5 rounded-full transition-colors flex-shrink-0",
+                      s.is_enabled ? "bg-green-500" : "bg-gray-600"
+                    )}
+                    title={s.is_enabled ? "Disable schedule" : "Enable schedule"}
+                  >
+                    <span className={cn(
+                      "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                      s.is_enabled && "translate-x-4"
+                    )} />
+                  </button>
+                </div>
+                <div className="w-20 flex justify-end gap-1">
+                  <button onClick={(e) => openEdit(e, s)}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-all"
+                    title="Edit schedule">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={(e) => handleDelete(e, s.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all"
+                    title="Delete schedule">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => handleToggle(s)} className="cursor-pointer">
-                  <Badge label={s.is_enabled ? "enabled" : "disabled"} status={s.is_enabled ? "success" : "cancelled"} />
-                </button>
-                <button onClick={() => openEdit(s)}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-all">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => handleDelete(s.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+
+              {/* Expanded detail panel */}
+              {expanded.has(s.id) && (
+                <div className="px-4 pb-4 pt-1 ml-9 border-l-2 border-purple-600/30 space-y-3">
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                    {s.description && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500 text-xs uppercase tracking-wider">Description</span>
+                        <p className="text-gray-300 mt-0.5">{s.description}</p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-gray-500 text-xs uppercase tracking-wider">Cron Expression</span>
+                      <p className="text-purple-400 font-mono mt-0.5">{s.cron_expression}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 text-xs uppercase tracking-wider">Runs</span>
+                      <p className="text-gray-300 mt-0.5">{s.cron_human}</p>
+                    </div>
+                    {s.agent_slug && (
+                      <div>
+                        <span className="text-gray-500 text-xs uppercase tracking-wider">Agent</span>
+                        <p className="text-gray-300 mt-0.5">
+                          <span className="inline-block text-xs font-medium bg-gray-800 text-gray-300 px-1.5 py-0.5 rounded">
+                            @{s.agent_slug}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-gray-500 text-xs uppercase tracking-wider">Status</span>
+                      <p className={cn("mt-0.5", s.is_enabled ? "text-green-400" : "text-gray-500")}>
+                        {s.is_enabled ? "Enabled" : "Disabled"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 text-xs uppercase tracking-wider">Next Run</span>
+                      <p className="text-gray-300 mt-0.5">{formatDate(s.next_run_at)}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 text-xs uppercase tracking-wider">Last Run</span>
+                      <p className="text-gray-300 mt-0.5">{formatDate(s.last_run_at)}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 text-xs uppercase tracking-wider">Created</span>
+                      <p className="text-gray-300 mt-0.5">{formatDate(s.created_at)}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 text-xs uppercase tracking-wider">Updated</span>
+                      <p className="text-gray-300 mt-0.5">{formatDate(s.updated_at)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </Card>
-        ))}
+          ))}
+        </div>
+
         {filtered.length === 0 && (
-          <div className="col-span-2 text-center py-16 text-gray-500">
+          <div className="text-center py-16 text-gray-500">
             <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p>{search ? "No schedules match your search." : "No schedules yet. Create one or ask @cron in chat."}</p>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Edit modal */}
       {editing && (
