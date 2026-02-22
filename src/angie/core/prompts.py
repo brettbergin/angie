@@ -89,11 +89,24 @@ class PromptManager:
         user_id: str,
         context: dict | None = None,
     ) -> str:
-        """Compose: SYSTEM > ANGIE > USER_PROMPTS."""
+        """Compose: SYSTEM > ANGIE > USER_PROMPTS (filesystem-based)."""
         parts = [
             self.get_system_prompt(context),
             self.get_angie_prompt(context),
             *self.get_user_prompts(user_id, context),
+        ]
+        return "\n\n---\n\n".join(p for p in parts if p.strip())
+
+    def compose_with_user_prompts(
+        self,
+        user_prompts: list[str],
+        context: dict | None = None,
+    ) -> str:
+        """Compose: SYSTEM > ANGIE > pre-loaded user prompts (DB-backed)."""
+        parts = [
+            self.get_system_prompt(context),
+            self.get_angie_prompt(context),
+            *user_prompts,
         ]
         return "\n\n---\n\n".join(p for p in parts if p.strip())
 

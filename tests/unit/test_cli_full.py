@@ -218,7 +218,10 @@ def test_prompts_reset_no_dir(tmp_path):
 def test_setup_command_basic():
     from angie.cli.setup import setup
 
-    with patch("angie.core.prompts.get_prompt_manager") as mock_pm:
+    with (
+        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch("angie.cli.setup._save_to_db", new_callable=AsyncMock) as mock_save,
+    ):
         mock_manager = MagicMock()
         mock_manager.user_prompts_dir = MagicMock()
         mock_pm.return_value = mock_manager
@@ -227,9 +230,10 @@ def test_setup_command_basic():
         answers = "\n".join(
             ["casual", "tech", "9am-5pm", "code", "slack", "smart home", "eng", "concise"]
         )
-        result = runner.invoke(setup, [], input=answers)
+        result = runner.invoke(setup, ["--user-id", "test-user-id"], input=answers)
 
     assert result.exit_code == 0
+    assert mock_save.call_count == 8
 
 
 # ── cli/status.py ─────────────────────────────────────────────────────────────
