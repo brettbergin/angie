@@ -187,6 +187,7 @@ export default function SchedulesPage() {
       {/* Edit modal */}
       {editing && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" role="dialog" aria-label="Edit schedule"
+          aria-modal="true" tabIndex={-1} ref={(el) => el?.focus()}
           onClick={(e) => { if (e.target === e.currentTarget) setEditing(null); }}
           onKeyDown={(e) => { if (e.key === "Escape") setEditing(null); }}>
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-lg space-y-4">

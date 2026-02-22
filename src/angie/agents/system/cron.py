@@ -36,24 +36,26 @@ class CronAgent(BaseAgent):
         "5-part cron expression and create the task."
     )
 
-    def build_pydantic_agent(self) -> Agent:
+    def build_pydantic_agent(self, user_id: str = "") -> Agent:
         from pydantic_ai import Agent
 
         agent: Agent[None, str] = Agent(system_prompt=self.get_system_prompt())
+        _user_id = user_id
 
         @agent.tool_plain
         async def create_scheduled_task(
             expression: str,
             task_name: str,
-            user_id: str,
             description: str = "",
             agent_slug: str = "",
         ) -> dict:
             """Create a recurring scheduled task using a 5-part cron expression."""
             if not expression:
                 return {"error": "expression is required (5-part cron: '* * * * *')"}
-            if not user_id:
-                return {"error": "user_id is required"}
+            if not _user_id:
+                return {"error": "user_id not available in task context"}
+            if not task_name or not task_name.strip():
+                return {"error": "task_name is required"}
 
             from angie.core.cron import validate_cron_expression
 
@@ -65,8 +67,8 @@ class CronAgent(BaseAgent):
             try:
                 return await _create_job_in_db(
                     job_id=job_id,
-                    user_id=user_id,
-                    name=task_name,
+                    user_id=_user_id,
+                    name=task_name.strip(),
                     description=description,
                     cron_expression=expression,
                     agent_slug=agent_slug or None,
@@ -85,10 +87,12 @@ class CronAgent(BaseAgent):
                 return {"error": str(exc)}
 
         @agent.tool_plain
-        async def list_scheduled_tasks(user_id: str = "") -> dict:
-            """List all currently scheduled tasks."""
+        async def list_scheduled_tasks() -> dict:
+            """List all currently scheduled tasks for the current user."""
+            if not _user_id:
+                return {"error": "user_id not available in task context"}
             try:
-                return await _list_jobs_from_db(user_id or None)
+                return await _list_jobs_from_db(_user_id)
             except Exception as exc:  # noqa: BLE001
                 return {"error": str(exc)}
 
@@ -98,9 +102,12 @@ class CronAgent(BaseAgent):
         from angie.llm import get_llm_model
 
         intent = self._extract_intent(task, fallback="list scheduled tasks")
-        self.logger.info("CronAgent intent=%r", intent)
+        user_id = task.get("user_id", "")
+        self.logger.info("CronAgent intent=%r user_id=%s", intent, user_id)
         try:
-            result = await self._get_agent().run(intent, model=get_llm_model())
+            # Build a fresh agent with user_id baked into tool closures
+            agent = self.build_pydantic_agent(user_id=user_id)
+            result = await agent.run(intent, model=get_llm_model())
             return {"result": str(result.output)}
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("CronAgent error")
@@ -162,7 +169,7 @@ async def _delete_job_from_db(job_id: str) -> dict:
     return {"deleted": True, "job_id": job_id}
 
 
-async def _list_jobs_from_db(user_id: str | None) -> dict:
+async def _list_jobs_from_db(user_id: str) -> dict:
     from sqlalchemy import select
 
     from angie.core.cron import cron_to_human
@@ -170,9 +177,9 @@ async def _list_jobs_from_db(user_id: str | None) -> dict:
     from angie.models.schedule import ScheduledJob
 
     async with get_session_factory()() as session:
-        stmt = select(ScheduledJob).order_by(ScheduledJob.name)
-        if user_id:
-            stmt = stmt.where(ScheduledJob.user_id == user_id)
+        stmt = (
+            select(ScheduledJob).where(ScheduledJob.user_id == user_id).order_by(ScheduledJob.name)
+        )
         result = await session.execute(stmt)
         jobs = result.scalars().all()
 

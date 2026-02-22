@@ -58,7 +58,10 @@ def cron_to_human(expression: str) -> str:
         if minute == "0" and day == "*" and month == "*" and dow == "*":
             return f"Every {n} hours"
     if minute != "*" and hour != "*" and day == "*" and month == "*":
-        time_str = f"{int(hour):d}:{int(minute):02d} UTC"
+        try:
+            time_str = f"{int(hour):d}:{int(minute):02d} UTC"
+        except ValueError:
+            return expression
         if dow == "*":
             return f"Every day at {time_str}"
         if dow == "1-5":
@@ -84,8 +87,11 @@ def cron_to_human(expression: str) -> str:
         dow_label = dow_names.get(dow.lower(), dow)
         return f"Every {dow_label} at {time_str}"
     if minute != "*" and hour != "*" and day != "*" and month == "*" and dow == "*":
-        time_str = f"{int(hour):d}:{int(minute):02d} UTC"
-        suffix = _ordinal(int(day))
+        try:
+            time_str = f"{int(hour):d}:{int(minute):02d} UTC"
+            suffix = _ordinal(int(day))
+        except ValueError:
+            return expression
         return f"{suffix} of every month at {time_str}"
 
     return expression
@@ -214,13 +220,35 @@ class CronEngine:
             id=job_id,
             replace_existing=True,
         )
+        next_run = job.next_run_time
         self._jobs[job_id] = {
             "expression": job_record.cron_expression,
-            "next_run": str(job.next_run_time),
+            "next_run": str(next_run),
         }
+        # Persist next_run_at so the UI/API can display it immediately
+        if next_run is not None:
+            asyncio.create_task(self._update_next_run_at(job_id, next_run))
         logger.info(
             "Registered cron job %s (%s): %s", job_record.name, job_id, job_record.cron_expression
         )
+
+    async def _update_next_run_at(self, job_id: str, next_run: datetime | None) -> None:
+        """Update next_run_at in DB when a job is registered."""
+        from sqlalchemy import update as sa_update
+
+        from angie.db.session import get_session_factory
+        from angie.models.schedule import ScheduledJob
+
+        try:
+            async with get_session_factory()() as session:
+                await session.execute(
+                    sa_update(ScheduledJob)
+                    .where(ScheduledJob.id == job_id)
+                    .values(next_run_at=next_run)
+                )
+                await session.commit()
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to update next_run_at for job %s", job_id)
 
     async def _update_last_run(self, job_id: str) -> None:
         """Update last_run_at and next_run_at in DB after a job fires."""

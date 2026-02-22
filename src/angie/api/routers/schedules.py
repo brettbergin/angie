@@ -162,9 +162,10 @@ async def update_schedule(
         await session.flush()
     except IntegrityError as exc:
         await session.rollback()
+        conflicting_name = updates.get("name") or job.name
         raise HTTPException(
             status_code=409,
-            detail=f"A schedule named '{updates.get('name')}' already exists",
+            detail=f"A schedule named '{conflicting_name}' already exists",
         ) from exc
     await session.refresh(job)
     return _to_out(job)
