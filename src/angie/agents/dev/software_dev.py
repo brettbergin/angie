@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-import shlex
 import shutil
 import stat
 import subprocess
@@ -219,7 +218,7 @@ class SoftwareDeveloperAgent(BaseAgent):
                 return {"error": "Command blocked for safety reasons."}
             try:
                 result = subprocess.run(
-                    shlex.split(command),
+                    ["sh", "-c", command],
                     cwd=ctx.deps.repo_dir,
                     capture_output=True,
                     text=True,
