@@ -20,13 +20,20 @@ class CronAgent(BaseAgent):
     instructions: ClassVar[str] = (
         "You manage recurring scheduled tasks using cron expressions.\n\n"
         "Available tools:\n"
-        "- create_scheduled_task: Create a recurring task with a 5-part cron expression "
-        "(e.g. '0 9 * * 1-5' for weekdays at 9 AM). Requires expression, task_name, and user_id.\n"
+        "- create_scheduled_task: Create a recurring task. Convert natural language\n"
+        "  schedules to 5-part cron expressions (minute hour day month weekday).\n"
+        "  Examples:\n"
+        "    'every day at midnight' → '0 0 * * *'\n"
+        "    'weekdays at 9 AM'     → '0 9 * * 1-5'\n"
+        "    'every 5 minutes'      → '*/5 * * * *'\n"
+        "    'every Sunday at 3 PM' → '0 15 * * 0'\n"
+        "    'first of every month' → '0 0 1 * *'\n"
+        "  All times are in UTC.\n"
+        "  Minimum interval: 1 minute. Do not schedule more frequently.\n"
         "- delete_scheduled_task: Remove a scheduled task by its job ID.\n"
-        "- list_scheduled_tasks: List all currently scheduled cron tasks.\n\n"
-        "When creating tasks, validate that the user provides a cron expression and a "
-        "descriptive task name. If the user describes a schedule in natural language, "
-        "convert it to a cron expression."
+        "- list_scheduled_tasks: List all currently scheduled tasks.\n\n"
+        "When the user describes a schedule in natural language, convert it to a\n"
+        "5-part cron expression and create the task."
     )
 
     def build_pydantic_agent(self) -> Agent:
@@ -35,64 +42,53 @@ class CronAgent(BaseAgent):
         agent: Agent[None, str] = Agent(system_prompt=self.get_system_prompt())
 
         @agent.tool_plain
-        def create_scheduled_task(
+        async def create_scheduled_task(
             expression: str,
             task_name: str,
             user_id: str,
+            description: str = "",
             agent_slug: str = "",
-            job_id: str = "",
         ) -> dict:
             """Create a recurring scheduled task using a 5-part cron expression."""
             if not expression:
                 return {"error": "expression is required (5-part cron: '* * * * *')"}
             if not user_id:
                 return {"error": "user_id is required"}
-            _job_id = job_id or str(uuid.uuid4())
-            try:
-                from angie.core.cron import CronEngine
 
-                engine = CronEngine()
-                engine.start()
-                engine.add_cron(
-                    job_id=_job_id,
-                    expression=expression,
+            from angie.core.cron import validate_cron_expression
+
+            valid, err = validate_cron_expression(expression)
+            if not valid:
+                return {"error": err}
+
+            job_id = str(uuid.uuid4())
+            try:
+                return await _create_job_in_db(
+                    job_id=job_id,
                     user_id=user_id,
+                    name=task_name,
+                    description=description,
+                    cron_expression=expression,
                     agent_slug=agent_slug or None,
-                    payload={"task_name": task_name},
                 )
-                return {
-                    "created": True,
-                    "job_id": _job_id,
-                    "expression": expression,
-                    "task_name": task_name,
-                }
             except Exception as exc:  # noqa: BLE001
                 return {"error": str(exc)}
 
         @agent.tool_plain
-        def delete_scheduled_task(job_id: str) -> dict:
+        async def delete_scheduled_task(job_id: str) -> dict:
             """Delete a scheduled task by its job ID."""
             if not job_id:
                 return {"error": "job_id is required"}
             try:
-                from angie.core.cron import CronEngine
-
-                engine = CronEngine()
-                engine.start()
-                engine.remove_cron(job_id)
-                return {"deleted": True, "job_id": job_id}
+                return await _delete_job_from_db(job_id)
             except Exception as exc:  # noqa: BLE001
                 return {"error": str(exc)}
 
         @agent.tool_plain
-        def list_scheduled_tasks() -> dict:
+        async def list_scheduled_tasks(user_id: str = "") -> dict:
             """List all currently scheduled tasks."""
             try:
-                from angie.core.cron import CronEngine
-
-                engine = CronEngine()
-                engine.start()
-                return {"crons": engine.list_crons()}
+                return await _list_jobs_from_db(user_id or None)
             except Exception as exc:  # noqa: BLE001
                 return {"error": str(exc)}
 
@@ -109,3 +105,89 @@ class CronAgent(BaseAgent):
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("CronAgent error")
             return {"error": str(exc)}
+
+
+# ------------------------------------------------------------------
+# DB helpers (run in worker's async context)
+# ------------------------------------------------------------------
+
+
+async def _create_job_in_db(
+    *,
+    job_id: str,
+    user_id: str,
+    name: str,
+    description: str,
+    cron_expression: str,
+    agent_slug: str | None,
+) -> dict:
+    from angie.core.cron import cron_to_human
+    from angie.db.session import get_session_factory
+    from angie.models.schedule import ScheduledJob
+
+    job = ScheduledJob(
+        id=job_id,
+        user_id=user_id,
+        name=name,
+        description=description or None,
+        cron_expression=cron_expression,
+        agent_slug=agent_slug,
+        task_payload={},
+        is_enabled=True,
+    )
+    async with get_session_factory()() as session:
+        session.add(job)
+        await session.commit()
+        await session.refresh(job)
+
+    return {
+        "created": True,
+        "job_id": job_id,
+        "name": name,
+        "expression": cron_expression,
+        "human_readable": cron_to_human(cron_expression),
+    }
+
+
+async def _delete_job_from_db(job_id: str) -> dict:
+    from angie.db.session import get_session_factory
+    from angie.models.schedule import ScheduledJob
+
+    async with get_session_factory()() as session:
+        job = await session.get(ScheduledJob, job_id)
+        if not job:
+            return {"error": f"Job {job_id} not found"}
+        await session.delete(job)
+        await session.commit()
+    return {"deleted": True, "job_id": job_id}
+
+
+async def _list_jobs_from_db(user_id: str | None) -> dict:
+    from sqlalchemy import select
+
+    from angie.core.cron import cron_to_human
+    from angie.db.session import get_session_factory
+    from angie.models.schedule import ScheduledJob
+
+    async with get_session_factory()() as session:
+        stmt = select(ScheduledJob).order_by(ScheduledJob.name)
+        if user_id:
+            stmt = stmt.where(ScheduledJob.user_id == user_id)
+        result = await session.execute(stmt)
+        jobs = result.scalars().all()
+
+    return {
+        "schedules": [
+            {
+                "id": j.id,
+                "name": j.name,
+                "expression": j.cron_expression,
+                "human_readable": cron_to_human(j.cron_expression),
+                "agent_slug": j.agent_slug,
+                "is_enabled": j.is_enabled,
+                "last_run_at": str(j.last_run_at) if j.last_run_at else None,
+                "next_run_at": str(j.next_run_at) if j.next_run_at else None,
+            }
+            for j in jobs
+        ]
+    }

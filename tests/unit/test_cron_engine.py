@@ -2,6 +2,8 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 
 def test_cron_engine_init():
     from angie.core.cron import CronEngine
@@ -12,15 +14,21 @@ def test_cron_engine_init():
         assert engine._jobs == {}
 
 
-def test_cron_engine_start():
+@pytest.mark.asyncio
+async def test_cron_engine_start():
     from angie.core.cron import CronEngine
 
     with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
         mock_sched = MagicMock()
         mock_sched_cls.return_value = mock_sched
         engine = CronEngine()
-        engine.start()
+        # Mock sync_from_db to avoid DB access
+        engine.sync_from_db = AsyncMock()
+        engine._sync_loop = AsyncMock()
+        with patch("asyncio.create_task"):
+            await engine.start()
         mock_sched.start.assert_called_once()
+        engine.sync_from_db.assert_called_once()
 
 
 def test_cron_engine_shutdown():
@@ -70,7 +78,7 @@ def test_add_cron_valid():
 
             mock_sched.add_job.assert_called_once()
             assert "job1" in engine._jobs
-            assert engine._jobs["job1"] is mock_job
+            assert engine._jobs["job1"]["expression"] == "0 * * * *"
 
 
 def test_remove_cron():
@@ -81,7 +89,7 @@ def test_remove_cron():
         mock_sched_cls.return_value = mock_sched
 
         engine = CronEngine()
-        engine._jobs["job1"] = MagicMock()
+        engine._jobs["job1"] = {"expression": "0 * * * *", "next_run": "soon"}
         engine.remove_cron("job1")
 
         mock_sched.remove_job.assert_called_once_with("job1")

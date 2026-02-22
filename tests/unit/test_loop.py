@@ -35,6 +35,7 @@ async def test_loop_start_and_shutdown():
     from angie.core.loop import AngieLoop
 
     mock_cron = MagicMock()
+    mock_cron.start = AsyncMock()
     mock_dispatcher = MagicMock()
     mock_channel_manager = AsyncMock()
 
@@ -63,6 +64,7 @@ async def test_loop_shutdown_stops_running():
     from angie.core.loop import AngieLoop
 
     mock_cron = MagicMock()
+    mock_cron.start = AsyncMock()
     mock_dispatcher = MagicMock()
 
     with (
@@ -82,6 +84,7 @@ async def test_loop_shutdown_with_channel_manager():
     from angie.core.loop import AngieLoop
 
     mock_cron = MagicMock()
+    mock_cron.start = AsyncMock()
     mock_dispatcher = MagicMock()
     mock_channel_manager = AsyncMock()
 
@@ -103,6 +106,7 @@ def test_loop_handle_signal():
     from angie.core.loop import AngieLoop
 
     mock_cron = MagicMock()
+    mock_cron.start = AsyncMock()
     mock_dispatcher = MagicMock()
 
     with (
@@ -124,6 +128,7 @@ async def test_loop_dispatch_channel_message():
     from angie.models.event import EventType
 
     mock_cron = MagicMock()
+    mock_cron.start = AsyncMock()
     mock_dispatcher = MagicMock()
     mock_channel_manager = AsyncMock()
 
@@ -161,6 +166,7 @@ async def test_loop_dispatch_ignores_task_complete():
     from angie.models.event import EventType
 
     mock_cron = MagicMock()
+    mock_cron.start = AsyncMock()
     mock_dispatcher = MagicMock()
     mock_channel_manager = AsyncMock()
 

@@ -135,6 +135,7 @@ async def test_loop_dispatches_non_channel_message_event():
     from angie.models.event import EventType
 
     mock_cron = MagicMock()
+    mock_cron.start = AsyncMock()
     mock_dispatcher = MagicMock()
     mock_channel_manager = AsyncMock()
 

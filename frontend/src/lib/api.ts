@@ -96,6 +96,22 @@ export type Workflow = {
   is_enabled: boolean;
 };
 
+export type Schedule = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  cron_expression: string;
+  cron_human: string;
+  agent_slug: string | null;
+  task_payload: Record<string, unknown>;
+  is_enabled: boolean;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ChannelConfig = {
   id: string;
   type: string;
@@ -222,6 +238,20 @@ export const api = {
       request<Workflow>(`/api/v1/workflows/${id}`, { method: "PATCH", body: data, token }),
     delete: (token: string, id: string) =>
       request<void>(`/api/v1/workflows/${id}`, { method: "DELETE", token }),
+  },
+
+  schedules: {
+    list: (token: string) => request<Schedule[]>("/api/v1/schedules/", { token }),
+    create: (token: string, data: { name: string; description?: string; cron_expression: string; agent_slug?: string; task_payload?: Record<string, unknown>; is_enabled?: boolean }) =>
+      request<Schedule>("/api/v1/schedules/", { method: "POST", body: data, token }),
+    get: (token: string, id: string) =>
+      request<Schedule>(`/api/v1/schedules/${id}`, { token }),
+    update: (token: string, id: string, data: Partial<Schedule>) =>
+      request<Schedule>(`/api/v1/schedules/${id}`, { method: "PATCH", body: data, token }),
+    delete: (token: string, id: string) =>
+      request<void>(`/api/v1/schedules/${id}`, { method: "DELETE", token }),
+    toggle: (token: string, id: string) =>
+      request<Schedule>(`/api/v1/schedules/${id}/toggle`, { method: "PATCH", token }),
   },
 
   channels: {

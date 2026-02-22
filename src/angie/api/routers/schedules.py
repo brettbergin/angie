@@ -1,0 +1,197 @@
+"""Schedules router — CRUD for user cron schedules."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from angie.api.auth import get_current_user
+from angie.core.cron import cron_to_human, validate_cron_expression
+from angie.db.session import get_session
+from angie.models.schedule import ScheduledJob
+from angie.models.user import User
+
+router = APIRouter()
+
+
+# ------------------------------------------------------------------
+# Pydantic schemas
+# ------------------------------------------------------------------
+
+
+class ScheduleCreate(BaseModel):
+    name: str = Field(max_length=255)
+    description: str | None = None
+    cron_expression: str = Field(max_length=50)
+    agent_slug: str | None = None
+    task_payload: dict | None = None
+    is_enabled: bool = True
+
+
+class ScheduleUpdate(BaseModel):
+    name: str | None = Field(default=None, max_length=255)
+    description: str | None = None
+    cron_expression: str | None = Field(default=None, max_length=50)
+    agent_slug: str | None = None
+    task_payload: dict | None = None
+    is_enabled: bool | None = None
+
+
+class ScheduleOut(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    description: str | None
+    cron_expression: str
+    cron_human: str
+    agent_slug: str | None
+    task_payload: dict
+    is_enabled: bool
+    last_run_at: datetime | None
+    next_run_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+def _to_out(job: ScheduledJob) -> ScheduleOut:
+    return ScheduleOut(
+        id=job.id,
+        user_id=job.user_id,
+        name=job.name,
+        description=job.description,
+        cron_expression=job.cron_expression,
+        cron_human=cron_to_human(job.cron_expression),
+        agent_slug=job.agent_slug,
+        task_payload=job.task_payload or {},
+        is_enabled=job.is_enabled,
+        last_run_at=job.last_run_at,
+        next_run_at=job.next_run_at,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+    )
+
+
+# ------------------------------------------------------------------
+# Endpoints
+# ------------------------------------------------------------------
+
+
+@router.get("/", response_model=list[ScheduleOut])
+async def list_schedules(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(
+        select(ScheduledJob).where(ScheduledJob.user_id == user.id).order_by(ScheduledJob.name)
+    )
+    return [_to_out(j) for j in result.scalars().all()]
+
+
+@router.post("/", response_model=ScheduleOut, status_code=status.HTTP_201_CREATED)
+async def create_schedule(
+    body: ScheduleCreate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    valid, err = validate_cron_expression(body.cron_expression)
+    if not valid:
+        raise HTTPException(status_code=422, detail=err)
+
+    job = ScheduledJob(
+        user_id=user.id,
+        name=body.name,
+        description=body.description,
+        cron_expression=body.cron_expression,
+        agent_slug=body.agent_slug,
+        task_payload=body.task_payload or {},
+        is_enabled=body.is_enabled,
+    )
+    session.add(job)
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"A schedule named '{body.name}' already exists",
+        ) from exc
+    await session.refresh(job)
+    return _to_out(job)
+
+
+@router.get("/{schedule_id}", response_model=ScheduleOut)
+async def get_schedule(
+    schedule_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    job = await session.get(ScheduledJob, schedule_id)
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return _to_out(job)
+
+
+@router.patch("/{schedule_id}", response_model=ScheduleOut)
+async def update_schedule(
+    schedule_id: str,
+    body: ScheduleUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    job = await session.get(ScheduledJob, schedule_id)
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    updates = body.model_dump(exclude_unset=True)
+    if "cron_expression" in updates:
+        valid, err = validate_cron_expression(updates["cron_expression"])
+        if not valid:
+            raise HTTPException(status_code=422, detail=err)
+
+    for k, v in updates.items():
+        setattr(job, k, v)
+
+    try:
+        await session.flush()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"A schedule named '{updates.get('name')}' already exists",
+        ) from exc
+    await session.refresh(job)
+    return _to_out(job)
+
+
+@router.delete("/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_schedule(
+    schedule_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    job = await session.get(ScheduledJob, schedule_id)
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    await session.delete(job)
+
+
+@router.patch("/{schedule_id}/toggle", response_model=ScheduleOut)
+async def toggle_schedule(
+    schedule_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    job = await session.get(ScheduledJob, schedule_id)
+    if not job or job.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    job.is_enabled = not job.is_enabled
+    await session.flush()
+    await session.refresh(job)
+    return _to_out(job)

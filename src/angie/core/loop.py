@@ -36,7 +36,7 @@ class AngieLoop:
 
     async def start(self) -> None:
         logger.info("Angie is waking up... 🌟")
-        self.cron.start()
+        await self.cron.start()
 
         # Initialize channels
         from angie.channels.base import get_channel_manager
