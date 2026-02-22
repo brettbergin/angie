@@ -951,3 +951,362 @@ async def test_ubiquiti_execute():
     result = await agent.execute({"title": "get wifi clients", "input_data": {}})
     assert result["status"] == "not_implemented"
     assert result["agent"] == "ubiquiti"
+
+
+# ── RemindersAgent ────────────────────────────────────────────────────────────
+
+
+async def test_reminders_create_reminder():
+    from unittest.mock import patch as _patch
+
+    from angie.agents.productivity.reminders import RemindersAgent
+
+    agent = RemindersAgent()
+    pa = agent.build_pydantic_agent(user_id="user-1")
+
+    tool = pa._function_toolset.tools["create_reminder"]
+    with _patch(
+        "angie.agents.productivity.reminders._create_reminder_in_db", new_callable=AsyncMock
+    ) as mock_db:
+        mock_db.return_value = {"created": True, "reminder_id": "r1", "message": "Call Mom"}
+        result = await tool.function(message="Call Mom", when="tomorrow at 3pm")
+
+    assert result["created"] is True
+    assert result["message"] == "Call Mom"
+
+
+async def test_reminders_create_reminder_bad_date():
+    from angie.agents.productivity.reminders import RemindersAgent
+
+    agent = RemindersAgent()
+    pa = agent.build_pydantic_agent(user_id="user-1")
+
+    tool = pa._function_toolset.tools["create_reminder"]
+    result = await tool.function(message="Test", when="not a real date xyzzy")
+    assert "error" in result
+
+
+async def test_reminders_create_recurring():
+    from unittest.mock import patch as _patch
+
+    from angie.agents.productivity.reminders import RemindersAgent
+
+    agent = RemindersAgent()
+    pa = agent.build_pydantic_agent(user_id="user-1")
+
+    tool = pa._function_toolset.tools["create_recurring"]
+    with _patch(
+        "angie.agents.productivity.reminders._create_recurring_in_db", new_callable=AsyncMock
+    ) as mock_db:
+        mock_db.return_value = {
+            "created": True,
+            "reminder_id": "r2",
+            "message": "Submit timesheet",
+            "cron_expression": "0 15 * * 5",
+            "is_recurring": True,
+        }
+        result = await tool.function(message="Submit timesheet", cron_expr="0 15 * * 5")
+
+    assert result["created"] is True
+    assert result["is_recurring"] is True
+
+
+async def test_reminders_create_recurring_invalid_cron():
+    from angie.agents.productivity.reminders import RemindersAgent
+
+    agent = RemindersAgent()
+    pa = agent.build_pydantic_agent(user_id="user-1")
+
+    tool = pa._function_toolset.tools["create_recurring"]
+    result = await tool.function(message="Test", cron_expr="bad cron")
+    assert "error" in result
+
+
+async def test_reminders_list_reminders():
+    from unittest.mock import patch as _patch
+
+    from angie.agents.productivity.reminders import RemindersAgent
+
+    agent = RemindersAgent()
+    pa = agent.build_pydantic_agent(user_id="user-1")
+
+    tool = pa._function_toolset.tools["list_reminders"]
+    with _patch(
+        "angie.agents.productivity.reminders._list_reminders_from_db", new_callable=AsyncMock
+    ) as mock_db:
+        mock_db.return_value = {"reminders": []}
+        result = await tool.function()
+
+    assert "reminders" in result
+
+
+async def test_reminders_complete_reminder():
+    from unittest.mock import patch as _patch
+
+    from angie.agents.productivity.reminders import RemindersAgent
+
+    agent = RemindersAgent()
+    pa = agent.build_pydantic_agent(user_id="user-1")
+
+    tool = pa._function_toolset.tools["complete_reminder"]
+    with _patch(
+        "angie.agents.productivity.reminders._update_reminder_status", new_callable=AsyncMock
+    ) as mock_db:
+        mock_db.return_value = {"updated": True, "reminder_id": "r1", "status": "delivered"}
+        result = await tool.function(reminder_id="r1")
+
+    assert result["updated"] is True
+
+
+async def test_reminders_cancel_reminder():
+    from unittest.mock import patch as _patch
+
+    from angie.agents.productivity.reminders import RemindersAgent
+
+    agent = RemindersAgent()
+    pa = agent.build_pydantic_agent(user_id="user-1")
+
+    tool = pa._function_toolset.tools["cancel_reminder"]
+    with _patch(
+        "angie.agents.productivity.reminders._cancel_reminder_in_db", new_callable=AsyncMock
+    ) as mock_db:
+        mock_db.return_value = {"cancelled": True, "reminder_id": "r1"}
+        result = await tool.function(reminder_id="r1")
+
+    assert result["cancelled"] is True
+
+
+async def test_reminders_create_todo():
+    from unittest.mock import patch as _patch
+
+    from angie.agents.productivity.reminders import RemindersAgent
+
+    agent = RemindersAgent()
+    pa = agent.build_pydantic_agent(user_id="user-1")
+
+    tool = pa._function_toolset.tools["create_todo"]
+    with _patch(
+        "angie.agents.productivity.reminders._create_reminder_in_db", new_callable=AsyncMock
+    ) as mock_db:
+        mock_db.return_value = {
+            "created": True,
+            "reminder_id": "r3",
+            "message": "[NORMAL] Buy groceries",
+        }
+        result = await tool.function(title="Buy groceries")
+
+    assert result["created"] is True
+
+
+async def test_reminders_no_user_id():
+    from angie.agents.productivity.reminders import RemindersAgent
+
+    agent = RemindersAgent()
+    pa = agent.build_pydantic_agent(user_id="")
+
+    tool = pa._function_toolset.tools["create_reminder"]
+    result = await tool.function(message="Test", when="tomorrow")
+    assert result["error"] == "user_id not available in task context"
+
+
+# ── SoftwareDeveloperAgent ────────────────────────────────────────────────────
+
+
+def test_software_dev_parse_issue_url():
+    from angie.agents.dev.software_dev import _parse_issue_url
+
+    owner, repo, number = _parse_issue_url("https://github.com/owner/repo/issues/42")
+    assert owner == "owner"
+    assert repo == "repo"
+    assert number == 42
+
+
+def test_software_dev_parse_issue_url_shorthand():
+    from angie.agents.dev.software_dev import _parse_issue_url
+
+    owner, repo, number = _parse_issue_url("owner/repo#7")
+    assert owner == "owner"
+    assert repo == "repo"
+    assert number == 7
+
+
+def test_software_dev_parse_issue_url_invalid():
+    import pytest
+
+    from angie.agents.dev.software_dev import _parse_issue_url
+
+    with pytest.raises(ValueError, match="Could not parse"):
+        _parse_issue_url("not a valid url")
+
+
+def test_software_dev_fetch_issue():
+    from angie.agents.dev.software_dev import SoftwareDevDeps, SoftwareDeveloperAgent
+
+    agent = SoftwareDeveloperAgent()
+    pa = agent.build_pydantic_agent()
+
+    tool = pa._function_toolset.tools["fetch_issue"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = SoftwareDevDeps(github_token="test-token")
+
+    mock_issue = MagicMock()
+    mock_issue.title = "Fix login bug"
+    mock_issue.body = "Login is broken"
+    mock_issue.labels = []
+    mock_comment = MagicMock()
+    mock_comment.user.login = "reviewer"
+    mock_comment.body = "Please fix ASAP"
+    mock_issue.get_comments.return_value = [mock_comment]
+
+    mock_repo = MagicMock()
+    mock_repo.default_branch = "main"
+    mock_repo.get_issue.return_value = mock_issue
+
+    with patch("github.Github") as mock_gh:
+        mock_gh.return_value.get_repo.return_value = mock_repo
+        result = tool.function(mock_ctx, issue_url="https://github.com/owner/repo/issues/42")
+
+    assert result["title"] == "Fix login bug"
+    assert result["number"] == 42
+    assert len(result["comments"]) == 1
+
+
+def test_software_dev_create_branch(tmp_path):
+    import subprocess
+
+    from angie.agents.dev.software_dev import SoftwareDevDeps, SoftwareDeveloperAgent
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    subprocess.run(["git", "init"], cwd=repo_dir, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=repo_dir,
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=repo_dir, capture_output=True, check=True
+    )
+    (repo_dir / "file.txt").write_text("hello")
+    subprocess.run(["git", "add", "."], cwd=repo_dir, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=repo_dir, capture_output=True, check=True)
+
+    agent = SoftwareDeveloperAgent()
+    pa = agent.build_pydantic_agent()
+
+    tool = pa._function_toolset.tools["create_branch"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = SoftwareDevDeps(repo_dir=repo_dir)
+    result = tool.function(mock_ctx, branch_name="angie/issue-42-fix-login")
+
+    assert result["created"] is True
+    assert result["branch"] == "angie/issue-42-fix-login"
+
+
+def test_software_dev_read_file(tmp_path):
+    from angie.agents.dev.software_dev import SoftwareDevDeps, SoftwareDeveloperAgent
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    (repo_dir / "test.py").write_text("print('hello')")
+
+    agent = SoftwareDeveloperAgent()
+    pa = agent.build_pydantic_agent()
+
+    tool = pa._function_toolset.tools["read_file"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = SoftwareDevDeps(repo_dir=repo_dir)
+    result = tool.function(mock_ctx, path="test.py")
+
+    assert result["content"] == "print('hello')"
+
+
+def test_software_dev_write_file(tmp_path):
+    from angie.agents.dev.software_dev import SoftwareDevDeps, SoftwareDeveloperAgent
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+
+    agent = SoftwareDeveloperAgent()
+    pa = agent.build_pydantic_agent()
+
+    tool = pa._function_toolset.tools["write_file"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = SoftwareDevDeps(repo_dir=repo_dir)
+    result = tool.function(mock_ctx, path="new_file.py", content="print('world')")
+
+    assert result["written"] is True
+    assert (repo_dir / "new_file.py").read_text() == "print('world')"
+
+
+def test_software_dev_list_directory(tmp_path):
+    from angie.agents.dev.software_dev import SoftwareDevDeps, SoftwareDeveloperAgent
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    (repo_dir / "file.py").write_text("")
+    (repo_dir / "subdir").mkdir()
+
+    agent = SoftwareDeveloperAgent()
+    pa = agent.build_pydantic_agent()
+
+    tool = pa._function_toolset.tools["list_directory"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = SoftwareDevDeps(repo_dir=repo_dir)
+    result = tool.function(mock_ctx, path=".")
+
+    names = [e["name"] for e in result["entries"]]
+    assert "file.py" in names
+    assert "subdir" in names
+
+
+def test_software_dev_run_command_blocked():
+    from pathlib import Path
+
+    from angie.agents.dev.software_dev import SoftwareDevDeps, SoftwareDeveloperAgent
+
+    agent = SoftwareDeveloperAgent()
+    pa = agent.build_pydantic_agent()
+
+    tool = pa._function_toolset.tools["run_command"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = SoftwareDevDeps(repo_dir=Path("/tmp"))
+    result = tool.function(mock_ctx, command="rm -rf /")
+
+    assert "error" in result
+    assert "blocked" in result["error"]
+
+
+def test_software_dev_create_pr():
+    from angie.agents.dev.software_dev import SoftwareDevDeps, SoftwareDeveloperAgent
+
+    agent = SoftwareDeveloperAgent()
+    pa = agent.build_pydantic_agent()
+
+    tool = pa._function_toolset.tools["create_pull_request"]
+    mock_ctx = MagicMock()
+    mock_ctx.deps = SoftwareDevDeps(github_token="test-token")
+
+    mock_pr = MagicMock()
+    mock_pr.number = 99
+    mock_pr.html_url = "https://github.com/owner/repo/pull/99"
+    mock_pr.title = "Fix login bug"
+
+    with patch("github.Github") as mock_gh:
+        mock_repo = MagicMock()
+        mock_repo.default_branch = "main"
+        mock_repo.create_pull.return_value = mock_pr
+        mock_gh.return_value.get_repo.return_value = mock_repo
+        result = tool.function(
+            mock_ctx,
+            repo="owner/repo",
+            branch="angie/issue-42",
+            title="Fix login bug",
+            body="Fixes the login issue",
+            issue_number=42,
+        )
+
+    assert result["created"] is True
+    assert result["pr_number"] == 99
+    assert "Closes #42" in mock_repo.create_pull.call_args[1]["body"]

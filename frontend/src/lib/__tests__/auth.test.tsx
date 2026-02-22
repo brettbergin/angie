@@ -19,7 +19,11 @@ import { api } from "../api";
 const mockedApi = vi.mocked(api);
 
 // Helper component to access auth context
-function AuthConsumer({ onAuth }: { onAuth: (auth: ReturnType<typeof useAuth>) => void }) {
+function AuthConsumer({
+  onAuth,
+}: {
+  onAuth: (auth: ReturnType<typeof useAuth>) => void;
+}) {
   const auth = useAuth();
   onAuth(auth);
   return null;
@@ -29,7 +33,7 @@ function renderWithAuth(onAuth: (auth: ReturnType<typeof useAuth>) => void) {
   return render(
     <AuthProvider>
       <AuthConsumer onAuth={onAuth} />
-    </AuthProvider>,
+    </AuthProvider>
   );
 }
 
@@ -51,7 +55,9 @@ describe("AuthProvider", () => {
     });
 
     let auth!: ReturnType<typeof useAuth>;
-    renderWithAuth((a) => { auth = a; });
+    renderWithAuth((a) => {
+      auth = a;
+    });
 
     await waitFor(() => expect(auth.loading).toBe(false));
     expect(mockedApi.users.me).toHaveBeenCalledWith("stored-token");
@@ -71,7 +77,9 @@ describe("AuthProvider", () => {
     });
 
     let auth!: ReturnType<typeof useAuth>;
-    renderWithAuth((a) => { auth = a; });
+    renderWithAuth((a) => {
+      auth = a;
+    });
 
     await waitFor(() => expect(auth.user?.username).toBe("bob"));
   });
@@ -81,7 +89,9 @@ describe("AuthProvider", () => {
     mockedApi.users.me.mockRejectedValue(new Error("Unauthorized"));
 
     let auth!: ReturnType<typeof useAuth>;
-    renderWithAuth((a) => { auth = a; });
+    renderWithAuth((a) => {
+      auth = a;
+    });
 
     await waitFor(() => expect(auth.loading).toBe(false));
     expect(auth.token).toBeNull();
@@ -105,7 +115,9 @@ describe("AuthProvider", () => {
     });
 
     let auth!: ReturnType<typeof useAuth>;
-    renderWithAuth((a) => { auth = a; });
+    renderWithAuth((a) => {
+      auth = a;
+    });
 
     await waitFor(() => expect(auth.loading).toBe(false));
 
@@ -125,14 +137,16 @@ describe("AuthProvider", () => {
     });
 
     let auth!: ReturnType<typeof useAuth>;
-    renderWithAuth((a) => { auth = a; });
+    renderWithAuth((a) => {
+      auth = a;
+    });
 
     await waitFor(() => expect(auth.loading).toBe(false));
 
     await expect(
       act(async () => {
         await auth.login("bad", "creds");
-      }),
+      })
     ).rejects.toThrow("Login failed");
   });
 
@@ -148,11 +162,15 @@ describe("AuthProvider", () => {
     });
 
     let auth!: ReturnType<typeof useAuth>;
-    renderWithAuth((a) => { auth = a; });
+    renderWithAuth((a) => {
+      auth = a;
+    });
 
     await waitFor(() => expect(auth.user).not.toBeNull());
 
-    act(() => { auth.logout(); });
+    act(() => {
+      auth.logout();
+    });
 
     expect(auth.token).toBeNull();
     expect(auth.user).toBeNull();
@@ -172,23 +190,31 @@ describe("AuthProvider", () => {
     mockedApi.users.me.mockResolvedValue(user);
 
     let auth!: ReturnType<typeof useAuth>;
-    renderWithAuth((a) => { auth = a; });
+    renderWithAuth((a) => {
+      auth = a;
+    });
 
     await waitFor(() => expect(auth.loading).toBe(false));
     mockedApi.users.me.mockClear();
 
-    act(() => { auth.refreshUser(); });
+    act(() => {
+      auth.refreshUser();
+    });
 
     expect(mockedApi.users.me).toHaveBeenCalledWith("tok");
   });
 
   it("refreshUser() is a no-op when no token", async () => {
     let auth!: ReturnType<typeof useAuth>;
-    renderWithAuth((a) => { auth = a; });
+    renderWithAuth((a) => {
+      auth = a;
+    });
 
     await waitFor(() => expect(auth.loading).toBe(false));
 
-    act(() => { auth.refreshUser(); });
+    act(() => {
+      auth.refreshUser();
+    });
 
     expect(mockedApi.users.me).not.toHaveBeenCalled();
   });

@@ -66,12 +66,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(() => {
     if (token) {
-      api.users.me(token).then(setUser).catch(() => {});
+      api.users
+        .me(token)
+        .then(setUser)
+        .catch(() => {});
     }
   }, [token]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, refreshUser, loading }}>
+    <AuthContext.Provider
+      value={{ user, token, login, logout, refreshUser, loading }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -7,7 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 
 /** Parse a date string as UTC even if the server omits the trailing Z. */
 export function parseUTC(dateStr: string): Date {
-  if (!dateStr.endsWith("Z") && !dateStr.includes("+") && !dateStr.includes("-", 10)) {
+  if (
+    !dateStr.endsWith("Z") &&
+    !dateStr.includes("+") &&
+    !dateStr.includes("-", 10)
+  ) {
     return new Date(dateStr + "Z");
   }
   return new Date(dateStr);

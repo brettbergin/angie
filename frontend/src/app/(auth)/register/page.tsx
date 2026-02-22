@@ -12,7 +12,12 @@ import Link from "next/link";
 export default function RegisterPage() {
   const router = useRouter();
   const { login } = useAuth();
-  const [form, setForm] = useState({ email: "", username: "", password: "", full_name: "" });
+  const [form, setForm] = useState({
+    email: "",
+    username: "",
+    password: "",
+    full_name: "",
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -33,12 +38,16 @@ export default function RegisterPage() {
 
   return (
     <div className="w-full max-w-sm">
-      <div className="text-center mb-8">
-        <div className="w-12 h-12 rounded-xl bg-angie-600 flex items-center justify-center mx-auto mb-4">
-          <span className="text-white font-bold text-xl">A</span>
+      <div className="mb-8 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-angie-600">
+          <span className="text-xl font-bold text-white">A</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-100">Create your account</h1>
-        <p className="text-sm text-gray-400 mt-1">Set up your Angie assistant</p>
+        <h1 className="text-2xl font-bold text-gray-100">
+          Create your account
+        </h1>
+        <p className="mt-1 text-sm text-gray-400">
+          Set up your Angie assistant
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -46,7 +55,9 @@ export default function RegisterPage() {
           label="Full name"
           placeholder="Jane Smith"
           value={form.full_name}
-          onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, full_name: e.target.value }))
+          }
         />
         <Input
           label="Username"
@@ -74,12 +85,12 @@ export default function RegisterPage() {
         />
         {error && <p className="text-sm text-red-400">{error}</p>}
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? <Spinner className="w-4 h-4" /> : null}
+          {loading ? <Spinner className="h-4 w-4" /> : null}
           Create account
         </Button>
       </form>
 
-      <p className="text-center text-sm text-gray-400 mt-6">
+      <p className="mt-6 text-center text-sm text-gray-400">
         Already have an account?{" "}
         <Link href="/login" className="text-angie-400 hover:underline">
           Sign in

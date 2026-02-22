@@ -15,41 +15,67 @@ const POLL_MS = 5000;
 
 function TaskDetail({ task }: { task: Task }) {
   return (
-    <div className="px-4 py-3 bg-gray-950 border-t border-gray-800 space-y-3 text-sm">
+    <div className="space-y-3 border-t border-gray-800 bg-gray-950 px-4 py-3 text-sm">
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <span className="text-gray-500 text-xs uppercase tracking-wide">Task ID</span>
-          <p className="text-gray-300 font-mono text-xs mt-0.5">{task.id}</p>
+          <span className="text-xs uppercase tracking-wide text-gray-500">
+            Task ID
+          </span>
+          <p className="mt-0.5 font-mono text-xs text-gray-300">{task.id}</p>
         </div>
         <div>
-          <span className="text-gray-500 text-xs uppercase tracking-wide">Source</span>
-          <p className="text-gray-300 mt-0.5">{task.source_channel ?? "internal"}</p>
+          <span className="text-xs uppercase tracking-wide text-gray-500">
+            Source
+          </span>
+          <p className="mt-0.5 text-gray-300">
+            {task.source_channel ?? "internal"}
+          </p>
         </div>
         <div>
-          <span className="text-gray-500 text-xs uppercase tracking-wide">Created</span>
-          <p className="text-gray-300 mt-0.5">{task.created_at ? formatDate(task.created_at) : "—"}</p>
+          <span className="text-xs uppercase tracking-wide text-gray-500">
+            Created
+          </span>
+          <p className="mt-0.5 text-gray-300">
+            {task.created_at ? formatDate(task.created_at) : "—"}
+          </p>
         </div>
         <div>
-          <span className="text-gray-500 text-xs uppercase tracking-wide">Updated</span>
-          <p className="text-gray-300 mt-0.5">{task.updated_at ? formatDate(task.updated_at) : "—"}</p>
+          <span className="text-xs uppercase tracking-wide text-gray-500">
+            Updated
+          </span>
+          <p className="mt-0.5 text-gray-300">
+            {task.updated_at ? formatDate(task.updated_at) : "—"}
+          </p>
         </div>
       </div>
       {task.input_data && Object.keys(task.input_data).length > 0 && (
         <div>
-          <span className="text-gray-500 text-xs uppercase tracking-wide">Input</span>
-          <pre className="text-gray-300 bg-gray-900 rounded-lg p-2 mt-1 text-xs overflow-x-auto">{JSON.stringify(task.input_data, null, 2)}</pre>
+          <span className="text-xs uppercase tracking-wide text-gray-500">
+            Input
+          </span>
+          <pre className="mt-1 overflow-x-auto rounded-lg bg-gray-900 p-2 text-xs text-gray-300">
+            {JSON.stringify(task.input_data, null, 2)}
+          </pre>
         </div>
       )}
       {task.output_data && Object.keys(task.output_data).length > 0 && (
         <div>
-          <span className="text-gray-500 text-xs uppercase tracking-wide">Output</span>
-          <pre className="text-gray-300 bg-gray-900 rounded-lg p-2 mt-1 text-xs overflow-x-auto">{JSON.stringify(task.output_data, null, 2)}</pre>
+          <span className="text-xs uppercase tracking-wide text-gray-500">
+            Output
+          </span>
+          <pre className="mt-1 overflow-x-auto rounded-lg bg-gray-900 p-2 text-xs text-gray-300">
+            {JSON.stringify(task.output_data, null, 2)}
+          </pre>
         </div>
       )}
       {task.error && (
         <div>
-          <span className="text-red-400 text-xs uppercase tracking-wide">Error</span>
-          <pre className="text-red-300 bg-red-950/30 border border-red-900/30 rounded-lg p-2 mt-1 text-xs overflow-x-auto">{task.error}</pre>
+          <span className="text-xs uppercase tracking-wide text-red-400">
+            Error
+          </span>
+          <pre className="mt-1 overflow-x-auto rounded-lg border border-red-900/30 bg-red-950/30 p-2 text-xs text-red-300">
+            {task.error}
+          </pre>
         </div>
       )}
     </div>
@@ -72,40 +98,60 @@ export default function TasksPage() {
     if (!token) return;
     fetchTasks(token).finally(() => setLoading(false));
     timerRef.current = setInterval(() => fetchTasks(token), POLL_MS);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [token]);
 
   const toggleExpand = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
 
-  const filtered = (filter === "all" ? tasks : tasks.filter((t) => t.status === filter))
-    .filter((t) => !search || t.title.toLowerCase().includes(search.toLowerCase()));
-  const sorted = [...filtered].sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+  const filtered = (
+    filter === "all" ? tasks : tasks.filter((t) => t.status === filter)
+  ).filter(
+    (t) => !search || t.title.toLowerCase().includes(search.toLowerCase())
+  );
+  const sorted = [...filtered].sort((a, b) =>
+    (b.created_at ?? "").localeCompare(a.created_at ?? "")
+  );
 
-  if (loading) return <div className="flex justify-center p-16"><Spinner className="w-8 h-8" /></div>;
+  if (loading)
+    return (
+      <div className="flex justify-center p-16">
+        <Spinner className="h-8 w-8" />
+      </div>
+    );
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="space-y-6 p-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Tasks</h1>
-          <p className="text-sm text-gray-400 mt-1">{tasks.length} total · refreshing every {POLL_MS / 1000}s</p>
+          <p className="mt-1 text-sm text-gray-400">
+            {tasks.length} total · refreshing every {POLL_MS / 1000}s
+          </p>
         </div>
       </div>
 
-      <div className="flex gap-4 items-end">
+      <div className="flex items-end gap-4">
         <div className="flex gap-2">
           {FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                filter === f ? "bg-angie-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-100"
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                filter === f
+                  ? "bg-angie-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-gray-100"
               }`}
             >
               {f}
@@ -113,28 +159,45 @@ export default function TasksPage() {
           ))}
         </div>
         <div className="flex-1">
-          <Input placeholder="Search tasks…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input
+            placeholder="Search tasks…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
       <Card>
-        <CardHeader title="Task History" subtitle="Click a task to view details" />
+        <CardHeader
+          title="Task History"
+          subtitle="Click a task to view details"
+        />
         {sorted.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <Activity className="w-10 h-10 mx-auto mb-2 opacity-30" />
+          <div className="py-12 text-center text-gray-500">
+            <Activity className="mx-auto mb-2 h-10 w-10 opacity-30" />
             <p>No tasks match this filter.</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-800">
             {sorted.map((t) => (
               <div key={t.id}>
-                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-gray-800/30 -mx-6 px-6 transition-colors" onClick={() => toggleExpand(t.id)}>
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {expanded.has(t.id) ? <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />}
+                <div
+                  className="-mx-6 flex cursor-pointer items-center justify-between px-6 py-3 transition-colors hover:bg-gray-800/30"
+                  onClick={() => toggleExpand(t.id)}
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    {expanded.has(t.id) ? (
+                      <ChevronDown className="h-4 w-4 flex-shrink-0 text-gray-500" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-500" />
+                    )}
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-gray-200 truncate">{t.title}</p>
-                      <p className="text-xs text-gray-500 font-mono">
-                        {t.source_channel ?? "internal"} · {t.created_at ? formatDate(t.created_at) : "—"}
+                      <p className="truncate text-sm text-gray-200">
+                        {t.title}
+                      </p>
+                      <p className="font-mono text-xs text-gray-500">
+                        {t.source_channel ?? "internal"} ·{" "}
+                        {t.created_at ? formatDate(t.created_at) : "—"}
                       </p>
                     </div>
                   </div>

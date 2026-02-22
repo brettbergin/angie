@@ -3,7 +3,14 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Sidebar } from "../Sidebar";
 
 const mockLogout = vi.fn();
-const mockUser = { id: "1", email: "a@b.com", username: "alice", full_name: null, timezone: "UTC", is_active: true };
+const mockUser = {
+  id: "1",
+  email: "a@b.com",
+  username: "alice",
+  full_name: null,
+  timezone: "UTC",
+  is_active: true,
+};
 
 // Mock useAuth
 vi.mock("@/lib/auth", () => ({
@@ -54,7 +61,9 @@ describe("Sidebar", () => {
   it("user avatar shows first letter of username", () => {
     render(<Sidebar />);
     // The user section avatar (inside the border-t section)
-    const userSection = screen.getByText("alice").closest("div.flex.items-center")!;
+    const userSection = screen
+      .getByText("alice")
+      .closest("div.flex.items-center")!;
     const avatar = userSection.querySelector(".rounded-full")!;
     expect(avatar.textContent).toBe("A");
   });

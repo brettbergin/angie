@@ -18,7 +18,13 @@ type Props = {
   visible: boolean;
 };
 
-export function MentionAutocomplete({ items, input, cursorPos, onSelect, visible }: Props) {
+export function MentionAutocomplete({
+  items,
+  input,
+  cursorPos,
+  onSelect,
+  visible,
+}: Props) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -29,9 +35,12 @@ export function MentionAutocomplete({ items, input, cursorPos, onSelect, visible
     return match ? match[1].toLowerCase() : null;
   })();
 
-  const filtered = query !== null
-    ? items.filter((i) => i.slug.includes(query) || i.name.toLowerCase().includes(query))
-    : [];
+  const filtered =
+    query !== null
+      ? items.filter(
+          (i) => i.slug.includes(query) || i.name.toLowerCase().includes(query)
+        )
+      : [];
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -50,14 +59,14 @@ export function MentionAutocomplete({ items, input, cursorPos, onSelect, visible
   return (
     <div
       ref={listRef}
-      className="absolute bottom-full mb-1 left-0 right-0 bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50"
+      className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-48 overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 shadow-xl"
     >
       {filtered.map((item, i) => (
         <button
           key={`${item.kind}-${item.slug}`}
           type="button"
           className={cn(
-            "w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-700 transition-colors",
+            "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-700",
             i === selectedIndex && "bg-gray-700"
           )}
           onMouseDown={(e) => {
@@ -66,16 +75,22 @@ export function MentionAutocomplete({ items, input, cursorPos, onSelect, visible
           }}
           onMouseEnter={() => setSelectedIndex(i)}
         >
-          <span className={cn(
-            "w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0",
-            item.kind === "team" ? "bg-blue-600/30 text-blue-400" : "bg-angie-600/30 text-angie-400"
-          )}>
+          <span
+            className={cn(
+              "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-[10px] font-bold",
+              item.kind === "team"
+                ? "bg-blue-600/30 text-blue-400"
+                : "bg-angie-600/30 text-angie-400"
+            )}
+          >
             {item.kind === "team" ? "T" : "@"}
           </span>
-          <span className="text-gray-100 font-medium">@{item.slug}</span>
-          <span className="text-gray-500 text-xs truncate">{item.name}</span>
+          <span className="font-medium text-gray-100">@{item.slug}</span>
+          <span className="truncate text-xs text-gray-500">{item.name}</span>
           {item.kind === "team" && (
-            <span className="ml-auto text-[10px] text-blue-400 font-medium uppercase">team</span>
+            <span className="ml-auto text-[10px] font-medium uppercase text-blue-400">
+              team
+            </span>
           )}
         </button>
       ))}
@@ -92,7 +107,7 @@ export function useMentionKeyboard(
   input: string,
   cursorPos: number,
   onSelect: (item: MentionItem) => void,
-  visible: boolean,
+  visible: boolean
 ) {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -102,9 +117,12 @@ export function useMentionKeyboard(
     return match ? match[1].toLowerCase() : null;
   })();
 
-  const filtered = query !== null
-    ? items.filter((i) => i.slug.includes(query) || i.name.toLowerCase().includes(query))
-    : [];
+  const filtered =
+    query !== null
+      ? items.filter(
+          (i) => i.slug.includes(query) || i.name.toLowerCase().includes(query)
+        )
+      : [];
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -120,7 +138,9 @@ export function useMentionKeyboard(
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev - 1 + filtered.length) % filtered.length);
+      setSelectedIndex(
+        (prev) => (prev - 1 + filtered.length) % filtered.length
+      );
       return true;
     }
     if (e.key === "Enter" || e.key === "Tab") {

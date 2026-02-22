@@ -4,7 +4,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 // We need to mock auth before importing AppShell
 const mockUseAuth = vi.fn();
 vi.mock("@/lib/auth", () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
   useAuth: () => mockUseAuth(),
 }));
 
@@ -41,7 +43,11 @@ describe("AppShell", () => {
       loading: true,
     });
 
-    render(<AppShell><div>Content</div></AppShell>);
+    render(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>
+    );
     expect(screen.getByTestId("spinner")).toBeInTheDocument();
   });
 
@@ -55,7 +61,11 @@ describe("AppShell", () => {
       loading: false,
     });
 
-    render(<AppShell><div>Content</div></AppShell>);
+    render(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>
+    );
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));
   });
 
@@ -69,7 +79,11 @@ describe("AppShell", () => {
       loading: false,
     });
 
-    render(<AppShell><div>Protected Content</div></AppShell>);
+    render(
+      <AppShell>
+        <div>Protected Content</div>
+      </AppShell>
+    );
     expect(screen.getByText("Protected Content")).toBeInTheDocument();
     expect(screen.getByTestId("sidebar")).toBeInTheDocument();
   });

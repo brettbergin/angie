@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { renderHook, act } from "@testing-library/react";
-import { MentionAutocomplete, useMentionKeyboard, type MentionItem } from "../MentionAutocomplete";
+import {
+  MentionAutocomplete,
+  useMentionKeyboard,
+  type MentionItem,
+} from "../MentionAutocomplete";
 
 const items: MentionItem[] = [
   { slug: "github", name: "GitHub Agent", kind: "agent" },
@@ -19,7 +23,7 @@ describe("MentionAutocomplete", () => {
         cursorPos={4}
         onSelect={vi.fn()}
         visible={true}
-      />,
+      />
     );
     expect(screen.getByText("@github")).toBeInTheDocument();
     expect(screen.queryByText("@gmail")).not.toBeInTheDocument();
@@ -33,7 +37,7 @@ describe("MentionAutocomplete", () => {
         cursorPos={4}
         onSelect={vi.fn()}
         visible={true}
-      />,
+      />
     );
     expect(screen.getByText("@ops-team")).toBeInTheDocument();
   });
@@ -46,7 +50,7 @@ describe("MentionAutocomplete", () => {
         cursorPos={1}
         onSelect={vi.fn()}
         visible={true}
-      />,
+      />
     );
     expect(screen.getByText("@github")).toBeInTheDocument();
     expect(screen.getByText("@gmail")).toBeInTheDocument();
@@ -62,7 +66,7 @@ describe("MentionAutocomplete", () => {
         cursorPos={6}
         onSelect={vi.fn()}
         visible={true}
-      />,
+      />
     );
     expect(container.firstChild).toBeNull();
   });
@@ -72,7 +76,7 @@ describe("useMentionKeyboard", () => {
   it("ArrowDown increments selectedIndex with wrap", () => {
     const onSelect = vi.fn();
     const { result } = renderHook(() =>
-      useMentionKeyboard(items, "@", 1, onSelect, true),
+      useMentionKeyboard(items, "@", 1, onSelect, true)
     );
 
     expect(result.current.selectedIndex).toBe(0);
@@ -87,13 +91,22 @@ describe("useMentionKeyboard", () => {
 
     // Wrap around
     act(() => {
-      result.current.handleKeyDown({ key: "ArrowDown", preventDefault: vi.fn() } as unknown as React.KeyboardEvent);
+      result.current.handleKeyDown({
+        key: "ArrowDown",
+        preventDefault: vi.fn(),
+      } as unknown as React.KeyboardEvent);
     });
     act(() => {
-      result.current.handleKeyDown({ key: "ArrowDown", preventDefault: vi.fn() } as unknown as React.KeyboardEvent);
+      result.current.handleKeyDown({
+        key: "ArrowDown",
+        preventDefault: vi.fn(),
+      } as unknown as React.KeyboardEvent);
     });
     act(() => {
-      result.current.handleKeyDown({ key: "ArrowDown", preventDefault: vi.fn() } as unknown as React.KeyboardEvent);
+      result.current.handleKeyDown({
+        key: "ArrowDown",
+        preventDefault: vi.fn(),
+      } as unknown as React.KeyboardEvent);
     });
     expect(result.current.selectedIndex).toBe(0); // wrapped
   });
@@ -101,7 +114,7 @@ describe("useMentionKeyboard", () => {
   it("ArrowUp decrements selectedIndex with wrap", () => {
     const onSelect = vi.fn();
     const { result } = renderHook(() =>
-      useMentionKeyboard(items, "@", 1, onSelect, true),
+      useMentionKeyboard(items, "@", 1, onSelect, true)
     );
 
     act(() => {
