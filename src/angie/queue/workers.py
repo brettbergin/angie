@@ -20,17 +20,31 @@ async def _update_task_in_db(
     task_id: str, status: str, output_data: dict, error: str | None
 ) -> None:
     from sqlalchemy import select
+    from sqlalchemy import update as sa_update
 
     from angie.db.session import get_session_factory
+    from angie.models.event import Event
     from angie.models.task import Task, TaskStatus
 
     async with get_session_factory()() as session:
+        task_updated = False
+        event_updated = False
+
         result = await session.execute(select(Task).where(Task.id == task_id))
         task = result.scalar_one_or_none()
         if task:
             task.status = TaskStatus(status)
             task.output_data = output_data
             task.error = error
+            task_updated = True
+
+        # Mark the originating event as processed
+        event_result = await session.execute(
+            sa_update(Event).where(Event.task_id == task_id).values(processed=True)
+        )
+        event_updated = event_result.rowcount is not None and event_result.rowcount > 0
+
+        if task_updated or event_updated:
             await session.commit()
 
 

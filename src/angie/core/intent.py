@@ -94,6 +94,7 @@ async def dispatch_task(
             await session.flush()
             await session.refresh(task_record)
             task_record_id = task_record.id
+            event_record.task_id = task_record_id
             await session.commit()
     except Exception as exc:
         logger.error("Failed to persist event/task records: %s", exc)
