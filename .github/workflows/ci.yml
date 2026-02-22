@@ -134,7 +134,7 @@ jobs:
         run: uv pip install bandit[toml]
 
       - name: Run Bandit
-        run: .venv/bin/bandit -r src/ -c pyproject.toml -f json -o bandit-report.json || true
+        run: .venv/bin/bandit -r src/ -c pyproject.toml -f json -o bandit-report.json
 
       - name: Display results
         if: always()
@@ -175,7 +175,7 @@ jobs:
         run: npx next build
 
       - name: npm audit
-        run: npm audit --audit-level=high --omit=dev || true
+        run: npm audit --audit-level=high --omit=dev
 
   build:
     name: Docker Build
