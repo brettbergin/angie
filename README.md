@@ -1,5 +1,17 @@
 # Angie — Personal AI Assistant
 
+![CI](https://github.com/brettbergin/angie/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-000000?logo=next.js&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?logo=sqlalchemy&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)
+![Celery](https://img.shields.io/badge/Celery-37814A?logo=celery&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![Ruff](https://img.shields.io/badge/Ruff-D7FF64?logo=ruff&logoColor=black)
+![License](https://img.shields.io/github/license/brettbergin/angie)
+
 > Your 24/7 personal AI assistant. Always on. Always working.
 
 Angie is a self-hosted, event-driven AI assistant that runs as a persistent background daemon on your infrastructure. Angie connects to your real-world tools — email, calendar, smart home devices, music, GitHub, Slack, Discord, and more — and acts on your behalf through a fleet of specialized agents powered by GitHub Copilot's LLM.

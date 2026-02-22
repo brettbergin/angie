@@ -4,7 +4,14 @@ import { ConnectionModal } from "../ConnectionModal";
 import type { ServiceDefinition, Connection } from "@/lib/api";
 
 vi.mock("@/lib/auth", () => ({
-  useAuth: () => ({ token: "tok", user: null, login: vi.fn(), logout: vi.fn(), refreshUser: vi.fn(), loading: false }),
+  useAuth: () => ({
+    token: "tok",
+    user: null,
+    login: vi.fn(),
+    logout: vi.fn(),
+    refreshUser: vi.fn(),
+    loading: false,
+  }),
 }));
 
 const mockService: ServiceDefinition = {
@@ -13,7 +20,13 @@ const mockService: ServiceDefinition = {
   description: "GitHub integration",
   auth_type: "api_key",
   color: "#333333",
-  fields: [{ key: "personal_access_token", label: "Personal Access Token", type: "password" }],
+  fields: [
+    {
+      key: "personal_access_token",
+      label: "Personal Access Token",
+      type: "password",
+    },
+  ],
   agent_slug: "github",
 };
 
@@ -42,45 +55,101 @@ describe("ConnectionModal", () => {
   });
 
   it("renders service name and description", () => {
-    render(<ConnectionModal service={mockService} connection={null} onClose={onClose} onSaved={onSaved} />);
+    render(
+      <ConnectionModal
+        service={mockService}
+        connection={null}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    );
     expect(screen.getByText("GitHub")).toBeTruthy();
     expect(screen.getByText("GitHub integration")).toBeTruthy();
   });
 
   it("shows Connect button for new connection", () => {
-    render(<ConnectionModal service={mockService} connection={null} onClose={onClose} onSaved={onSaved} />);
+    render(
+      <ConnectionModal
+        service={mockService}
+        connection={null}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    );
     expect(screen.getByText("Connect")).toBeTruthy();
   });
 
   it("shows Update button for existing connection", () => {
-    render(<ConnectionModal service={mockService} connection={mockConnection} onClose={onClose} onSaved={onSaved} />);
+    render(
+      <ConnectionModal
+        service={mockService}
+        connection={mockConnection}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    );
     expect(screen.getByText("Update")).toBeTruthy();
   });
 
   it("shows masked credentials for existing connection", () => {
-    render(<ConnectionModal service={mockService} connection={mockConnection} onClose={onClose} onSaved={onSaved} />);
+    render(
+      <ConnectionModal
+        service={mockService}
+        connection={mockConnection}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    );
     expect(screen.getByText("ghp_****xyz")).toBeTruthy();
   });
 
   it("shows status indicator for connected state", () => {
-    render(<ConnectionModal service={mockService} connection={mockConnection} onClose={onClose} onSaved={onSaved} />);
+    render(
+      <ConnectionModal
+        service={mockService}
+        connection={mockConnection}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    );
     expect(screen.getByText("connected")).toBeTruthy();
   });
 
   it("shows test and disconnect buttons for existing connection", () => {
-    render(<ConnectionModal service={mockService} connection={mockConnection} onClose={onClose} onSaved={onSaved} />);
+    render(
+      <ConnectionModal
+        service={mockService}
+        connection={mockConnection}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    );
     expect(screen.getByText("Test Connection")).toBeTruthy();
     expect(screen.getByText("Disconnect")).toBeTruthy();
   });
 
   it("closes on cancel", () => {
-    render(<ConnectionModal service={mockService} connection={null} onClose={onClose} onSaved={onSaved} />);
+    render(
+      <ConnectionModal
+        service={mockService}
+        connection={null}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    );
     fireEvent.click(screen.getByText("Cancel"));
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("renders credential fields from service definition", () => {
-    render(<ConnectionModal service={mockService} connection={null} onClose={onClose} onSaved={onSaved} />);
+    render(
+      <ConnectionModal
+        service={mockService}
+        connection={null}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
+    );
     expect(screen.getByText("Personal Access Token")).toBeTruthy();
   });
 });

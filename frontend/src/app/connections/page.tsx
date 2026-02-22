@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { api, type Connection, type ServiceDefinition, type TestResult } from "@/lib/api";
+import {
+  api,
+  type Connection,
+  type ServiceDefinition,
+  type TestResult,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,10 +19,13 @@ function StatusDot({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        "w-2.5 h-2.5 rounded-full flex-shrink-0",
-        status === "connected" && "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.5)]",
-        status === "expired" && "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]",
-        status === "error" && "bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]",
+        "h-2.5 w-2.5 flex-shrink-0 rounded-full",
+        status === "connected" &&
+          "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.5)]",
+        status === "expired" &&
+          "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]",
+        status === "error" &&
+          "bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]",
         (!status || status === "disconnected") && "bg-gray-600"
       )}
     />
@@ -41,7 +49,9 @@ export default function ConnectionsPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<MergedService | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
+  const [testResults, setTestResults] = useState<Record<string, TestResult>>(
+    {}
+  );
 
   const fetchAll = useCallback(async () => {
     if (!token) return;
@@ -82,30 +92,44 @@ export default function ConnectionsPage() {
       setTestResults((prev) => ({ ...prev, [conn.id]: result }));
       await fetchAll();
     } catch {
-      setTestResults((prev) => ({ ...prev, [conn.id]: { success: false, message: "Test failed", status: "error" } }));
+      setTestResults((prev) => ({
+        ...prev,
+        [conn.id]: { success: false, message: "Test failed", status: "error" },
+      }));
     } finally {
       setTestingId(null);
     }
   };
 
-  const connectedCount = connections.filter((c) => c.status === "connected").length;
-  const errorCount = connections.filter((c) => c.status === "error" || c.status === "expired").length;
+  const connectedCount = connections.filter(
+    (c) => c.status === "connected"
+  ).length;
+  const errorCount = connections.filter(
+    (c) => c.status === "error" || c.status === "expired"
+  ).length;
 
-  if (loading) return <div className="flex justify-center p-16"><Spinner className="w-8 h-8" /></div>;
+  if (loading)
+    return (
+      <div className="flex justify-center p-16">
+        <Spinner className="h-8 w-8" />
+      </div>
+    );
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="space-y-6 p-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-100">Connections</h1>
-        <p className="text-sm text-gray-400 mt-1">Connect your services to Angie</p>
-        <div className="flex gap-4 mt-3">
+        <p className="mt-1 text-sm text-gray-400">
+          Connect your services to Angie
+        </p>
+        <div className="mt-3 flex gap-4">
           <span className="flex items-center gap-1.5 text-xs text-gray-400">
-            <span className="w-2 h-2 rounded-full bg-green-400" />
+            <span className="h-2 w-2 rounded-full bg-green-400" />
             {connectedCount} connected
           </span>
           {errorCount > 0 && (
             <span className="flex items-center gap-1.5 text-xs text-gray-400">
-              <span className="w-2 h-2 rounded-full bg-red-400" />
+              <span className="h-2 w-2 rounded-full bg-red-400" />
               {errorCount} need attention
             </span>
           )}
@@ -115,9 +139,14 @@ export default function ConnectionsPage() {
         </div>
       </div>
 
-      <Input placeholder="Search services…" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off" />
+      <Input
+        placeholder="Search services…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        autoComplete="off"
+      />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((svc) => {
           const conn = svc.connection;
           const isConnected = conn?.status === "connected";
@@ -128,7 +157,7 @@ export default function ConnectionsPage() {
             <Card
               key={svc.key}
               className={cn(
-                "cursor-pointer hover:border-gray-600 transition-all group",
+                "group cursor-pointer transition-all hover:border-gray-600",
                 isConnected && "border-green-600/20"
               )}
               onClick={() => setSelected(svc)}
@@ -136,30 +165,34 @@ export default function ConnectionsPage() {
               <div className="flex items-start gap-3">
                 {/* Brand icon */}
                 <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
+                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-lg font-bold text-white"
                   style={{ backgroundColor: svc.color }}
                 >
                   {svc.name[0]}
                 </div>
 
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-100 truncate">{svc.name}</h3>
+                    <h3 className="truncate font-semibold text-gray-100">
+                      {svc.name}
+                    </h3>
                     <StatusDot status={conn?.status ?? ""} />
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{svc.description}</p>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-gray-400">
+                    {svc.description}
+                  </p>
 
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="mt-2 flex items-center gap-2">
                     <span
                       className={cn(
-                        "text-xs px-2 py-0.5 rounded-full",
+                        "rounded-full px-2 py-0.5 text-xs",
                         isConnected
-                          ? "bg-green-600/10 text-green-400 border border-green-600/20"
+                          ? "border border-green-600/20 bg-green-600/10 text-green-400"
                           : conn?.status === "expired"
-                            ? "bg-amber-600/10 text-amber-400 border border-amber-600/20"
+                            ? "border border-amber-600/20 bg-amber-600/10 text-amber-400"
                             : conn?.status === "error"
-                              ? "bg-red-600/10 text-red-400 border border-red-600/20"
-                              : "bg-gray-800 text-gray-500 border border-gray-700"
+                              ? "border border-red-600/20 bg-red-600/10 text-red-400"
+                              : "border border-gray-700 bg-gray-800 text-gray-500"
                       )}
                     >
                       {statusLabel(conn?.status)}
@@ -169,16 +202,25 @@ export default function ConnectionsPage() {
                       <button
                         onClick={(e) => handleQuickTest(e, conn)}
                         disabled={isTesting}
-                        className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-300 transition-all p-1"
+                        className="p-1 text-gray-500 opacity-0 transition-all hover:text-gray-300 group-hover:opacity-100"
                         title="Test connection"
                       >
-                        {isTesting ? <Spinner className="w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                        {isTesting ? (
+                          <Spinner className="h-3.5 w-3.5" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
                       </button>
                     )}
                   </div>
 
                   {quickResult && (
-                    <p className={cn("text-xs mt-1.5", quickResult.success ? "text-green-400" : "text-red-400")}>
+                    <p
+                      className={cn(
+                        "mt-1.5 text-xs",
+                        quickResult.success ? "text-green-400" : "text-red-400"
+                      )}
+                    >
                       {quickResult.message}
                     </p>
                   )}
@@ -189,9 +231,13 @@ export default function ConnectionsPage() {
         })}
 
         {filtered.length === 0 && (
-          <div className="col-span-3 text-center py-16 text-gray-500">
-            <Plug className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>{search ? "No services match your search." : "No services available."}</p>
+          <div className="col-span-3 py-16 text-center text-gray-500">
+            <Plug className="mx-auto mb-3 h-12 w-12 opacity-30" />
+            <p>
+              {search
+                ? "No services match your search."
+                : "No services available."}
+            </p>
           </div>
         )}
       </div>

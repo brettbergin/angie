@@ -31,12 +31,16 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
         onNew={handleNew}
         refreshKey={refreshKey}
       />
-      <div className="flex-1 flex flex-col min-w-0">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }
 
-export default function ChatLayout({ children }: { children: React.ReactNode }) {
+export default function ChatLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <AppShell>
       <Suspense>

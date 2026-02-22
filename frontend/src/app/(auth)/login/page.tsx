@@ -31,7 +31,7 @@ export default function LoginPage() {
 
   return (
     <div className="w-full max-w-sm">
-      <div className="text-center mb-8">
+      <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/angie-logo.svg"
@@ -41,7 +41,7 @@ export default function LoginPage() {
           className="mx-auto mb-4"
         />
         <h1 className="text-2xl font-bold text-gray-100">Sign in to Angie</h1>
-        <p className="text-sm text-gray-400 mt-1">Your personal AI assistant</p>
+        <p className="mt-1 text-sm text-gray-400">Your personal AI assistant</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -63,12 +63,12 @@ export default function LoginPage() {
         />
         {error && <p className="text-sm text-red-400">{error}</p>}
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading && <Spinner className="w-4 h-4" />}
+          {loading && <Spinner className="h-4 w-4" />}
           Sign in
         </Button>
       </form>
 
-      <p className="text-center text-sm text-gray-400 mt-6">
+      <p className="mt-6 text-center text-sm text-gray-400">
         No account?{" "}
         <Link href="/register" className="text-angie-400 hover:underline">
           Register

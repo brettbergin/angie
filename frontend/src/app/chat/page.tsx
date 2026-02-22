@@ -8,7 +8,11 @@ import { parseUTC } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ChatMessageBubble } from "@/components/chat/ChatMessage";
-import { MentionAutocomplete, MentionItem, useMentionKeyboard } from "@/components/chat/MentionAutocomplete";
+import {
+  MentionAutocomplete,
+  MentionItem,
+  useMentionKeyboard,
+} from "@/components/chat/MentionAutocomplete";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -55,19 +59,35 @@ function ChatPageInner() {
   const [showMentions, setShowMentions] = useState(false);
 
   const mentionItems: MentionItem[] = [
-    ...agents.map((a) => ({ slug: a.slug, name: a.name, kind: "agent" as const })),
-    ...teams.map((t) => ({ slug: t.slug, name: t.name, kind: "team" as const })),
+    ...agents.map((a) => ({
+      slug: a.slug,
+      name: a.name,
+      kind: "agent" as const,
+    })),
+    ...teams.map((t) => ({
+      slug: t.slug,
+      name: t.name,
+      kind: "team" as const,
+    })),
   ];
 
   // Fetch agents and teams on mount
   useEffect(() => {
     if (!token) return;
-    api.agents.list(token).then(setAgents).catch(() => {});
-    api.teams.list(token, true).then(setTeams).catch(() => {});
+    api.agents
+      .list(token)
+      .then(setAgents)
+      .catch(() => {});
+    api.teams
+      .list(token, true)
+      .then(setTeams)
+      .catch(() => {});
   }, [token]);
 
   // Keep tokenRef in sync so interval callbacks always use the latest token
-  useEffect(() => { tokenRef.current = token; }, [token]);
+  useEffect(() => {
+    tokenRef.current = token;
+  }, [token]);
 
   const resizeTextarea = useCallback(() => {
     const el = textareaRef.current;
@@ -92,22 +112,27 @@ function ChatPageInner() {
     let cancelled = false;
     setLoadingMessages(true);
 
-    api.conversations.getMessages(token, conversationId).then((msgs) => {
-      if (cancelled) return;
-      const mapped = msgs.map((m: ChatMessageType) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        ts: parseUTC(m.created_at).getTime(),
-      }));
-      setMessages(mapped);
-      messageCountRef.current = mapped.length;
-      setLoadingMessages(false);
-    }).catch(() => {
-      if (!cancelled) setLoadingMessages(false);
-    });
+    api.conversations
+      .getMessages(token, conversationId)
+      .then((msgs) => {
+        if (cancelled) return;
+        const mapped = msgs.map((m: ChatMessageType) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          ts: parseUTC(m.created_at).getTime(),
+        }));
+        setMessages(mapped);
+        messageCountRef.current = mapped.length;
+        setLoadingMessages(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadingMessages(false);
+      });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [token, conversationId]);
 
   // Poll for task results (worker persists to DB; WebSocket push from worker is unreliable)
@@ -237,7 +262,11 @@ function ChatPageInner() {
         }
 
         // Task results for a different conversation — ignore (already persisted in DB)
-        if (data.type === "task_result" && data.conversation_id && data.conversation_id !== currentConvoRef.current) {
+        if (
+          data.type === "task_result" &&
+          data.conversation_id &&
+          data.conversation_id !== currentConvoRef.current
+        ) {
           return;
         }
 
@@ -288,55 +317,77 @@ function ChatPageInner() {
   function sendMessage(e: React.FormEvent | React.KeyboardEvent) {
     e.preventDefault();
     const text = input.trim();
-    if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)
+      return;
     wsRef.current.send(JSON.stringify({ content: text }));
     setMessages((prev) => {
       const updated = [
         ...prev,
-        { id: crypto.randomUUID(), role: "user" as const, content: text, ts: Date.now() },
+        {
+          id: crypto.randomUUID(),
+          role: "user" as const,
+          content: text,
+          ts: Date.now(),
+        },
       ];
       messageCountRef.current = updated.length;
       return updated;
     });
     setInput("");
     setShowMentions(false);
-    const ta = (e.target as HTMLElement).closest("form")?.querySelector("textarea");
+    const ta = (e.target as HTMLElement)
+      .closest("form")
+      ?.querySelector("textarea");
     if (ta) ta.style.height = "auto";
   }
 
-  const handleMentionSelect = useCallback((item: MentionItem) => {
-    const before = input.slice(0, cursorPos);
-    const atIdx = before.lastIndexOf("@");
-    if (atIdx === -1) return;
-    const newInput = input.slice(0, atIdx) + `@${item.slug} ` + input.slice(cursorPos);
-    setInput(newInput);
-    setShowMentions(false);
-    textareaRef.current?.focus();
-  }, [input, cursorPos]);
-
-  const { handleKeyDown: mentionKeyDown } = useMentionKeyboard(
-    mentionItems, input, cursorPos, handleMentionSelect, showMentions
+  const handleMentionSelect = useCallback(
+    (item: MentionItem) => {
+      const before = input.slice(0, cursorPos);
+      const atIdx = before.lastIndexOf("@");
+      if (atIdx === -1) return;
+      const newInput =
+        input.slice(0, atIdx) + `@${item.slug} ` + input.slice(cursorPos);
+      setInput(newInput);
+      setShowMentions(false);
+      textareaRef.current?.focus();
+    },
+    [input, cursorPos]
   );
 
-  const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    const pos = e.target.selectionStart ?? val.length;
-    setInput(val);
-    setCursorPos(pos);
-    // Show mentions when typing @ followed by optional slug chars
-    const before = val.slice(0, pos);
-    setShowMentions(/@[a-z0-9_-]*$/i.test(before));
-    resizeTextarea();
-  }, [resizeTextarea]);
+  const { handleKeyDown: mentionKeyDown } = useMentionKeyboard(
+    mentionItems,
+    input,
+    cursorPos,
+    handleMentionSelect,
+    showMentions
+  );
 
-  const handleTextareaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Let mention autocomplete handle keys first
-    if (showMentions && mentionKeyDown(e)) return;
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(e);
-    }
-  }, [showMentions, mentionKeyDown]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleTextareaChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const val = e.target.value;
+      const pos = e.target.selectionStart ?? val.length;
+      setInput(val);
+      setCursorPos(pos);
+      // Show mentions when typing @ followed by optional slug chars
+      const before = val.slice(0, pos);
+      setShowMentions(/@[a-z0-9_-]*$/i.test(before));
+      resizeTextarea();
+    },
+    [resizeTextarea]
+  );
+
+  const handleTextareaKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Let mention autocomplete handle keys first
+      if (showMentions && mentionKeyDown(e)) return;
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(e);
+      }
+    },
+    [showMentions, mentionKeyDown]
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Agent chip click handler — inserts @slug into input
   const handleAgentChipClick = useCallback((slug: string) => {
@@ -346,9 +397,9 @@ function ChatPageInner() {
 
   // Shared input area component
   const renderInput = () => (
-    <div className="p-4 border-t border-gray-800">
-      <form onSubmit={sendMessage} className="relative flex gap-3 items-end">
-        <div className="flex-1 relative">
+    <div className="border-t border-gray-800 p-4">
+      <form onSubmit={sendMessage} className="relative flex items-end gap-3">
+        <div className="relative flex-1">
           <MentionAutocomplete
             items={mentionItems}
             input={input}
@@ -358,8 +409,12 @@ function ChatPageInner() {
           />
           <textarea
             ref={textareaRef}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-angie-500 focus:border-transparent transition resize-none min-h-[44px] max-h-[200px]"
-            placeholder={wsStatus === "connected" ? "Message Angie… (type @ to mention an agent)" : "Waiting for connection…"}
+            className="max-h-[200px] min-h-[44px] w-full resize-none rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-angie-500"
+            placeholder={
+              wsStatus === "connected"
+                ? "Message Angie… (type @ to mention an agent)"
+                : "Waiting for connection…"
+            }
             value={input}
             onChange={handleTextareaChange}
             onKeyDown={handleTextareaKeyDown}
@@ -367,8 +422,16 @@ function ChatPageInner() {
             rows={1}
           />
         </div>
-        <Button type="submit" disabled={wsStatus !== "connected" || !input.trim()} className="h-[44px]">
-          {wsStatus === "connecting" ? <Spinner className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+        <Button
+          type="submit"
+          disabled={wsStatus !== "connected" || !input.trim()}
+          className="h-[44px]"
+        >
+          {wsStatus === "connecting" ? (
+            <Spinner className="h-4 w-4" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
         </Button>
       </form>
     </div>
@@ -377,43 +440,70 @@ function ChatPageInner() {
   // Empty state — no conversation selected
   if (!conversationId) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between border-b border-gray-800 px-6 py-4">
           <div>
-            <h1 className="text-lg font-semibold text-gray-100">Chat with Angie</h1>
+            <h1 className="text-lg font-semibold text-gray-100">
+              Chat with Angie
+            </h1>
             <p className="text-xs text-gray-500">Your personal AI assistant</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-400">
-            <span className={cn(
-              "w-2 h-2 rounded-full",
-              wsStatus === "connected" ? "bg-green-400" : wsStatus === "connecting" ? "bg-amber-400 animate-pulse" : "bg-gray-600"
-            )} />
-            {wsStatus === "connecting" ? "Connecting…" : wsStatus === "connected" ? "Connected" : "Disconnected"}
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full",
+                wsStatus === "connected"
+                  ? "bg-green-400"
+                  : wsStatus === "connecting"
+                    ? "animate-pulse bg-amber-400"
+                    : "bg-gray-600"
+              )}
+            />
+            {wsStatus === "connecting"
+              ? "Connecting…"
+              : wsStatus === "connected"
+                ? "Connected"
+                : "Disconnected"}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-6">
           {messages.length > 0 ? (
             // Show ephemeral welcome message if received
             messages.map((msg) => (
-              <ChatMessageBubble key={msg.id} role={msg.role} content={msg.content} username={user?.username} token={token ?? undefined} />
+              <ChatMessageBubble
+                key={msg.id}
+                role={msg.role}
+                content={msg.content}
+                username={user?.username}
+                token={token ?? undefined}
+              />
             ))
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-angie-600/20 border border-angie-600/30 flex items-center justify-center">
-                <span className="text-angie-400 font-bold text-2xl">A</span>
+            <div className="flex h-full flex-col items-center justify-center space-y-4 text-gray-500">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-angie-600/30 bg-angie-600/20">
+                <span className="text-2xl font-bold text-angie-400">A</span>
               </div>
-              <p className="text-lg font-medium text-gray-300">Hi, I&apos;m Angie!</p>
-              <p className="text-sm text-center">Start a new chat or select one from the sidebar.<br />Type <span className="text-angie-400 font-mono">@</span> to mention an agent.</p>
+              <p className="text-lg font-medium text-gray-300">
+                Hi, I&apos;m Angie!
+              </p>
+              <p className="text-center text-sm">
+                Start a new chat or select one from the sidebar.
+                <br />
+                Type <span className="font-mono text-angie-400">@</span> to
+                mention an agent.
+              </p>
               {agents.length > 0 && (
-                <div className="max-w-lg text-center space-y-2 mt-2">
-                  <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Available Agents</p>
-                  <div className="flex flex-wrap gap-1.5 justify-center">
+                <div className="mt-2 max-w-lg space-y-2 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Available Agents
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-1.5">
                     {agents.map((a) => (
                       <button
                         key={a.slug}
                         onClick={() => handleAgentChipClick(a.slug)}
-                        className="px-2 py-1 rounded-md bg-gray-800 border border-gray-700 text-xs text-angie-400 hover:bg-gray-700 hover:border-angie-500/50 transition-colors cursor-pointer"
+                        className="cursor-pointer rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-angie-400 transition-colors hover:border-angie-500/50 hover:bg-gray-700"
                         title={a.description}
                       >
                         @{a.slug}
@@ -422,13 +512,15 @@ function ChatPageInner() {
                   </div>
                   {teams.length > 0 && (
                     <>
-                      <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mt-3">Teams</p>
-                      <div className="flex flex-wrap gap-1.5 justify-center">
+                      <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        Teams
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-1.5">
                         {teams.map((t) => (
                           <button
                             key={t.slug}
                             onClick={() => handleAgentChipClick(t.slug)}
-                            className="px-2 py-1 rounded-md bg-gray-800 border border-blue-700/40 text-xs text-blue-400 hover:bg-gray-700 hover:border-blue-500/50 transition-colors cursor-pointer"
+                            className="cursor-pointer rounded-md border border-blue-700/40 bg-gray-800 px-2 py-1 text-xs text-blue-400 transition-colors hover:border-blue-500/50 hover:bg-gray-700"
                             title={t.description ?? `Team: ${t.name}`}
                           >
                             @{t.slug}
@@ -450,46 +542,67 @@ function ChatPageInner() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-gray-800 px-6 py-4">
         <div>
-          <h1 className="text-lg font-semibold text-gray-100">Chat with Angie</h1>
+          <h1 className="text-lg font-semibold text-gray-100">
+            Chat with Angie
+          </h1>
           <p className="text-xs text-gray-500">Your personal AI assistant</p>
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-400">
-          <span className={cn(
-            "w-2 h-2 rounded-full",
-            wsStatus === "connected" ? "bg-green-400" : wsStatus === "connecting" ? "bg-amber-400 animate-pulse" : "bg-gray-600"
-          )} />
-          {wsStatus === "connecting" ? "Connecting…" : wsStatus === "connected" ? "Connected" : "Disconnected"}
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              wsStatus === "connected"
+                ? "bg-green-400"
+                : wsStatus === "connecting"
+                  ? "animate-pulse bg-amber-400"
+                  : "bg-gray-600"
+            )}
+          />
+          {wsStatus === "connecting"
+            ? "Connecting…"
+            : wsStatus === "connected"
+              ? "Connected"
+              : "Disconnected"}
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto p-6">
         {loadingMessages && (
           <div className="flex justify-center py-8">
-            <Spinner className="w-6 h-6" />
+            <Spinner className="h-6 w-6" />
           </div>
         )}
 
         {!loadingMessages && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-4">
-            <div className="w-16 h-16 rounded-2xl bg-angie-600/20 border border-angie-600/30 flex items-center justify-center">
-              <span className="text-angie-400 font-bold text-2xl">A</span>
+          <div className="flex h-full flex-col items-center justify-center space-y-4 text-gray-500">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-angie-600/30 bg-angie-600/20">
+              <span className="text-2xl font-bold text-angie-400">A</span>
             </div>
-            <p className="text-lg font-medium text-gray-300">Hi, I&apos;m Angie!</p>
-            <p className="text-sm text-center">Ask me anything or give me a task.<br />Type <span className="text-angie-400 font-mono">@</span> to mention an agent.</p>
+            <p className="text-lg font-medium text-gray-300">
+              Hi, I&apos;m Angie!
+            </p>
+            <p className="text-center text-sm">
+              Ask me anything or give me a task.
+              <br />
+              Type <span className="font-mono text-angie-400">@</span> to
+              mention an agent.
+            </p>
             {agents.length > 0 && (
-              <div className="max-w-lg text-center space-y-2">
-                <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Available Agents</p>
-                <div className="flex flex-wrap gap-1.5 justify-center">
+              <div className="max-w-lg space-y-2 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Available Agents
+                </p>
+                <div className="flex flex-wrap justify-center gap-1.5">
                   {agents.map((a) => (
                     <button
                       key={a.slug}
                       onClick={() => handleAgentChipClick(a.slug)}
-                      className="px-2 py-1 rounded-md bg-gray-800 border border-gray-700 text-xs text-angie-400 hover:bg-gray-700 hover:border-angie-500/50 transition-colors cursor-pointer"
+                      className="cursor-pointer rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-angie-400 transition-colors hover:border-angie-500/50 hover:bg-gray-700"
                       title={a.description}
                     >
                       @{a.slug}

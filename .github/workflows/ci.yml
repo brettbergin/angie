@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   lint:
     name: Lint & Format
@@ -81,7 +85,28 @@ jobs:
           DB_USER: angie
           DB_PASSWORD: testpassword
           REDIS_HOST: localhost
-        run: .venv/bin/pytest tests/ --cov=src/angie --cov-report=xml -v
+        run: |
+          .venv/bin/pytest tests/ \
+            --cov=src/angie \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing:skip-covered \
+            --junitxml=pytest.xml \
+            -v | tee pytest-coverage.txt
+
+      - name: Pytest coverage comment
+        if: matrix.python-version == '3.12' && github.event_name == 'pull_request'
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: pytest-coverage.txt
+          pytest-xml-coverage-path: coverage.xml
+          junitxml-path: pytest.xml
+          title: "Test Coverage Report"
+          badge-title: "Coverage"
+          hide-badge: false
+          hide-report: false
+          create-new-comment: false
+          hide-comment: false
+          report-only-changed-files: false
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'
@@ -115,8 +140,8 @@ jobs:
         if: always()
         run: .venv/bin/bandit -r src/ -c pyproject.toml -ll
 
-  security-frontend:
-    name: Frontend Security & Lint
+  frontend:
+    name: Frontend Lint, Format & Test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -134,19 +159,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: npm audit
-        run: npm audit --audit-level=high --omit=dev
-
       - name: ESLint
         run: npx next lint
+
+      - name: Prettier format check
+        run: npx prettier --check "src/**/*.{ts,tsx,js,jsx,css,json}"
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npx vitest run
 
       - name: Build check
         run: npx next build
 
+      - name: npm audit
+        run: npm audit --audit-level=high --omit=dev || true
+
   build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [lint, test, security-python, security-frontend]
+    needs: [lint, test, security-python, frontend]
     if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4

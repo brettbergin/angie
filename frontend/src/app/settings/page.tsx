@@ -12,13 +12,32 @@ const TIMEZONES: string[] =
   typeof Intl !== "undefined" &&
   typeof (Intl as Record<string, unknown>).supportedValuesOf === "function"
     ? Intl.supportedValuesOf("timeZone")
-    : ["UTC", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney"];
+    : [
+        "UTC",
+        "Europe/London",
+        "Europe/Berlin",
+        "America/New_York",
+        "America/Chicago",
+        "America/Denver",
+        "America/Los_Angeles",
+        "Asia/Tokyo",
+        "Asia/Singapore",
+        "Australia/Sydney",
+      ];
 
-type PreferenceDef = { name: string; label: string; description: string; placeholder: string };
+type PreferenceDef = {
+  name: string;
+  label: string;
+  description: string;
+  placeholder: string;
+};
 
 export default function SettingsPage() {
   const { user, token } = useAuth();
-  const [profileForm, setProfileForm] = useState({ full_name: "", timezone: "" });
+  const [profileForm, setProfileForm] = useState({
+    full_name: "",
+    timezone: "",
+  });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [tzOpen, setTzOpen] = useState(false);
@@ -36,7 +55,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user) {
-      setProfileForm({ full_name: user.full_name ?? "", timezone: user.timezone ?? "UTC" });
+      setProfileForm({
+        full_name: user.full_name ?? "",
+        timezone: user.timezone ?? "UTC",
+      });
     }
   }, [user]);
 
@@ -49,24 +71,33 @@ export default function SettingsPage() {
       ]);
       setPrefDefs(defs);
       const vals: Record<string, string> = {};
-      prompts.forEach((p) => { vals[p.name] = p.content; });
+      prompts.forEach((p) => {
+        vals[p.name] = p.content;
+      });
       setPrefValues(vals);
     } catch (err) {
       console.error("Failed to load preferences:", err);
     }
   }, [token]);
 
-  useEffect(() => { loadPreferences(); }, [loadPreferences]);
+  useEffect(() => {
+    loadPreferences();
+  }, [loadPreferences]);
 
   const handleSaveProfile = async () => {
     if (!token) return;
     setProfileSaving(true);
     try {
       const updated = await api.users.updateMe(token, profileForm);
-      setProfileForm({ full_name: updated.full_name ?? "", timezone: updated.timezone ?? "UTC" });
+      setProfileForm({
+        full_name: updated.full_name ?? "",
+        timezone: updated.timezone ?? "UTC",
+      });
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2000);
-    } finally { setProfileSaving(false); }
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   const openEditor = (def: PreferenceDef) => {
@@ -84,7 +115,11 @@ export default function SettingsPage() {
         setPrefValues((v) => ({ ...v, [editingPref.name]: content }));
       } else {
         await api.prompts.delete(token, editingPref.name).catch(() => {});
-        setPrefValues((v) => { const next = { ...v }; delete next[editingPref.name]; return next; });
+        setPrefValues((v) => {
+          const next = { ...v };
+          delete next[editingPref.name];
+          return next;
+        });
       }
       setEditingPref(null);
     } catch (err) {
@@ -108,37 +143,54 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="space-y-6 p-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-100">Settings</h1>
-        <p className="text-sm text-gray-400 mt-1">Configure your profile and preferences</p>
+        <p className="mt-1 text-sm text-gray-400">
+          Configure your profile and preferences
+        </p>
       </div>
 
-      <div className="flex gap-6 items-start">
-        <div className="flex-1 min-w-0">
+      <div className="flex items-start gap-6">
+        <div className="min-w-0 flex-1">
           <Card>
-            <CardHeader title="Preferences" subtitle="Help Angie understand you — changes apply to new chats" />
+            <CardHeader
+              title="Preferences"
+              subtitle="Help Angie understand you — changes apply to new chats"
+            />
             <div className="space-y-2">
               {prefDefs.map((def) => (
                 <button
                   key={def.name}
                   type="button"
                   onClick={() => openEditor(def)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700/50 bg-gray-800/30 hover:bg-gray-800/60 hover:border-gray-600 transition-colors text-left group"
+                  className="group flex w-full items-center justify-between rounded-lg border border-gray-700/50 bg-gray-800/30 px-3 py-2.5 text-left transition-colors hover:border-gray-600 hover:bg-gray-800/60"
                 >
                   <div className="min-w-0">
-                    <span className="text-sm font-medium text-gray-200">{def.description}</span>
+                    <span className="text-sm font-medium text-gray-200">
+                      {def.description}
+                    </span>
                     {prefValues[def.name] ? (
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{prefValues[def.name].replace(/^#\s.*\n+/, "").slice(0, 80)}</p>
+                      <p className="mt-0.5 truncate text-xs text-gray-500">
+                        {prefValues[def.name]
+                          .replace(/^#\s.*\n+/, "")
+                          .slice(0, 80)}
+                      </p>
                     ) : (
-                      <p className="text-xs text-gray-600 mt-0.5 italic">Not configured</p>
+                      <p className="mt-0.5 text-xs italic text-gray-600">
+                        Not configured
+                      </p>
                     )}
                   </div>
-                  <Pencil className="w-4 h-4 text-gray-500 group-hover:text-angie-400 flex-shrink-0 ml-3 transition-colors" />
+                  <Pencil className="ml-3 h-4 w-4 flex-shrink-0 text-gray-500 transition-colors group-hover:text-angie-400" />
                 </button>
               ))}
               <div className="pt-2">
-                <Button variant="secondary" onClick={handleResetPreferences} disabled={prefResetting}>
+                <Button
+                  variant="secondary"
+                  onClick={handleResetPreferences}
+                  disabled={prefResetting}
+                >
                   {prefResetting ? "Resetting…" : "Reset to defaults"}
                 </Button>
               </div>
@@ -150,30 +202,78 @@ export default function SettingsPage() {
           <Card>
             <CardHeader title="Profile" subtitle="Your account information" />
             <div className="space-y-3">
-              <Input label="Username" value={user?.username ?? ""} readOnly className="opacity-60" />
-              <Input label="Email" value={user?.email ?? ""} readOnly className="opacity-60" />
-              <Input label="Full name" value={profileForm.full_name} placeholder="Your full name"
-                onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
+              <Input
+                label="Username"
+                value={user?.username ?? ""}
+                readOnly
+                className="opacity-60"
+              />
+              <Input
+                label="Email"
+                value={user?.email ?? ""}
+                readOnly
+                className="opacity-60"
+              />
+              <Input
+                label="Full name"
+                value={profileForm.full_name}
+                placeholder="Your full name"
+                onChange={(e) =>
+                  setProfileForm({ ...profileForm, full_name: e.target.value })
+                }
+              />
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Timezone</label>
-                <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setTzOpen(false); }}>
-                  <button type="button" onClick={() => { setTzOpen(!tzOpen); setTzSearch(""); }}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-200 hover:border-gray-600 transition-colors text-left">
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Timezone
+                </label>
+                <div
+                  className="relative"
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget))
+                      setTzOpen(false);
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTzOpen(!tzOpen);
+                      setTzSearch("");
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-left text-sm text-gray-200 transition-colors hover:border-gray-600"
+                  >
                     <span>{profileForm.timezone || "Select timezone…"}</span>
-                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${tzOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown
+                      className={`h-4 w-4 text-gray-500 transition-transform ${tzOpen ? "rotate-180" : ""}`}
+                    />
                   </button>
                   {tzOpen && (
-                    <div className="absolute z-20 w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                      <div className="p-2 border-b border-gray-800">
-                        <input autoFocus type="text" placeholder="Search timezones…" value={tzSearch}
+                    <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-700 bg-gray-900 shadow-xl">
+                      <div className="border-b border-gray-800 p-2">
+                        <input
+                          autoFocus
+                          type="text"
+                          placeholder="Search timezones…"
+                          value={tzSearch}
                           onChange={(e) => setTzSearch(e.target.value)}
-                          className="w-full px-2 py-1.5 rounded bg-gray-800 border border-gray-700 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-angie-500" />
+                          className="w-full rounded border border-gray-700 bg-gray-800 px-2 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:border-angie-500 focus:outline-none"
+                        />
                       </div>
                       <div className="max-h-56 overflow-y-auto">
-                        {TIMEZONES.filter((tz) => !tzSearch || tz.toLowerCase().includes(tzSearch.toLowerCase())).map((tz) => (
-                          <button key={tz} type="button"
-                            onClick={() => { setProfileForm({ ...profileForm, timezone: tz }); setTzOpen(false); setTzSearch(""); }}
-                            className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${tz === profileForm.timezone ? "bg-angie-600/20 text-angie-300" : "text-gray-300 hover:bg-gray-800"}`}>
+                        {TIMEZONES.filter(
+                          (tz) =>
+                            !tzSearch ||
+                            tz.toLowerCase().includes(tzSearch.toLowerCase())
+                        ).map((tz) => (
+                          <button
+                            key={tz}
+                            type="button"
+                            onClick={() => {
+                              setProfileForm({ ...profileForm, timezone: tz });
+                              setTzOpen(false);
+                              setTzSearch("");
+                            }}
+                            className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${tz === profileForm.timezone ? "bg-angie-600/20 text-angie-300" : "text-gray-300 hover:bg-gray-800"}`}
+                          >
                             {tz}
                           </button>
                         ))}
@@ -182,8 +282,16 @@ export default function SettingsPage() {
                   )}
                 </div>
               </div>
-              <Button variant="secondary" onClick={handleSaveProfile} disabled={profileSaving}>
-                {profileSaved ? "Saved ✓" : profileSaving ? "Saving…" : "Save profile"}
+              <Button
+                variant="secondary"
+                onClick={handleSaveProfile}
+                disabled={profileSaving}
+              >
+                {profileSaved
+                  ? "Saved ✓"
+                  : profileSaving
+                    ? "Saving…"
+                    : "Save profile"}
               </Button>
             </div>
           </Card>
@@ -192,36 +300,51 @@ export default function SettingsPage() {
 
       {/* Edit preference modal */}
       {editingPref && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setEditingPref(null); }}
-          onKeyDown={(e) => { if (e.key === "Escape") setEditingPref(null); }}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingPref(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setEditingPref(null);
+          }}
           role="dialog"
           aria-modal="true"
-          aria-label={`Edit ${editingPref.label} preference`}>
-          <div className="w-full max-w-2xl mx-4 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+          aria-label={`Edit ${editingPref.label} preference`}
+        >
+          <div className="mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl border border-gray-700 bg-gray-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-100">{editingPref.label}</h2>
-                <p className="text-sm text-gray-400 mt-0.5">{editingPref.description}</p>
+                <h2 className="text-lg font-semibold text-gray-100">
+                  {editingPref.label}
+                </h2>
+                <p className="mt-0.5 text-sm text-gray-400">
+                  {editingPref.description}
+                </p>
               </div>
-              <button type="button" onClick={() => setEditingPref(null)}
+              <button
+                type="button"
+                onClick={() => setEditingPref(null)}
                 aria-label="Close preferences editor"
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors">
-                <X className="w-5 h-5" />
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="flex-1 p-5 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-5">
               <textarea
                 autoFocus
                 rows={12}
                 placeholder={editingPref.placeholder}
                 value={editDraft}
                 onChange={(e) => setEditDraft(e.target.value)}
-                className="w-full h-full min-h-[200px] px-4 py-3 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-angie-500 resize-y"
+                className="h-full min-h-[200px] w-full resize-y rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-3 text-sm text-gray-200 placeholder-gray-500 focus:border-angie-500 focus:outline-none"
               />
             </div>
-            <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-800">
-              <Button variant="secondary" onClick={() => setEditingPref(null)}>Cancel</Button>
+            <div className="flex items-center justify-end gap-3 border-t border-gray-800 px-5 py-4">
+              <Button variant="secondary" onClick={() => setEditingPref(null)}>
+                Cancel
+              </Button>
               <Button onClick={handleApply} disabled={modalSaving}>
                 {modalSaving ? "Applying…" : "Apply"}
               </Button>

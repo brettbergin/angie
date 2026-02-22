@@ -22,16 +22,16 @@ const navSections = [
   {
     label: "Main",
     items: [
-      { href: "/chat",      label: "Chat",      icon: MessageSquare },
-      { href: "/agents",    label: "Agents",    icon: Bot },
-      { href: "/teams",     label: "Teams",     icon: Users },
+      { href: "/chat", label: "Chat", icon: MessageSquare },
+      { href: "/agents", label: "Agents", icon: Bot },
+      { href: "/teams", label: "Teams", icon: Users },
     ],
   },
   {
     label: "Work",
     items: [
-      { href: "/events",    label: "Events",    icon: Zap },
-      { href: "/tasks",     label: "Tasks",     icon: Activity },
+      { href: "/events", label: "Events", icon: Zap },
+      { href: "/tasks", label: "Tasks", icon: Activity },
       { href: "/workflows", label: "Workflows", icon: GitBranch },
       { href: "/schedules", label: "Schedules", icon: Clock },
     ],
@@ -40,8 +40,8 @@ const navSections = [
     label: "Configure",
     items: [
       { href: "/connections", label: "Connections", icon: Plug },
-      { href: "/dashboard",  label: "History",     icon: LayoutDashboard },
-      { href: "/settings",   label: "Settings",    icon: Settings },
+      { href: "/dashboard", label: "History", icon: LayoutDashboard },
+      { href: "/settings", label: "Settings", icon: Settings },
     ],
   },
 ];
@@ -51,23 +51,26 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   return (
-    <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col h-screen sticky top-0">
+    <aside className="sticky top-0 flex h-screen w-64 flex-col border-r border-gray-800 bg-gray-900">
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-gray-800">
+      <div className="border-b border-gray-800 px-6 py-5">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-angie-600 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">A</span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-angie-600">
+            <span className="text-sm font-bold text-white">A</span>
           </div>
           <span className="font-semibold text-gray-100">Angie</span>
-          <span className="ml-auto w-2 h-2 rounded-full bg-green-400" title="Online" />
+          <span
+            className="ml-auto h-2 w-2 rounded-full bg-green-400"
+            title="Online"
+          />
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
         {navSections.map((section) => (
           <div key={section.label}>
-            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-500">
+            <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-500">
               {section.label}
             </p>
             <div className="space-y-0.5">
@@ -76,13 +79,13 @@ export function Sidebar() {
                   key={href}
                   href={href}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     pathname.startsWith(href)
-                      ? "bg-angie-600/20 text-angie-400 border border-angie-600/30"
+                      ? "border border-angie-600/30 bg-angie-600/20 text-angie-400"
                       : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
                   )}
                 >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <Icon className="h-4 w-4 flex-shrink-0" />
                   {label}
                 </Link>
               ))}
@@ -92,22 +95,24 @@ export function Sidebar() {
       </nav>
 
       {/* User */}
-      <div className="px-3 py-4 border-t border-gray-800">
+      <div className="border-t border-gray-800 px-3 py-4">
         {user && (
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg">
-            <div className="w-8 h-8 rounded-full bg-angie-700 flex items-center justify-center text-sm font-medium text-white flex-shrink-0">
+          <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-angie-700 text-sm font-medium text-white">
               {user.username[0].toUpperCase()}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-100 truncate">{user.username}</p>
-              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-gray-100">
+                {user.username}
+              </p>
+              <p className="truncate text-xs text-gray-500">{user.email}</p>
             </div>
             <button
               onClick={logout}
-              className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+              className="p-1 text-gray-500 transition-colors hover:text-red-400"
               title="Sign out"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         )}

@@ -23,8 +23,10 @@ describe("request() — via api.users.me()", () => {
     expect(spy).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        headers: expect.objectContaining({ "Content-Type": "application/json" }),
-      }),
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+        }),
+      })
     );
   });
 
@@ -35,7 +37,7 @@ describe("request() — via api.users.me()", () => {
       expect.any(String),
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: "Bearer my-token" }),
-      }),
+      })
     );
   });
 
@@ -80,19 +82,29 @@ describe("request() — via api.users.me()", () => {
 
 describe("api.auth.login()", () => {
   it("sends credentials as URLSearchParams (not JSON)", async () => {
-    const spy = mockFetch({ access_token: "abc", refresh_token: "def", token_type: "bearer" });
+    const spy = mockFetch({
+      access_token: "abc",
+      refresh_token: "def",
+      token_type: "bearer",
+    });
     await api.auth.login("alice", "pass123");
     const call = spy.mock.calls[0];
     expect(call[0]).toBe(`${API_URL}/api/v1/auth/token`);
     expect(call[1]?.method).toBe("POST");
     expect(call[1]?.headers).toEqual(
-      expect.objectContaining({ "Content-Type": "application/x-www-form-urlencoded" }),
+      expect.objectContaining({
+        "Content-Type": "application/x-www-form-urlencoded",
+      })
     );
     expect(call[1]?.body).toBeInstanceOf(URLSearchParams);
   });
 
   it("returns { access_token } response", async () => {
-    mockFetch({ access_token: "abc", refresh_token: "def", token_type: "bearer" });
+    mockFetch({
+      access_token: "abc",
+      refresh_token: "def",
+      token_type: "bearer",
+    });
     const result = await api.auth.login("alice", "pass123");
     expect(result.access_token).toBe("abc");
   });
@@ -104,7 +116,7 @@ describe("CRUD methods", () => {
     await api.teams.get("tok", "t1");
     expect(spy).toHaveBeenCalledWith(
       `${API_URL}/api/v1/teams/t1`,
-      expect.any(Object),
+      expect.any(Object)
     );
   });
 
@@ -133,7 +145,7 @@ describe("CRUD methods", () => {
     await api.conversations.getMessages("tok", "conv-1");
     expect(spy).toHaveBeenCalledWith(
       `${API_URL}/api/v1/conversations/conv-1/messages`,
-      expect.any(Object),
+      expect.any(Object)
     );
   });
 });

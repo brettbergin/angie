@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, Conversation } from "@/lib/api";
 import { cn, parseUTC } from "@/lib/utils";
-import { MessageSquarePlus, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
+import {
+  MessageSquarePlus,
+  Trash2,
+  Pencil,
+  Check,
+  X,
+  Loader2,
+} from "lucide-react";
 
 const PAGE_SIZE = 20;
 
@@ -27,7 +34,12 @@ export function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
-export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: Props) {
+export function ConversationSidebar({
+  activeId,
+  onSelect,
+  onNew,
+  refreshKey,
+}: Props) {
   const { token } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,9 +56,14 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
   const loadConversations = useCallback(async () => {
     if (!token) return;
     try {
-      const data = await api.conversations.list(token, { limit: PAGE_SIZE, offset: 0 });
+      const data = await api.conversations.list(token, {
+        limit: PAGE_SIZE,
+        offset: 0,
+      });
       const removing = deletingRef.current;
-      const items = removing ? data.items.filter((c) => c.id !== removing) : data.items;
+      const items = removing
+        ? data.items.filter((c) => c.id !== removing)
+        : data.items;
       setConversations(items);
       setHasMore(data.has_more);
       offsetRef.current = PAGE_SIZE;
@@ -62,7 +79,10 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
-      const data = await api.conversations.list(token, { limit: PAGE_SIZE, offset: offsetRef.current });
+      const data = await api.conversations.list(token, {
+        limit: PAGE_SIZE,
+        offset: offsetRef.current,
+      });
       setConversations((prev) => [...prev, ...data.items]);
       setHasMore(data.has_more);
       offsetRef.current += PAGE_SIZE;
@@ -85,7 +105,7 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
       (entries) => {
         if (entries[0].isIntersecting) loadMore();
       },
-      { threshold: 0.1 },
+      { threshold: 0.1 }
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -124,7 +144,11 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
       return;
     }
     try {
-      const updated = await api.conversations.update(token, id, editTitle.trim());
+      const updated = await api.conversations.update(
+        token,
+        id,
+        editTitle.trim()
+      );
       setConversations((prev) => prev.map((c) => (c.id === id ? updated : c)));
     } catch {
       // ignore
@@ -133,24 +157,26 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
   }
 
   return (
-    <div className="w-72 bg-gray-900 border-r border-gray-800 flex flex-col h-full">
-      <div className="p-3 border-b border-gray-800">
+    <div className="flex h-full w-72 flex-col border-r border-gray-800 bg-gray-900">
+      <div className="border-b border-gray-800 p-3">
         <button
           onClick={onNew}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-angie-600 hover:bg-angie-500 text-white text-sm font-medium transition-colors"
+          className="flex w-full items-center gap-2 rounded-lg bg-angie-600 px-3 py-2.5 text-sm font-medium text-white transition-colors hover:bg-angie-500"
         >
-          <MessageSquarePlus className="w-4 h-4" />
+          <MessageSquarePlus className="h-4 w-4" />
           New Chat
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+      <div className="flex-1 space-y-0.5 overflow-y-auto p-2">
         {loading && (
-          <p className="text-xs text-gray-500 text-center py-4">Loading…</p>
+          <p className="py-4 text-center text-xs text-gray-500">Loading…</p>
         )}
 
         {!loading && conversations.length === 0 && (
-          <p className="text-xs text-gray-500 text-center py-4">No conversations yet</p>
+          <p className="py-4 text-center text-xs text-gray-500">
+            No conversations yet
+          </p>
         )}
 
         {conversations.map((convo) => (
@@ -158,17 +184,20 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
             key={convo.id}
             onClick={() => onSelect(convo.id)}
             className={cn(
-              "group flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-colors text-sm",
+              "group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors",
               activeId === convo.id
-                ? "bg-angie-600/20 text-angie-400 border border-angie-600/30"
+                ? "border border-angie-600/30 bg-angie-600/20 text-angie-400"
                 : "text-gray-400 hover:bg-gray-800 hover:text-gray-100"
             )}
           >
             {editingId === convo.id ? (
-              <div className="flex-1 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="flex flex-1 items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <input
                   ref={editRef}
-                  className="flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-0.5 text-xs text-gray-100 focus:outline-none focus:border-angie-500"
+                  className="flex-1 rounded border border-gray-600 bg-gray-800 px-2 py-0.5 text-xs text-gray-100 focus:border-angie-500 focus:outline-none"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   onKeyDown={(e) => {
@@ -180,37 +209,37 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
                   onClick={() => saveRename(convo.id)}
                   className="p-0.5 text-green-400 hover:text-green-300"
                 >
-                  <Check className="w-3.5 h-3.5" />
+                  <Check className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={() => setEditingId(null)}
                   className="p-0.5 text-gray-500 hover:text-gray-300"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             ) : (
               <>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{convo.title}</p>
-                  <p className="text-xs text-gray-600 mt-0.5">
+                  <p className="mt-0.5 text-xs text-gray-600">
                     {timeAgo(convo.updated_at)}
                   </p>
                 </div>
-                <div className="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
+                <div className="hidden flex-shrink-0 items-center gap-0.5 group-hover:flex">
                   <button
                     onClick={(e) => startRename(e, convo)}
-                    className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                    className="p-1 text-gray-500 transition-colors hover:text-gray-300"
                     title="Rename"
                   >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={(e) => handleDelete(e, convo.id)}
-                    className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                    className="p-1 text-gray-500 transition-colors hover:text-red-400"
                     title="Delete"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </>
@@ -220,7 +249,7 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
 
         {loadingMore && (
           <div className="flex justify-center py-3">
-            <Loader2 className="w-4 h-4 text-gray-500 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
           </div>
         )}
         <div ref={sentinelRef} className="h-1" />

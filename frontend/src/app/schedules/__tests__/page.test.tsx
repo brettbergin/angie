@@ -36,7 +36,14 @@ const mockSchedules = [
 ];
 
 vi.mock("@/lib/auth", () => ({
-  useAuth: () => ({ token: "test-token", user: { id: "u1" }, login: vi.fn(), logout: vi.fn(), refreshUser: vi.fn(), loading: false }),
+  useAuth: () => ({
+    token: "test-token",
+    user: { id: "u1" },
+    login: vi.fn(),
+    logout: vi.fn(),
+    refreshUser: vi.fn(),
+    loading: false,
+  }),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -88,14 +95,18 @@ describe("SchedulesPage", () => {
 
   it("opens create form when clicking New Schedule", async () => {
     render(<SchedulesPage />);
-    await waitFor(() => expect(screen.getByText("Nightly Backup")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText("Nightly Backup")).toBeTruthy()
+    );
     fireEvent.click(screen.getByText("New Schedule"));
     expect(screen.getByText("Create Schedule")).toBeTruthy();
   });
 
   it("filters schedules by search", async () => {
     render(<SchedulesPage />);
-    await waitFor(() => expect(screen.getByText("Nightly Backup")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText("Nightly Backup")).toBeTruthy()
+    );
     const search = screen.getByPlaceholderText("Search schedules…");
     fireEvent.change(search, { target: { value: "Weekly" } });
     expect(screen.queryByText("Nightly Backup")).toBeNull();

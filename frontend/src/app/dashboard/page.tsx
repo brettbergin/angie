@@ -46,35 +46,61 @@ export default function DashboardPage() {
   }, [token]);
 
   const stats = computeStats(tasks);
-  const recent = [...tasks].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 8);
-  const recentEvents = [...events].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 8);
+  const recent = [...tasks]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 8);
+  const recentEvents = [...events]
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    .slice(0, 8);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner className="w-8 h-8" />
+      <div className="flex h-64 items-center justify-center">
+        <Spinner className="h-8 w-8" />
       </div>
     );
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="space-y-6 p-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-100">History</h1>
-        <p className="text-sm text-gray-400 mt-1">Angie is running · monitoring your tasks and events</p>
+        <p className="mt-1 text-sm text-gray-400">
+          Angie is running · monitoring your tasks and events
+        </p>
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "Total Tasks", value: stats.total, icon: Activity, color: "text-angie-400" },
-          { label: "Successful", value: stats.success, icon: CheckCircle, color: "text-green-400" },
-          { label: "Pending", value: stats.pending, icon: Clock, color: "text-yellow-400" },
-          { label: "Failed", value: stats.failed, icon: XCircle, color: "text-red-400" },
+          {
+            label: "Total Tasks",
+            value: stats.total,
+            icon: Activity,
+            color: "text-angie-400",
+          },
+          {
+            label: "Successful",
+            value: stats.success,
+            icon: CheckCircle,
+            color: "text-green-400",
+          },
+          {
+            label: "Pending",
+            value: stats.pending,
+            icon: Clock,
+            color: "text-yellow-400",
+          },
+          {
+            label: "Failed",
+            value: stats.failed,
+            icon: XCircle,
+            color: "text-red-400",
+          },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label} className="flex items-center gap-4">
             <div className={`${color} flex-shrink-0`}>
-              <Icon className="w-8 h-8" />
+              <Icon className="h-8 w-8" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-100">{value}</p>
@@ -93,10 +119,15 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {recent.map((t) => (
-                <div key={t.id} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between border-b border-gray-800 py-2 last:border-0"
+                >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-gray-200 truncate">{t.title}</p>
-                    <p className="text-xs text-gray-500">{formatDate(t.created_at)}</p>
+                    <p className="truncate text-sm text-gray-200">{t.title}</p>
+                    <p className="text-xs text-gray-500">
+                      {formatDate(t.created_at)}
+                    </p>
                   </div>
                   <Badge label={t.status} status={t.status} />
                 </div>
@@ -113,15 +144,26 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {recentEvents.map((ev) => (
-                <div key={ev.id} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <Zap className="w-3.5 h-3.5 text-angie-400 flex-shrink-0" />
+                <div
+                  key={ev.id}
+                  className="flex items-center justify-between border-b border-gray-800 py-2 last:border-0"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <Zap className="h-3.5 w-3.5 flex-shrink-0 text-angie-400" />
                     <div className="min-w-0">
-                      <p className="text-sm text-gray-200 truncate">{ev.type}</p>
-                      <p className="text-xs text-gray-500">{ev.source_channel ?? "internal"} · {formatDate(ev.created_at)}</p>
+                      <p className="truncate text-sm text-gray-200">
+                        {ev.type}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {ev.source_channel ?? "internal"} ·{" "}
+                        {formatDate(ev.created_at)}
+                      </p>
                     </div>
                   </div>
-                  <Badge label={ev.processed ? "processed" : "pending"} status={ev.processed ? "success" : "pending"} />
+                  <Badge
+                    label={ev.processed ? "processed" : "pending"}
+                    status={ev.processed ? "success" : "pending"}
+                  />
                 </div>
               ))}
             </div>
