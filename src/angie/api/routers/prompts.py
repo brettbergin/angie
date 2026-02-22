@@ -86,8 +86,11 @@ class PreferenceDefinition(BaseModel):
 
 async def _seed_defaults(user_id: str, session: AsyncSession) -> list[Prompt]:
     """Seed default preferences from filesystem for a new user."""
+    import logging
+
     from angie.core.prompts import get_prompt_manager
 
+    logger = logging.getLogger(__name__)
     pm = get_prompt_manager()
     default_dir = pm.user_prompts_dir / "default"
     created: list[Prompt] = []
@@ -106,7 +109,11 @@ async def _seed_defaults(user_id: str, session: AsyncSession) -> list[Prompt]:
             )
             if existing.scalar_one_or_none() is not None:
                 continue
-            content = md_file.read_text(encoding="utf-8")
+            try:
+                content = md_file.read_text(encoding="utf-8")
+            except Exception as exc:
+                logger.warning("Failed to read default prompt %s: %s", md_file, exc)
+                continue
             prompt = Prompt(
                 user_id=user_id,
                 type=PromptType.USER,
@@ -117,7 +124,11 @@ async def _seed_defaults(user_id: str, session: AsyncSession) -> list[Prompt]:
             session.add(prompt)
             created.append(prompt)
     if created:
-        await session.commit()
+        try:
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            return []
         for p in created:
             await session.refresh(p)
     return created
@@ -149,12 +160,22 @@ async def list_prompts(
     return [{"name": p.name, "content": p.content} for p in prompts]
 
 
+def _validate_preference_name(name: str) -> None:
+    """Raise 400 if name is not a recognized preference category."""
+    if name not in PREFERENCE_NAMES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid preference name '{name}'. Allowed: {', '.join(sorted(PREFERENCE_NAMES))}",
+        )
+
+
 @router.get("/{name}", response_model=PromptOut)
 async def get_prompt(
     name: str,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    _validate_preference_name(name)
     result = await session.execute(
         select(Prompt).where(
             Prompt.user_id == current_user.id,
@@ -179,11 +200,17 @@ async def update_prompt(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    # Normalize: ensure consistent markdown header format
+    _validate_preference_name(name)
+    # Normalize: always strip existing header and prepend the correct one
     content = data.content.strip()
     header = f"# {name.replace('_', ' ').title()}"
-    if not content.startswith("# "):
-        content = f"{header}\n\n{content}\n"
+    lines = content.splitlines()
+    if lines and lines[0].lstrip().startswith("#"):
+        lines = lines[1:]
+        while lines and not lines[0].strip():
+            lines.pop(0)
+    body = "\n".join(lines).strip()
+    content = f"{header}\n\n{body}\n" if body else f"{header}\n"
 
     result = await session.execute(
         select(Prompt).where(
@@ -216,6 +243,7 @@ async def delete_prompt(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    _validate_preference_name(name)
     result = await session.execute(
         select(Prompt).where(
             Prompt.user_id == current_user.id,

@@ -108,86 +108,96 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-2xl">
+    <div className="p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-100">Settings</h1>
         <p className="text-sm text-gray-400 mt-1">Configure your profile and preferences</p>
       </div>
 
-      <Card>
-        <CardHeader title="Profile" subtitle="Your account information" />
-        <div className="space-y-3">
-          <Input label="Username" value={user?.username ?? ""} readOnly className="opacity-60" />
-          <Input label="Email" value={user?.email ?? ""} readOnly className="opacity-60" />
-          <Input label="Full name" value={profileForm.full_name} placeholder="Your full name"
-            onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Timezone</label>
-            <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setTzOpen(false); }}>
-              <button type="button" onClick={() => { setTzOpen(!tzOpen); setTzSearch(""); }}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-200 hover:border-gray-600 transition-colors text-left">
-                <span>{profileForm.timezone || "Select timezone…"}</span>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${tzOpen ? "rotate-180" : ""}`} />
-              </button>
-              {tzOpen && (
-                <div className="absolute z-20 w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden">
-                  <div className="p-2 border-b border-gray-800">
-                    <input autoFocus type="text" placeholder="Search timezones…" value={tzSearch}
-                      onChange={(e) => setTzSearch(e.target.value)}
-                      className="w-full px-2 py-1.5 rounded bg-gray-800 border border-gray-700 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-angie-500" />
+      <div className="flex gap-6 items-start">
+        <div className="flex-1 min-w-0">
+          <Card>
+            <CardHeader title="Preferences" subtitle="Help Angie understand you — changes apply to new chats" />
+            <div className="space-y-2">
+              {prefDefs.map((def) => (
+                <button
+                  key={def.name}
+                  type="button"
+                  onClick={() => openEditor(def)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700/50 bg-gray-800/30 hover:bg-gray-800/60 hover:border-gray-600 transition-colors text-left group"
+                >
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-gray-200">{def.description}</span>
+                    {prefValues[def.name] ? (
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{prefValues[def.name].replace(/^#\s.*\n+/, "").slice(0, 80)}</p>
+                    ) : (
+                      <p className="text-xs text-gray-600 mt-0.5 italic">Not configured</p>
+                    )}
                   </div>
-                  <div className="max-h-56 overflow-y-auto">
-                    {TIMEZONES.filter((tz) => !tzSearch || tz.toLowerCase().includes(tzSearch.toLowerCase())).map((tz) => (
-                      <button key={tz} type="button"
-                        onClick={() => { setProfileForm({ ...profileForm, timezone: tz }); setTzOpen(false); setTzSearch(""); }}
-                        className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${tz === profileForm.timezone ? "bg-angie-600/20 text-angie-300" : "text-gray-300 hover:bg-gray-800"}`}>
-                        {tz}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          <Button variant="secondary" onClick={handleSaveProfile} disabled={profileSaving}>
-            {profileSaved ? "Saved ✓" : profileSaving ? "Saving…" : "Save profile"}
-          </Button>
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader title="Preferences" subtitle="Help Angie understand you — changes apply to new chats" />
-        <div className="space-y-2">
-          {prefDefs.map((def) => (
-            <button
-              key={def.name}
-              type="button"
-              onClick={() => openEditor(def)}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700/50 bg-gray-800/30 hover:bg-gray-800/60 hover:border-gray-600 transition-colors text-left group"
-            >
-              <div className="min-w-0">
-                <span className="text-sm font-medium text-gray-200">{def.description}</span>
-                {prefValues[def.name] ? (
-                  <p className="text-xs text-gray-500 mt-0.5 truncate">{prefValues[def.name].replace(/^#\s.*\n+/, "").slice(0, 80)}</p>
-                ) : (
-                  <p className="text-xs text-gray-600 mt-0.5 italic">Not configured</p>
-                )}
+                  <Pencil className="w-4 h-4 text-gray-500 group-hover:text-angie-400 flex-shrink-0 ml-3 transition-colors" />
+                </button>
+              ))}
+              <div className="pt-2">
+                <Button variant="secondary" onClick={handleResetPreferences} disabled={prefResetting}>
+                  {prefResetting ? "Resetting…" : "Reset to defaults"}
+                </Button>
               </div>
-              <Pencil className="w-4 h-4 text-gray-500 group-hover:text-angie-400 flex-shrink-0 ml-3 transition-colors" />
-            </button>
-          ))}
-          <div className="pt-2">
-            <Button variant="secondary" onClick={handleResetPreferences} disabled={prefResetting}>
-              {prefResetting ? "Resetting…" : "Reset to defaults"}
-            </Button>
-          </div>
+            </div>
+          </Card>
         </div>
-      </Card>
+
+        <div className="w-80 flex-shrink-0">
+          <Card>
+            <CardHeader title="Profile" subtitle="Your account information" />
+            <div className="space-y-3">
+              <Input label="Username" value={user?.username ?? ""} readOnly className="opacity-60" />
+              <Input label="Email" value={user?.email ?? ""} readOnly className="opacity-60" />
+              <Input label="Full name" value={profileForm.full_name} placeholder="Your full name"
+                onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} />
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Timezone</label>
+                <div className="relative" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setTzOpen(false); }}>
+                  <button type="button" onClick={() => { setTzOpen(!tzOpen); setTzSearch(""); }}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-gray-700 bg-gray-800/50 text-sm text-gray-200 hover:border-gray-600 transition-colors text-left">
+                    <span>{profileForm.timezone || "Select timezone…"}</span>
+                    <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${tzOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {tzOpen && (
+                    <div className="absolute z-20 w-full mt-1 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden">
+                      <div className="p-2 border-b border-gray-800">
+                        <input autoFocus type="text" placeholder="Search timezones…" value={tzSearch}
+                          onChange={(e) => setTzSearch(e.target.value)}
+                          className="w-full px-2 py-1.5 rounded bg-gray-800 border border-gray-700 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-angie-500" />
+                      </div>
+                      <div className="max-h-56 overflow-y-auto">
+                        {TIMEZONES.filter((tz) => !tzSearch || tz.toLowerCase().includes(tzSearch.toLowerCase())).map((tz) => (
+                          <button key={tz} type="button"
+                            onClick={() => { setProfileForm({ ...profileForm, timezone: tz }); setTzOpen(false); setTzSearch(""); }}
+                            className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${tz === profileForm.timezone ? "bg-angie-600/20 text-angie-300" : "text-gray-300 hover:bg-gray-800"}`}>
+                            {tz}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <Button variant="secondary" onClick={handleSaveProfile} disabled={profileSaving}>
+                {profileSaved ? "Saved ✓" : profileSaving ? "Saving…" : "Save profile"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
 
       {/* Edit preference modal */}
       {editingPref && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setEditingPref(null); }}>
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingPref(null); }}
+          onKeyDown={(e) => { if (e.key === "Escape") setEditingPref(null); }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Edit ${editingPref.label} preference`}>
           <div className="w-full max-w-2xl mx-4 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
               <div>
@@ -195,6 +205,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-400 mt-0.5">{editingPref.description}</p>
               </div>
               <button type="button" onClick={() => setEditingPref(null)}
+                aria-label="Close preferences editor"
                 className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors">
                 <X className="w-5 h-5" />
               </button>

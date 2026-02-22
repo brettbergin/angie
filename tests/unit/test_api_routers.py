@@ -623,15 +623,19 @@ def test_get_prompt_endpoint():
 
 
 def test_get_prompt_not_found():
-    """GET /prompts/{name} returns 404 when not found."""
+    """GET /prompts/{name} returns 404 for valid name not in DB, 400 for invalid name."""
     app, _, session = _make_app_with_overrides()
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = None
     session.execute = AsyncMock(return_value=mock_result)
 
     with TestClient(app) as client:
+        # Invalid name returns 400
         resp = client.get("/api/v1/prompts/nonexistent")
-    assert resp.status_code == 404
+        assert resp.status_code == 400
+        # Valid name not in DB returns 404
+        resp = client.get("/api/v1/prompts/personality")
+        assert resp.status_code == 404
 
 
 def test_update_prompt_endpoint():
