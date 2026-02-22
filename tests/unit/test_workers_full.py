@@ -63,7 +63,7 @@ async def test_update_task_in_db_not_found():
     with patch("angie.db.session.get_session_factory", _make_session_factory(mock_session)):
         await _update_task_in_db("nonexistent", "failure", None, "error")
 
-    mock_session.commit.assert_not_called()
+    mock_session.commit.assert_called_once()
 
 
 # ── execute_task: no agent resolved ───────────────────────────────────────────

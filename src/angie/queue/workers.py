@@ -20,8 +20,10 @@ async def _update_task_in_db(
     task_id: str, status: str, output_data: dict, error: str | None
 ) -> None:
     from sqlalchemy import select
+    from sqlalchemy import update as sa_update
 
     from angie.db.session import get_session_factory
+    from angie.models.event import Event
     from angie.models.task import Task, TaskStatus
 
     async with get_session_factory()() as session:
@@ -31,7 +33,13 @@ async def _update_task_in_db(
             task.status = TaskStatus(status)
             task.output_data = output_data
             task.error = error
-            await session.commit()
+
+        # Mark the originating event as processed
+        await session.execute(
+            sa_update(Event).where(Event.task_id == task_id).values(processed=True)
+        )
+
+        await session.commit()
 
 
 async def _deliver_chat_result(

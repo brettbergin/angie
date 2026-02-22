@@ -187,3 +187,43 @@ def _run_sync(coro):
         return loop.run_until_complete(coro)
     finally:
         loop.close()
+
+
+async def test_update_task_in_db_marks_event_processed():
+    """Verify _update_task_in_db sets event.processed = True for linked events."""
+    from angie.models.task import Task, TaskStatus
+    from angie.queue.workers import _update_task_in_db
+
+    task_obj = Task(
+        id="task-1",
+        title="t",
+        user_id="u1",
+        status=TaskStatus.PENDING,
+        input_data={},
+        output_data={},
+    )
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = task_obj
+    mock_session.execute = AsyncMock(return_value=mock_result)
+    mock_session.commit = AsyncMock()
+
+    mock_factory = MagicMock()
+    mock_ctx = AsyncMock()
+    mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_ctx.__aexit__ = AsyncMock(return_value=False)
+    mock_factory.return_value = mock_ctx
+
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        await _update_task_in_db("task-1", "success", {"result": "ok"}, None)
+
+    # Should have been called twice: once for Task select, once for Event update
+    assert mock_session.execute.call_count == 2
+
+    # Second execute call should be the Event update
+    second_call_args = mock_session.execute.call_args_list[1]
+    stmt = second_call_args[0][0]
+    assert "events" in str(stmt)
+
+    mock_session.commit.assert_called_once()
