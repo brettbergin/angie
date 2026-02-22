@@ -12,3 +12,6 @@ RUN uv sync --no-dev --no-editable
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
+
+# Install Playwright Chromium and its OS-level dependencies
+RUN playwright install --with-deps chromium
