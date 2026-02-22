@@ -73,7 +73,7 @@ class WeatherAgent(BaseAgent):
                     params={"q": location, "appid": api_key, "units": units},
                 )
                 if resp.status_code != 200:
-                    return {"error": f"Weather API returned HTTP {resp.status_code}: {resp.text}"}
+                    return {"error": f"Weather API returned HTTP {resp.status_code}"}
                 data = resp.json()
 
             unit_label = {"metric": "°C", "imperial": "°F", "standard": "K"}.get(units, "°C")
@@ -118,7 +118,7 @@ class WeatherAgent(BaseAgent):
                     params={"q": location, "appid": api_key, "units": units},
                 )
                 if resp.status_code != 200:
-                    return {"error": f"Weather API returned HTTP {resp.status_code}: {resp.text}"}
+                    return {"error": f"Weather API returned HTTP {resp.status_code}"}
                 data = resp.json()
 
             unit_label = {"metric": "°C", "imperial": "°F", "standard": "K"}.get(units, "°C")
@@ -161,7 +161,7 @@ class WeatherAgent(BaseAgent):
                         "temp_high": f"{max(temps):.1f}{unit_label}",
                         "temp_low": f"{min(temps):.1f}{unit_label}",
                         "description": primary_desc,
-                        "avg_humidity": f"{sum(d['humidity']) / len(d['humidity']):.0f}%",
+                        "avg_humidity": f"{(sum(d['humidity']) / len(d['humidity'])) if d['humidity'] else 0:.0f}%",
                         "max_wind": f"{max(d['wind_speeds']):.1f} {'m/s' if units == 'metric' else 'mph'}",
                         "precipitation_chance": f"{max(d['pop']) * 100:.0f}%",
                     }
@@ -195,9 +195,10 @@ class WeatherAgent(BaseAgent):
                     f"{_OWM_BASE}/geo/1.0/direct",
                     params={"q": location, "limit": 1, "appid": api_key},
                 )
-                if geo_resp.status_code != 200 or not geo_resp.json():
+                geo_data = geo_resp.json()
+                if geo_resp.status_code != 200 or not geo_data:
                     return {"error": f"Could not geocode location: {location}"}
-                geo = geo_resp.json()[0]
+                geo = geo_data[0]
                 lat, lon = geo["lat"], geo["lon"]
 
                 # Try One Call API for alerts
