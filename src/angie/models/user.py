@@ -31,6 +31,9 @@ class User(Base, TimestampMixin):
     conversations: Mapped[list["Conversation"]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan"
     )
+    scheduled_jobs: Mapped[list["ScheduledJob"]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<User {self.username!r}>"

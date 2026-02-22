@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bot,
+  Clock,
   GitBranch,
   LayoutDashboard,
   LogOut,
@@ -33,6 +34,7 @@ const navSections = [
       { href: "/events",    label: "Events",    icon: Zap },
       { href: "/tasks",     label: "Tasks",     icon: Activity },
       { href: "/workflows", label: "Workflows", icon: GitBranch },
+      { href: "/schedules", label: "Schedules", icon: Clock },
     ],
   },
   {

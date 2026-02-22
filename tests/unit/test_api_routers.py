@@ -1320,3 +1320,211 @@ def test_list_conversations_limit_validation():
     with TestClient(app) as client:
         resp = client.get("/api/v1/conversations/?offset=-1")
     assert resp.status_code == 422
+
+
+# ── Schedules router ──────────────────────────────────────────────────────────
+
+
+def test_list_schedules_endpoint():
+    app, user, session = _make_app_with_overrides()
+
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = []
+    mock_result = MagicMock()
+    mock_result.scalars.return_value = mock_scalars
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/schedules/")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_create_schedule_endpoint():
+    from angie.models.schedule import ScheduledJob
+
+    app, user, session = _make_app_with_overrides()
+
+    job = ScheduledJob(
+        id="sched-1",
+        user_id="user-1",
+        name="Nightly Backup",
+        description="Backup DBs",
+        cron_expression="0 0 * * *",
+        agent_slug=None,
+        task_payload={},
+        is_enabled=True,
+    )
+
+    async def mock_refresh(obj):
+        obj.id = job.id
+        obj.user_id = job.user_id
+        obj.name = job.name
+        obj.description = job.description
+        obj.cron_expression = job.cron_expression
+        obj.agent_slug = job.agent_slug
+        obj.task_payload = job.task_payload
+        obj.is_enabled = job.is_enabled
+        obj.last_run_at = None
+        obj.next_run_at = None
+        from datetime import datetime
+
+        obj.created_at = datetime(2025, 1, 1)
+        obj.updated_at = datetime(2025, 1, 1)
+
+    session.refresh = mock_refresh
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/v1/schedules/",
+            json={
+                "name": "Nightly Backup",
+                "cron_expression": "0 0 * * *",
+                "description": "Backup DBs",
+            },
+        )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["name"] == "Nightly Backup"
+    assert data["cron_expression"] == "0 0 * * *"
+    assert data["cron_human"] == "Every day at 0:00 UTC"
+
+
+def test_create_schedule_invalid_cron():
+    app, user, session = _make_app_with_overrides()
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/v1/schedules/",
+            json={"name": "Bad", "cron_expression": "not valid"},
+        )
+    assert resp.status_code == 422
+
+
+def test_get_schedule_not_found():
+    app, user, session = _make_app_with_overrides()
+    session.get = AsyncMock(return_value=None)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/schedules/nonexistent")
+    assert resp.status_code == 404
+
+
+def test_get_schedule_endpoint():
+    from datetime import datetime
+
+    from angie.models.schedule import ScheduledJob
+
+    app, user, session = _make_app_with_overrides()
+    job = ScheduledJob(
+        id="sched-1",
+        user_id="user-1",
+        name="Test",
+        cron_expression="*/5 * * * *",
+        task_payload={},
+        is_enabled=True,
+    )
+    job.created_at = datetime(2025, 1, 1)
+    job.updated_at = datetime(2025, 1, 1)
+    job.last_run_at = None
+    job.next_run_at = None
+    job.description = None
+    job.agent_slug = None
+    session.get = AsyncMock(return_value=job)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/schedules/sched-1")
+    assert resp.status_code == 200
+    assert resp.json()["cron_human"] == "Every 5 minutes"
+
+
+def test_delete_schedule_endpoint():
+    from datetime import datetime
+
+    from angie.models.schedule import ScheduledJob
+
+    app, user, session = _make_app_with_overrides()
+    job = ScheduledJob(
+        id="sched-1",
+        user_id="user-1",
+        name="Test",
+        cron_expression="0 0 * * *",
+        task_payload={},
+        is_enabled=True,
+    )
+    job.created_at = datetime(2025, 1, 1)
+    job.updated_at = datetime(2025, 1, 1)
+    session.get = AsyncMock(return_value=job)
+
+    with TestClient(app) as client:
+        resp = client.delete("/api/v1/schedules/sched-1")
+    assert resp.status_code == 204
+
+
+def test_toggle_schedule_endpoint():
+    from datetime import datetime
+
+    from angie.models.schedule import ScheduledJob
+
+    app, user, session = _make_app_with_overrides()
+    job = ScheduledJob(
+        id="sched-1",
+        user_id="user-1",
+        name="Test",
+        cron_expression="0 0 * * *",
+        task_payload={},
+        is_enabled=True,
+    )
+    job.created_at = datetime(2025, 1, 1)
+    job.updated_at = datetime(2025, 1, 1)
+    job.last_run_at = None
+    job.next_run_at = None
+    job.description = None
+    job.agent_slug = None
+    session.get = AsyncMock(return_value=job)
+
+    async def mock_refresh(obj):
+        pass
+
+    session.refresh = mock_refresh
+
+    with TestClient(app) as client:
+        resp = client.patch("/api/v1/schedules/sched-1/toggle")
+    assert resp.status_code == 200
+    assert resp.json()["is_enabled"] is False
+
+
+# ── Cron validation ───────────────────────────────────────────────────────────
+
+
+def test_validate_cron_expression_valid():
+    from angie.core.cron import validate_cron_expression
+
+    valid, err = validate_cron_expression("0 0 * * *")
+    assert valid is True
+    assert err == ""
+
+
+def test_validate_cron_expression_invalid_parts():
+    from angie.core.cron import validate_cron_expression
+
+    valid, err = validate_cron_expression("0 0 *")
+    assert valid is False
+    assert "5 fields" in err
+
+
+def test_validate_cron_expression_invalid_value():
+    from angie.core.cron import validate_cron_expression
+
+    valid, err = validate_cron_expression("99 0 * * *")
+    assert valid is False
+
+
+def test_cron_to_human_common_patterns():
+    from angie.core.cron import cron_to_human
+
+    assert cron_to_human("* * * * *") == "Every minute"
+    assert cron_to_human("*/5 * * * *") == "Every 5 minutes"
+    assert cron_to_human("0 0 * * *") == "Every day at 0:00 UTC"
+    assert cron_to_human("0 9 * * 1-5") == "Weekdays at 9:00 UTC"
+    assert cron_to_human("0 0 1 * *") == "1st of every month at 0:00 UTC"

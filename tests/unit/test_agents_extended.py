@@ -551,105 +551,131 @@ async def test_event_manager_execute_error():
     assert "error" in result
 
 
-def test_cron_agent_create_tool():
+async def test_cron_agent_create_tool():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    tool = a.build_pydantic_agent()._function_toolset.tools["create_scheduled_task"]
-    mock_engine = MagicMock()
-    with patch("angie.core.cron.CronEngine", return_value=mock_engine):
-        result = tool.function(
+    tool = a.build_pydantic_agent(user_id="user1")._function_toolset.tools["create_scheduled_task"]
+    mock_create = AsyncMock(
+        return_value={
+            "created": True,
+            "job_id": "j1",
+            "name": "t",
+            "expression": "0 * * * *",
+            "human_readable": "Every hour",
+        }
+    )
+    with patch("angie.agents.system.cron._create_job_in_db", mock_create):
+        result = await tool.function(
             expression="0 * * * *",
             task_name="my-task",
-            user_id="user1",
         )
     assert result["created"] is True
     assert result["expression"] == "0 * * * *"
 
 
-def test_cron_agent_create_missing_expression():
+async def test_cron_agent_create_missing_expression():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    tool = a.build_pydantic_agent()._function_toolset.tools["create_scheduled_task"]
-    result = tool.function(expression="", task_name="my-task", user_id="user1")
+    tool = a.build_pydantic_agent(user_id="user1")._function_toolset.tools["create_scheduled_task"]
+    result = await tool.function(expression="", task_name="my-task")
     assert "error" in result
     assert "expression" in result["error"]
 
 
-def test_cron_agent_create_missing_user_id():
+async def test_cron_agent_create_missing_user_id():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    tool = a.build_pydantic_agent()._function_toolset.tools["create_scheduled_task"]
-    result = tool.function(expression="0 * * * *", task_name="my-task", user_id="")
+    # Build without user_id to test the guard
+    tool = a.build_pydantic_agent(user_id="")._function_toolset.tools["create_scheduled_task"]
+    result = await tool.function(expression="0 * * * *", task_name="my-task")
     assert "error" in result
     assert "user_id" in result["error"]
 
 
-def test_cron_agent_delete_tool():
+async def test_cron_agent_create_missing_task_name():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    tool = a.build_pydantic_agent()._function_toolset.tools["delete_scheduled_task"]
-    mock_engine = MagicMock()
-    with patch("angie.core.cron.CronEngine", return_value=mock_engine):
-        result = tool.function(job_id="job1")
+    tool = a.build_pydantic_agent(user_id="user1")._function_toolset.tools["create_scheduled_task"]
+    result = await tool.function(expression="0 * * * *", task_name="")
+    assert "error" in result
+    assert "task_name" in result["error"]
+
+
+async def test_cron_agent_delete_tool():
+    from angie.agents.system.cron import CronAgent
+
+    a = CronAgent()
+    tool = a.build_pydantic_agent(user_id="user1")._function_toolset.tools["delete_scheduled_task"]
+    mock_delete = AsyncMock(return_value={"deleted": True, "job_id": "job1"})
+    with patch("angie.agents.system.cron._delete_job_from_db", mock_delete):
+        result = await tool.function(job_id="job1")
     assert result["deleted"] is True
     assert result["job_id"] == "job1"
 
 
-def test_cron_agent_delete_missing_job_id():
+async def test_cron_agent_delete_missing_job_id():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    tool = a.build_pydantic_agent()._function_toolset.tools["delete_scheduled_task"]
-    result = tool.function(job_id="")
+    tool = a.build_pydantic_agent(user_id="user1")._function_toolset.tools["delete_scheduled_task"]
+    result = await tool.function(job_id="")
     assert "error" in result
     assert "job_id" in result["error"]
 
 
-def test_cron_agent_list_tool():
+async def test_cron_agent_list_tool():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    tool = a.build_pydantic_agent()._function_toolset.tools["list_scheduled_tasks"]
-    mock_engine = MagicMock()
-    mock_engine.list_crons.return_value = [{"id": "job1", "next_run": "soon"}]
-    with patch("angie.core.cron.CronEngine", return_value=mock_engine):
-        result = tool.function()
-    assert "crons" in result
-    assert len(result["crons"]) == 1
+    tool = a.build_pydantic_agent(user_id="user1")._function_toolset.tools["list_scheduled_tasks"]
+    mock_list = AsyncMock(return_value={"schedules": [{"id": "job1", "name": "test"}]})
+    with patch("angie.agents.system.cron._list_jobs_from_db", mock_list):
+        result = await tool.function()
+    assert "schedules" in result
+    assert len(result["schedules"]) == 1
 
 
-def test_cron_agent_create_exception():
+async def test_cron_agent_create_exception():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    tool = a.build_pydantic_agent()._function_toolset.tools["create_scheduled_task"]
-    with patch("angie.core.cron.CronEngine", side_effect=RuntimeError("sched error")):
-        result = tool.function(expression="0 * * * *", task_name="t", user_id="user1")
+    tool = a.build_pydantic_agent(user_id="user1")._function_toolset.tools["create_scheduled_task"]
+    with patch(
+        "angie.agents.system.cron._create_job_in_db",
+        AsyncMock(side_effect=RuntimeError("sched error")),
+    ):
+        result = await tool.function(expression="0 * * * *", task_name="t")
     assert "error" in result
     assert "sched error" in result["error"]
 
 
-def test_cron_agent_delete_exception():
+async def test_cron_agent_delete_exception():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    tool = a.build_pydantic_agent()._function_toolset.tools["delete_scheduled_task"]
-    with patch("angie.core.cron.CronEngine", side_effect=RuntimeError("del error")):
-        result = tool.function(job_id="job1")
+    tool = a.build_pydantic_agent(user_id="user1")._function_toolset.tools["delete_scheduled_task"]
+    with patch(
+        "angie.agents.system.cron._delete_job_from_db",
+        AsyncMock(side_effect=RuntimeError("del error")),
+    ):
+        result = await tool.function(job_id="job1")
     assert "error" in result
 
 
-def test_cron_agent_list_exception():
+async def test_cron_agent_list_exception():
     from angie.agents.system.cron import CronAgent
 
     a = CronAgent()
-    tool = a.build_pydantic_agent()._function_toolset.tools["list_scheduled_tasks"]
-    with patch("angie.core.cron.CronEngine", side_effect=RuntimeError("list error")):
-        result = tool.function()
+    tool = a.build_pydantic_agent(user_id="user1")._function_toolset.tools["list_scheduled_tasks"]
+    with patch(
+        "angie.agents.system.cron._list_jobs_from_db",
+        AsyncMock(side_effect=RuntimeError("list error")),
+    ):
+        result = await tool.function()
     assert "error" in result
 
 
@@ -661,10 +687,10 @@ async def test_cron_agent_execute():
     mock_pai = MagicMock()
     mock_pai.run = AsyncMock(return_value=mock_result)
     with (
-        patch.object(a, "_get_agent", return_value=mock_pai),
+        patch.object(a, "build_pydantic_agent", return_value=mock_pai),
         patch("angie.llm.get_llm_model", return_value=MagicMock()),
     ):
-        result = await a.execute({"title": "create cron at midnight"})
+        result = await a.execute({"title": "create cron at midnight", "user_id": "u1"})
     assert result == {"result": "Created cron job..."}
 
 
@@ -675,8 +701,105 @@ async def test_cron_agent_execute_error():
     mock_pai = MagicMock()
     mock_pai.run = AsyncMock(side_effect=RuntimeError("fail"))
     with (
-        patch.object(a, "_get_agent", return_value=mock_pai),
+        patch.object(a, "build_pydantic_agent", return_value=mock_pai),
         patch("angie.llm.get_llm_model", return_value=MagicMock()),
     ):
-        result = await a.execute({"input_data": {"action": "create"}})
+        result = await a.execute({"input_data": {"action": "create"}, "user_id": "u1"})
     assert "error" in result
+
+
+@pytest.mark.asyncio
+async def test_create_job_in_db():
+    """Test _create_job_in_db writes to session and returns expected result."""
+    from angie.agents.system.cron import _create_job_in_db
+
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_factory = MagicMock(return_value=mock_session)
+
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        result = await _create_job_in_db(
+            job_id="j1",
+            user_id="u1",
+            name="My Task",
+            description="desc",
+            cron_expression="0 0 * * *",
+            agent_slug="github",
+        )
+
+    assert result["created"] is True
+    assert result["job_id"] == "j1"
+    assert result["name"] == "My Task"
+    assert result["expression"] == "0 0 * * *"
+    mock_session.add.assert_called_once()
+    mock_session.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_job_from_db_found():
+    """Test _delete_job_from_db deletes existing job."""
+    from angie.agents.system.cron import _delete_job_from_db
+
+    mock_job = MagicMock()
+    mock_session = AsyncMock()
+    mock_session.get.return_value = mock_job
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_factory = MagicMock(return_value=mock_session)
+
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        result = await _delete_job_from_db("j1")
+
+    assert result["deleted"] is True
+    mock_session.delete.assert_called_once_with(mock_job)
+    mock_session.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_job_from_db_not_found():
+    """Test _delete_job_from_db returns error for missing job."""
+    from angie.agents.system.cron import _delete_job_from_db
+
+    mock_session = AsyncMock()
+    mock_session.get.return_value = None
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_factory = MagicMock(return_value=mock_session)
+
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        result = await _delete_job_from_db("missing")
+
+    assert "error" in result
+    assert "not found" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_list_jobs_from_db():
+    """Test _list_jobs_from_db returns user-scoped schedules."""
+    from angie.agents.system.cron import _list_jobs_from_db
+
+    mock_job = MagicMock()
+    mock_job.id = "j1"
+    mock_job.name = "Nightly"
+    mock_job.cron_expression = "0 0 * * *"
+    mock_job.agent_slug = None
+    mock_job.is_enabled = True
+    mock_job.last_run_at = None
+    mock_job.next_run_at = None
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [mock_job]
+    mock_session = AsyncMock()
+    mock_session.execute.return_value = mock_result
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_factory = MagicMock(return_value=mock_session)
+
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        result = await _list_jobs_from_db("u1")
+
+    assert "schedules" in result
+    assert len(result["schedules"]) == 1
+    assert result["schedules"][0]["id"] == "j1"
+    assert result["schedules"][0]["name"] == "Nightly"

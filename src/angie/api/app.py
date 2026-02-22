@@ -45,6 +45,7 @@ def create_app() -> FastAPI:
         events,
         media,
         prompts,
+        schedules,
         tasks,
         teams,
         users,
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["tasks"])
     app.include_router(events.router, prefix="/api/v1/events", tags=["events"])
     app.include_router(prompts.router, prefix="/api/v1/prompts", tags=["prompts"])
+    app.include_router(schedules.router, prefix="/api/v1/schedules", tags=["schedules"])
     app.include_router(channels.router, prefix="/api/v1/channels", tags=["channels"])
     app.include_router(connections.router, prefix="/api/v1/connections", tags=["connections"])
     app.include_router(conversations.router, prefix="/api/v1/conversations", tags=["conversations"])

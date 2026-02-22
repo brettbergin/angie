@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("Sidebar", () => {
-  it("renders all 9 navigation items with correct hrefs and section headers", () => {
+  it("renders all 10 navigation items with correct hrefs and section headers", () => {
     render(<Sidebar />);
     const links = screen.getAllByRole("link");
     const hrefs = links.map((l) => l.getAttribute("href"));
@@ -36,6 +36,7 @@ describe("Sidebar", () => {
     expect(hrefs).toContain("/events");
     expect(hrefs).toContain("/tasks");
     expect(hrefs).toContain("/workflows");
+    expect(hrefs).toContain("/schedules");
     expect(hrefs).toContain("/connections");
     expect(hrefs).toContain("/settings");
 
