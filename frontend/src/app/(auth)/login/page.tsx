@@ -36,8 +36,8 @@ export default function LoginPage() {
         <Image
           src="/angie-logo.svg"
           alt="Angie logo"
-          width={80}
-          height={80}
+          width={120}
+          height={120}
           className="mx-auto mb-4"
           priority
         />
