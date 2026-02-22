@@ -71,10 +71,6 @@ def setup(user_id: str | None):
     if not user_id:
         user_id = Prompt.ask("[bold yellow]Enter your user ID (UUID)[/bold yellow]")
 
-    from angie.core.prompts import get_prompt_manager
-
-    pm = get_prompt_manager()
-
     for name, question in ONBOARDING_QUESTIONS:
         console.print(f"[bold cyan]{question}[/bold cyan]")
         answer = Prompt.ask("> ")
@@ -85,10 +81,7 @@ def setup(user_id: str | None):
                 asyncio.run(_save_to_db(user_id, name, content))
                 console.print("[dim]  ✓ saved to database[/dim]\n")
             except Exception as exc:
-                console.print(f"[dim yellow]  ⚠ DB save failed: {exc}[/dim yellow]")
-                # Fallback to filesystem if DB unavailable
-                path = pm.save_user_prompt(user_id, name, content)
-                console.print(f"[dim]  ✓ saved to {path} (filesystem fallback)[/dim]\n")
+                console.print(f"[dim yellow]  ⚠ DB save failed: {exc}[/dim yellow]\n")
 
     console.print("\n[bold green]✅ Setup complete! Angie knows you now.[/bold green]")
     console.print(

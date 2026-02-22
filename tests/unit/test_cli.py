@@ -127,23 +127,6 @@ def test_status_command():
     assert result.exit_code == 0
 
 
-# ── angie prompts tests ────────────────────────────────────────────────────────
-
-
-def test_prompts_list(tmp_path):
-    from angie.cli.prompts import prompts
-
-    runner = CliRunner()
-    mock_pm = MagicMock()
-    mock_pm.get_system_prompt.return_value = "# System\nYou are Angie."
-    mock_pm.get_angie_prompt.return_value = "# Angie\nBe helpful."
-    mock_pm.get_user_prompts.return_value = ["# Prefs\nShort answers."]
-
-    with patch("angie.core.prompts.get_prompt_manager", return_value=mock_pm):
-        result = runner.invoke(prompts, ["list"])
-    assert result.exit_code == 0
-
-
 # ── angie chat tests ───────────────────────────────────────────────────────────
 
 

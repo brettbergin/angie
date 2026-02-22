@@ -58,15 +58,17 @@ def test_cli_ask_command_success():
     with (
         patch("angie.llm.is_llm_configured", return_value=True),
         patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch(
+            "angie.core.prompts.load_user_prompts_from_db", new_callable=AsyncMock, return_value=[]
+        ),
         patch("angie.llm.get_llm_model") as mock_llm,
         patch("pydantic_ai.Agent", return_value=mock_agent),
     ):
-        mock_pm.return_value.compose_for_user.return_value = "system prompt"
+        mock_pm.return_value.compose_with_user_prompts.return_value = "system prompt"
         mock_llm.return_value = MagicMock()
 
         runner = CliRunner()
         result = runner.invoke(cli, ["ask", "who am I?"])
-
     assert result.exit_code == 0
 
 
@@ -112,102 +114,15 @@ def test_chat_no_agent_slug():
     with (
         patch("angie.agents.registry.get_registry", return_value=mock_registry),
         patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch(
+            "angie.core.prompts.load_user_prompts_from_db", new_callable=AsyncMock, return_value=[]
+        ),
         patch("angie.agents.base.BaseAgent.ask_llm", new_callable=AsyncMock, return_value="Hello!"),
     ):
-        mock_pm.return_value.compose_for_user.return_value = "system"
+        mock_pm.return_value.compose_with_user_prompts.return_value = "system"
 
         runner = CliRunner()
         result = runner.invoke(chat, ["hello there"])
-
-    assert result.exit_code == 0
-
-
-# ── cli/prompts.py ────────────────────────────────────────────────────────────
-
-
-def test_prompts_list_no_prompts(tmp_path):
-    from angie.cli.prompts import prompts
-
-    with patch("angie.core.prompts.get_prompt_manager") as mock_pm:
-        mock_manager = MagicMock()
-        mock_manager.user_prompts_dir = tmp_path
-        mock_pm.return_value = mock_manager
-
-        runner = CliRunner()
-        result = runner.invoke(prompts, ["list", "--user-id", "nouser"])
-
-    assert result.exit_code == 0
-
-
-def test_prompts_list_with_prompts(tmp_path):
-    from angie.cli.prompts import prompts
-
-    user_dir = tmp_path / "default"
-    user_dir.mkdir()
-    (user_dir / "personality.md").write_text("# Personality\nBe concise.", encoding="utf-8")
-
-    with patch("angie.core.prompts.get_prompt_manager") as mock_pm:
-        mock_manager = MagicMock()
-        mock_manager.user_prompts_dir = tmp_path
-        mock_pm.return_value = mock_manager
-
-        runner = CliRunner()
-        result = runner.invoke(prompts, ["list"])
-
-    assert result.exit_code == 0
-
-
-def test_prompts_edit(tmp_path):
-    from angie.cli.prompts import prompts
-
-    user_dir = tmp_path / "default"
-    user_dir.mkdir()
-    prompt_file = user_dir / "personality.md"
-    prompt_file.write_text("# Personality\nBe helpful.", encoding="utf-8")
-
-    with (
-        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
-        patch("click.edit") as mock_edit,
-    ):
-        mock_manager = MagicMock()
-        mock_manager.user_prompts_dir = tmp_path
-        mock_pm.return_value = mock_manager
-        mock_edit.return_value = None
-
-        runner = CliRunner()
-        result = runner.invoke(prompts, ["edit", "personality"])
-
-    assert result.exit_code == 0
-
-
-def test_prompts_reset_with_dir(tmp_path):
-    from angie.cli.prompts import prompts
-
-    user_dir = tmp_path / "default"
-    user_dir.mkdir()
-
-    with patch("angie.core.prompts.get_prompt_manager") as mock_pm:
-        mock_manager = MagicMock()
-        mock_manager.user_prompts_dir = tmp_path
-        mock_pm.return_value = mock_manager
-
-        runner = CliRunner()
-        result = runner.invoke(prompts, ["reset"], input="y\n")
-
-    assert result.exit_code == 0
-
-
-def test_prompts_reset_no_dir(tmp_path):
-    from angie.cli.prompts import prompts
-
-    with patch("angie.core.prompts.get_prompt_manager") as mock_pm:
-        mock_manager = MagicMock()
-        mock_manager.user_prompts_dir = tmp_path
-        mock_pm.return_value = mock_manager
-
-        # --user-id "noexist" so user_dir doesn't exist
-        runner = CliRunner()
-        result = runner.invoke(prompts, ["reset", "--user-id", "noexist"], input="y\n")
 
     assert result.exit_code == 0
 
@@ -219,13 +134,8 @@ def test_setup_command_basic():
     from angie.cli.setup import setup
 
     with (
-        patch("angie.core.prompts.get_prompt_manager") as mock_pm,
         patch("angie.cli.setup._save_to_db", new_callable=AsyncMock) as mock_save,
     ):
-        mock_manager = MagicMock()
-        mock_manager.user_prompts_dir = MagicMock()
-        mock_pm.return_value = mock_manager
-
         runner = CliRunner()
         answers = "\n".join(
             ["casual", "tech", "9am-5pm", "code", "slack", "smart home", "eng", "concise"]
@@ -436,30 +346,6 @@ def test_status_command_with_active_tasks():
         result = runner.invoke(status, [])
 
     assert result.exit_code == 0
-
-
-# ── cli/prompts.py: new file creation path (line 49) ──────────────────────────
-
-
-def test_prompts_edit_creates_new_file(tmp_path):
-    """Cover line 49: path.write_text when prompt file doesn't exist yet."""
-    from angie.cli.prompts import prompts
-
-    user_dir = tmp_path / "default"
-    user_dir.mkdir()
-    # Do NOT create the prompt file — test the creation path
-
-    with patch("angie.core.prompts.get_prompt_manager") as mock_pm, patch("click.edit"):
-        mock_manager = MagicMock()
-        mock_manager.user_prompts_dir = tmp_path
-        mock_manager.invalidate_cache = MagicMock()
-        mock_pm.return_value = mock_manager
-
-        runner = CliRunner()
-        result = runner.invoke(prompts, ["edit", "newprompt"])
-
-    assert result.exit_code == 0
-    assert (user_dir / "newprompt.md").exists()
 
 
 def test_status_command_celery_exception():

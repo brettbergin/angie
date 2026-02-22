@@ -23,7 +23,6 @@ def chat(message: tuple[str, ...], user_id: str, agent: str | None):
 
 async def _ask(text: str, user_id: str, agent_slug: str | None) -> None:
     from angie.agents.registry import get_registry
-    from angie.core.prompts import get_prompt_manager
 
     console.print(f"\n[dim]You:[/dim] {text}\n")
 
@@ -47,8 +46,11 @@ async def _ask(text: str, user_id: str, agent_slug: str | None) -> None:
         console.print(Markdown(str(result)))
     else:
         # Fall back to LLM with user prompts
+        from angie.core.prompts import get_prompt_manager, load_user_prompts_from_db
+
         pm = get_prompt_manager()
-        system = pm.compose_for_user(user_id)
+        user_prompts = await load_user_prompts_from_db(user_id)
+        system = pm.compose_with_user_prompts(user_prompts)
         from angie.agents.base import BaseAgent
 
         class _TempAgent(BaseAgent):
