@@ -134,7 +134,7 @@ jobs:
         run: uv pip install bandit[toml]
 
       - name: Run Bandit
-        run: .venv/bin/bandit -r src/ -c pyproject.toml -f json -o bandit-report.json
+        run: .venv/bin/bandit -r src/ -c pyproject.toml -ll -f json -o bandit-report.json
 
       - name: Display results
         if: always()
