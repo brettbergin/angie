@@ -20,8 +20,8 @@ def upgrade() -> None:
     op.create_table(
         "connections",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("user_id", sa.String(36), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
-        sa.Column("service_type", sa.String(50), nullable=False, index=True),
+        sa.Column("user_id", sa.String(36), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("service_type", sa.String(50), nullable=False),
         sa.Column("display_name", sa.String(100), nullable=True),
         sa.Column("auth_type", sa.String(20), nullable=False),
         sa.Column("credentials_encrypted", sa.Text(), nullable=False),
@@ -36,7 +36,11 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now()),
         sa.UniqueConstraint("user_id", "service_type", name="uq_user_service"),
     )
+    op.create_index("ix_connections_user_id", "connections", ["user_id"])
+    op.create_index("ix_connections_service_type", "connections", ["service_type"])
 
 
 def downgrade() -> None:
+    op.drop_index("ix_connections_user_id", table_name="connections")
+    op.drop_index("ix_connections_service_type", table_name="connections")
     op.drop_table("connections")

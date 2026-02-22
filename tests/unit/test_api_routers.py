@@ -1041,7 +1041,10 @@ def test_create_connection():
     with TestClient(app) as client:
         resp = client.post(
             "/api/v1/connections/",
-            json={"service_type": "github", "credentials": {"token": "ghp_test123"}},
+            json={
+                "service_type": "github",
+                "credentials": {"personal_access_token": "ghp_test123"},
+            },
             headers={"Authorization": "Bearer fake"},
         )
 

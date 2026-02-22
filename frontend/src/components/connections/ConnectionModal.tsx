@@ -44,7 +44,9 @@ export function ConnectionModal({ service, connection, onClose, onSaved }: Props
     setError(null);
     try {
       if (connection) {
-        await api.connections.update(token, connection.id, { credentials: fields });
+        const hasValues = Object.values(fields).some((value) => value.trim() !== "");
+        const payload = hasValues ? { credentials: fields } : {};
+        await api.connections.update(token, connection.id, payload);
       } else {
         await api.connections.create(token, { service_type: service.key, credentials: fields });
       }

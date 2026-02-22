@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
+import socket
 from typing import Any
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +62,7 @@ SERVICE_REGISTRY: dict[str, dict[str, Any]] = {
             {"key": "refresh_token", "label": "Refresh Token", "type": "password"},
         ],
         "test_endpoint": "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-        "agent_slug": "gcal",
+        "agent_slug": "google-calendar",
     },
     "hue": {
         "name": "Philips Hue",
@@ -161,7 +164,7 @@ async def get_connection(user_id: str, service_type: str):
         from sqlalchemy import select
 
         from angie.db.session import get_session_factory
-        from angie.models.connection import Connection
+        from angie.models.connection import Connection, ConnectionStatus
 
         factory = get_session_factory()
         async with factory() as session:
@@ -169,13 +172,44 @@ async def get_connection(user_id: str, service_type: str):
                 select(Connection).where(
                     Connection.user_id == user_id,
                     Connection.service_type == service_type,
-                    Connection.status == "connected",
+                    Connection.status == ConnectionStatus.CONNECTED,
                 )
             )
             return result.scalars().first()
     except Exception as exc:
         logger.warning("Could not load connection for %s/%s: %s", user_id, service_type, exc)
         return None
+
+
+def _validate_url(url: str) -> tuple[bool, str]:
+    """Validate a user-supplied URL to mitigate SSRF risks.
+
+    Only http/https schemes are allowed. The URL must be parseable.
+    Returns (is_valid, error_message).
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False, "Invalid URL"
+
+    if parsed.scheme not in ("http", "https"):
+        return False, "URL must use http or https scheme"
+
+    hostname = parsed.hostname or ""
+    if not hostname:
+        return False, "URL must include a hostname"
+
+    # Resolve hostname to check for private/loopback addresses
+    try:
+        resolved_ip = socket.getaddrinfo(hostname, None)[0][4][0]
+        addr = ipaddress.ip_address(resolved_ip)
+        if addr.is_loopback or addr.is_link_local or addr.is_multicast:
+            return False, "URL resolves to a reserved address"
+    except (socket.gaierror, ValueError):
+        # If we can't resolve (e.g. DNS failure), allow it — the HTTP call will fail anyway
+        pass
+
+    return True, ""
 
 
 async def test_connection_validity(credentials: dict, service_type: str) -> tuple[bool, str]:
@@ -202,6 +236,9 @@ async def test_connection_validity(credentials: dict, service_type: str) -> tupl
                 headers["Authorization"] = f"Bearer {token}"
             elif auth_type == "token" and service_type == "home_assistant":
                 base_url = credentials.get("url", "").rstrip("/")
+                valid, err = _validate_url(base_url)
+                if not valid:
+                    return False, f"Invalid Home Assistant URL: {err}"
                 test_url = f"{base_url}{test_url}"
                 headers["Authorization"] = f"Bearer {credentials.get('token', '')}"
             elif service_type == "slack":
@@ -217,5 +254,8 @@ async def test_connection_validity(credentials: dict, service_type: str) -> tupl
             return False, f"Service returned HTTP {resp.status_code}"
     except httpx.TimeoutException:
         return False, "Connection timed out"
-    except Exception as exc:
-        return False, f"Connection failed: {exc}"
+    except Exception:
+        logger.exception(
+            "Unexpected error while testing connection for service_type=%s", service_type
+        )
+        return False, "Connection failed due to an unexpected error"

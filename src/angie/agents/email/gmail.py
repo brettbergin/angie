@@ -112,13 +112,22 @@ class GmailAgent(BaseAgent):
 
         scopes = ["https://www.googleapis.com/auth/gmail.modify"]
 
-        if creds_data and creds_data.get("token"):
+        if creds_data:
+            token = creds_data.get("access_token") or creds_data.get("token")
+        else:
+            token = None
+
+        if token:
             creds = Credentials(
-                token=creds_data.get("token"),
-                refresh_token=creds_data.get("refresh_token"),
-                token_uri=creds_data.get("token_uri", "https://oauth2.googleapis.com/token"),
-                client_id=creds_data.get("client_id"),
-                client_secret=creds_data.get("client_secret"),
+                token=token,
+                refresh_token=creds_data.get("refresh_token") if creds_data else None,
+                token_uri=(
+                    creds_data.get("token_uri", "https://oauth2.googleapis.com/token")
+                    if creds_data
+                    else "https://oauth2.googleapis.com/token"
+                ),
+                client_id=creds_data.get("client_id") if creds_data else None,
+                client_secret=creds_data.get("client_secret") if creds_data else None,
                 scopes=scopes,
             )
         else:

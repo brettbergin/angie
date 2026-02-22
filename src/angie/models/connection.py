@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import enum
+from datetime import datetime
 
 from sqlalchemy import JSON, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
@@ -35,20 +36,31 @@ class Connection(Base, TimestampMixin):
     )
     service_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     display_name: Mapped[str | None] = mapped_column(String(100))
-    auth_type: Mapped[str] = mapped_column(
-        Enum(AuthType, native_enum=False, length=20), nullable=False
+    auth_type: Mapped[AuthType] = mapped_column(
+        Enum(
+            AuthType,
+            native_enum=False,
+            length=20,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        nullable=False,
     )
     credentials_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
-    token_expires_at: Mapped[str | None] = mapped_column(DateTime(timezone=True))
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     refresh_token_encrypted: Mapped[str | None] = mapped_column(Text)
     scopes: Mapped[str | None] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(
-        Enum(ConnectionStatus, native_enum=False, length=20),
+    status: Mapped[ConnectionStatus] = mapped_column(
+        Enum(
+            ConnectionStatus,
+            native_enum=False,
+            length=20,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         default=ConnectionStatus.CONNECTED,
-        server_default="connected",
+        server_default=ConnectionStatus.CONNECTED.value,
     )
-    last_used_at: Mapped[str | None] = mapped_column(DateTime(timezone=True))
-    last_tested_at: Mapped[str | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     metadata_json: Mapped[dict | None] = mapped_column(JSON)
 
     def __repr__(self) -> str:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -44,11 +46,11 @@ class ConnectionOut(BaseModel):
     status: str
     masked_credentials: dict[str, str]
     scopes: str | None
-    token_expires_at: str | None
-    last_used_at: str | None
-    last_tested_at: str | None
-    created_at: str | None
-    updated_at: str | None
+    token_expires_at: datetime | None
+    last_used_at: datetime | None
+    last_tested_at: datetime | None
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
 class ConnectionCreate(BaseModel):
@@ -87,11 +89,11 @@ def _to_connection_out(conn: Connection) -> ConnectionOut:
         status=conn.status,
         masked_credentials=masked,
         scopes=conn.scopes,
-        token_expires_at=str(conn.token_expires_at) if conn.token_expires_at else None,
-        last_used_at=str(conn.last_used_at) if conn.last_used_at else None,
-        last_tested_at=str(conn.last_tested_at) if conn.last_tested_at else None,
-        created_at=str(conn.created_at) if conn.created_at else None,
-        updated_at=str(conn.updated_at) if conn.updated_at else None,
+        token_expires_at=conn.token_expires_at,
+        last_used_at=conn.last_used_at,
+        last_tested_at=conn.last_tested_at,
+        created_at=conn.created_at,
+        updated_at=conn.updated_at,
     )
 
 

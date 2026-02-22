@@ -80,7 +80,7 @@ export default function ConnectionsPage() {
     try {
       const result = await api.connections.test(token, conn.id);
       setTestResults((prev) => ({ ...prev, [conn.id]: result }));
-      fetchAll();
+      await fetchAll();
     } catch {
       setTestResults((prev) => ({ ...prev, [conn.id]: { success: false, message: "Test failed", status: "error" } }));
     } finally {
