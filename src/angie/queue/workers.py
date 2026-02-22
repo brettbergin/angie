@@ -27,19 +27,25 @@ async def _update_task_in_db(
     from angie.models.task import Task, TaskStatus
 
     async with get_session_factory()() as session:
+        task_updated = False
+        event_updated = False
+
         result = await session.execute(select(Task).where(Task.id == task_id))
         task = result.scalar_one_or_none()
         if task:
             task.status = TaskStatus(status)
             task.output_data = output_data
             task.error = error
+            task_updated = True
 
         # Mark the originating event as processed
-        await session.execute(
+        event_result = await session.execute(
             sa_update(Event).where(Event.task_id == task_id).values(processed=True)
         )
+        event_updated = event_result.rowcount is not None and event_result.rowcount > 0
 
-        await session.commit()
+        if task_updated or event_updated:
+            await session.commit()
 
 
 async def _deliver_chat_result(

@@ -206,6 +206,7 @@ async def test_update_task_in_db_marks_event_processed():
     mock_session = AsyncMock()
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = task_obj
+    mock_result.rowcount = 1  # event row was updated
     mock_session.execute = AsyncMock(return_value=mock_result)
     mock_session.commit = AsyncMock()
 
@@ -218,12 +219,15 @@ async def test_update_task_in_db_marks_event_processed():
     with patch("angie.db.session.get_session_factory", return_value=mock_factory):
         await _update_task_in_db("task-1", "success", {"result": "ok"}, None)
 
-    # Should have been called twice: once for Task select, once for Event update
-    assert mock_session.execute.call_count == 2
+    # Verify that at least one execute call was an UPDATE targeting the events table
+    # (avoids brittle exact-call-count checks and SQL string-formatting assumptions)
+    from sqlalchemy.sql.dml import Update
 
-    # Second execute call should be the Event update
-    second_call_args = mock_session.execute.call_args_list[1]
-    stmt = second_call_args[0][0]
-    assert "events" in str(stmt)
+    from angie.models.event import Event
+
+    calls = mock_session.execute.call_args_list
+    stmts = [call[0][0] for call in calls]
+    event_update_stmts = [s for s in stmts if isinstance(s, Update) and s.table == Event.__table__]
+    assert len(event_update_stmts) == 1, "Expected exactly one UPDATE on the events table"
 
     mock_session.commit.assert_called_once()

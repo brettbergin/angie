@@ -38,6 +38,7 @@ async def test_update_task_in_db_found():
     mock_session = AsyncMock()
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = task
+    mock_result.rowcount = 1  # event row was updated
     mock_session.execute = AsyncMock(return_value=mock_result)
     mock_session.commit = AsyncMock()
 
@@ -57,13 +58,14 @@ async def test_update_task_in_db_not_found():
     mock_session = AsyncMock()
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = None
+    mock_result.rowcount = 0  # no events matched — nothing was updated
     mock_session.execute = AsyncMock(return_value=mock_result)
     mock_session.commit = AsyncMock()
 
     with patch("angie.db.session.get_session_factory", _make_session_factory(mock_session)):
-        await _update_task_in_db("nonexistent", "failure", None, "error")
+        await _update_task_in_db("nonexistent", "failure", {}, "error")
 
-    mock_session.commit.assert_called_once()
+    mock_session.commit.assert_not_called()
 
 
 # ── execute_task: no agent resolved ───────────────────────────────────────────
