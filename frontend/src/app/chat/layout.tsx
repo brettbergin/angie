@@ -24,7 +24,7 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       <ConversationSidebar
         activeId={activeId}
         onSelect={handleSelect}
