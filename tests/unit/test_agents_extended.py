@@ -706,3 +706,100 @@ async def test_cron_agent_execute_error():
     ):
         result = await a.execute({"input_data": {"action": "create"}, "user_id": "u1"})
     assert "error" in result
+
+
+@pytest.mark.asyncio
+async def test_create_job_in_db():
+    """Test _create_job_in_db writes to session and returns expected result."""
+    from angie.agents.system.cron import _create_job_in_db
+
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_factory = MagicMock(return_value=mock_session)
+
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        result = await _create_job_in_db(
+            job_id="j1",
+            user_id="u1",
+            name="My Task",
+            description="desc",
+            cron_expression="0 0 * * *",
+            agent_slug="github",
+        )
+
+    assert result["created"] is True
+    assert result["job_id"] == "j1"
+    assert result["name"] == "My Task"
+    assert result["expression"] == "0 0 * * *"
+    mock_session.add.assert_called_once()
+    mock_session.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_job_from_db_found():
+    """Test _delete_job_from_db deletes existing job."""
+    from angie.agents.system.cron import _delete_job_from_db
+
+    mock_job = MagicMock()
+    mock_session = AsyncMock()
+    mock_session.get.return_value = mock_job
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_factory = MagicMock(return_value=mock_session)
+
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        result = await _delete_job_from_db("j1")
+
+    assert result["deleted"] is True
+    mock_session.delete.assert_called_once_with(mock_job)
+    mock_session.commit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_job_from_db_not_found():
+    """Test _delete_job_from_db returns error for missing job."""
+    from angie.agents.system.cron import _delete_job_from_db
+
+    mock_session = AsyncMock()
+    mock_session.get.return_value = None
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_factory = MagicMock(return_value=mock_session)
+
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        result = await _delete_job_from_db("missing")
+
+    assert "error" in result
+    assert "not found" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_list_jobs_from_db():
+    """Test _list_jobs_from_db returns user-scoped schedules."""
+    from angie.agents.system.cron import _list_jobs_from_db
+
+    mock_job = MagicMock()
+    mock_job.id = "j1"
+    mock_job.name = "Nightly"
+    mock_job.cron_expression = "0 0 * * *"
+    mock_job.agent_slug = None
+    mock_job.is_enabled = True
+    mock_job.last_run_at = None
+    mock_job.next_run_at = None
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [mock_job]
+    mock_session = AsyncMock()
+    mock_session.execute.return_value = mock_result
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_factory = MagicMock(return_value=mock_session)
+
+    with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+        result = await _list_jobs_from_db("u1")
+
+    assert "schedules" in result
+    assert len(result["schedules"]) == 1
+    assert result["schedules"][0]["id"] == "j1"
+    assert result["schedules"][0]["name"] == "Nightly"

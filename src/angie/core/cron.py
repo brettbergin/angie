@@ -227,7 +227,16 @@ class CronEngine:
         }
         # Persist next_run_at so the UI/API can display it immediately
         if next_run is not None:
-            asyncio.create_task(self._update_next_run_at(job_id, next_run))
+            task = asyncio.create_task(self._update_next_run_at(job_id, next_run))
+
+            def _log_update_error(t: asyncio.Task[Any]) -> None:
+                try:
+                    t.result()
+                except Exception:  # noqa: BLE001
+                    logger.exception("Background update_next_run_at failed for job %s", job_id)
+
+            task.add_done_callback(_log_update_error)
+            self._jobs[job_id]["next_run_update_task"] = task
         logger.info(
             "Registered cron job %s (%s): %s", job_record.name, job_id, job_record.cron_expression
         )

@@ -148,3 +148,127 @@ async def test_add_cron_fires_event():
         event = mock_router.dispatch.call_args[0][0]
         assert event.payload["job_id"] == "job1"
         assert event.payload["agent_slug"] == "test-agent"
+
+
+@pytest.mark.asyncio
+async def test_sync_from_db_adds_new_jobs():
+    """Test that sync_from_db loads enabled jobs from DB and registers them."""
+    from angie.core.cron import CronEngine
+
+    mock_job_record = MagicMock()
+    mock_job_record.id = "job1"
+    mock_job_record.cron_expression = "0 * * * *"
+    mock_job_record.is_enabled = True
+
+    with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
+        mock_sched = MagicMock()
+        mock_sched_cls.return_value = mock_sched
+        engine = CronEngine()
+        engine._register_job = MagicMock()
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [mock_job_record]
+
+        mock_session = AsyncMock()
+        mock_session.execute.return_value = mock_result
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        mock_factory = MagicMock(return_value=mock_session)
+
+        with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+            await engine.sync_from_db()
+
+        engine._register_job.assert_called_once_with(mock_job_record)
+
+
+@pytest.mark.asyncio
+async def test_sync_from_db_removes_stale_jobs():
+    """Test that sync_from_db removes jobs no longer in DB."""
+    from angie.core.cron import CronEngine
+
+    with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
+        mock_sched = MagicMock()
+        mock_sched_cls.return_value = mock_sched
+        engine = CronEngine()
+        engine._jobs["stale-job"] = {"expression": "0 0 * * *", "next_run": "soon"}
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+
+        mock_session = AsyncMock()
+        mock_session.execute.return_value = mock_result
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        mock_factory = MagicMock(return_value=mock_session)
+
+        with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+            await engine.sync_from_db()
+
+        mock_sched.remove_job.assert_called_once_with("stale-job")
+        assert "stale-job" not in engine._jobs
+
+
+@pytest.mark.asyncio
+async def test_sync_from_db_skips_unchanged_jobs():
+    """Test that sync_from_db skips jobs whose expression hasn't changed."""
+    from angie.core.cron import CronEngine
+
+    mock_job_record = MagicMock()
+    mock_job_record.id = "job1"
+    mock_job_record.cron_expression = "0 * * * *"
+
+    with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
+        mock_sched = MagicMock()
+        mock_sched_cls.return_value = mock_sched
+        engine = CronEngine()
+        engine._jobs["job1"] = {"expression": "0 * * * *", "next_run": "soon"}
+        engine._register_job = MagicMock()
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [mock_job_record]
+
+        mock_session = AsyncMock()
+        mock_session.execute.return_value = mock_result
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        mock_factory = MagicMock(return_value=mock_session)
+
+        with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+            await engine.sync_from_db()
+
+        engine._register_job.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sync_from_db_updates_changed_jobs():
+    """Test that sync_from_db re-registers jobs with updated expressions."""
+    from angie.core.cron import CronEngine
+
+    mock_job_record = MagicMock()
+    mock_job_record.id = "job1"
+    mock_job_record.cron_expression = "30 * * * *"  # changed from 0
+
+    with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
+        mock_sched = MagicMock()
+        mock_sched_cls.return_value = mock_sched
+        engine = CronEngine()
+        engine._jobs["job1"] = {"expression": "0 * * * *", "next_run": "soon"}
+        engine._register_job = MagicMock()
+
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = [mock_job_record]
+
+        mock_session = AsyncMock()
+        mock_session.execute.return_value = mock_result
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        mock_factory = MagicMock(return_value=mock_session)
+
+        with patch("angie.db.session.get_session_factory", return_value=mock_factory):
+            await engine.sync_from_db()
+
+        engine._register_job.assert_called_once_with(mock_job_record)

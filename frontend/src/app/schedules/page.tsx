@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, type Schedule } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -69,15 +69,23 @@ export default function SchedulesPage() {
   const handleToggle = async (e: React.MouseEvent, s: Schedule) => {
     e.stopPropagation();
     if (!token) return;
-    await api.schedules.toggle(token, s.id);
-    fetchSchedules();
+    try {
+      await api.schedules.toggle(token, s.id);
+      fetchSchedules();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to toggle schedule");
+    }
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!token || !confirm("Delete this schedule?")) return;
-    await api.schedules.delete(token, id);
-    fetchSchedules();
+    try {
+      await api.schedules.delete(token, id);
+      fetchSchedules();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete schedule");
+    }
   };
 
   const openEdit = (e: React.MouseEvent, s: Schedule) => {
@@ -189,6 +197,7 @@ export default function SchedulesPage() {
                       s.is_enabled ? "bg-green-500" : "bg-gray-600"
                     )}
                     title={s.is_enabled ? "Disable schedule" : "Enable schedule"}
+                    aria-label={s.is_enabled ? `Disable ${s.name}` : `Enable ${s.name}`}
                   >
                     <span className={cn(
                       "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
@@ -198,13 +207,13 @@ export default function SchedulesPage() {
                 </div>
                 <div className="w-20 flex justify-end gap-1">
                   <button onClick={(e) => openEdit(e, s)}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-all"
-                    title="Edit schedule">
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-all"
+                    title="Edit schedule" aria-label={`Edit ${s.name}`}>
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button onClick={(e) => handleDelete(e, s.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all"
-                    title="Delete schedule">
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 rounded-lg hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all"
+                    title="Delete schedule" aria-label={`Delete ${s.name}`}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -275,30 +284,89 @@ export default function SchedulesPage() {
         )}
       </Card>
 
-      {/* Edit modal */}
+      {/* Edit modal with focus trap */}
       {editing && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" role="dialog" aria-label="Edit schedule"
-          aria-modal="true" tabIndex={-1} ref={(el) => el?.focus()}
-          onClick={(e) => { if (e.target === e.currentTarget) setEditing(null); }}
-          onKeyDown={(e) => { if (e.key === "Escape") setEditing(null); }}>
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-lg space-y-4">
-            <h2 className="text-lg font-semibold text-gray-100">Edit Schedule</h2>
-            <Input label="Name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
-            <Input label="Cron Expression" value={editForm.cron_expression}
-              onChange={(e) => setEditForm({ ...editForm, cron_expression: e.target.value })} />
-            <Input label="Description" value={editForm.description}
-              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
-            <Input label="Agent Slug" value={editForm.agent_slug}
-              onChange={(e) => setEditForm({ ...editForm, agent_slug: e.target.value })} />
-            <div className="flex justify-end gap-3 pt-2">
-              <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
-              <Button size="sm" onClick={handleSaveEdit} disabled={saving || !editForm.name || !editForm.cron_expression}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <EditModal
+          editForm={editForm}
+          setEditForm={setEditForm}
+          saving={saving}
+          onSave={handleSaveEdit}
+          onClose={() => setEditing(null)}
+        />
       )}
+    </div>
+  );
+}
+
+function EditModal({
+  editForm,
+  setEditForm,
+  saving,
+  onSave,
+  onClose,
+}: {
+  editForm: { name: string; description: string; cron_expression: string; agent_slug: string };
+  setEditForm: (f: typeof editForm) => void;
+  saving: boolean;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = modalRef.current;
+    if (!el) return;
+    el.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab") return;
+
+      const focusable = el.querySelectorAll<HTMLElement>(
+        'input, button, textarea, select, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+
+    el.addEventListener("keydown", handleKeyDown);
+    return () => el.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+      role="dialog"
+      aria-label="Edit schedule"
+      aria-modal="true"
+      tabIndex={-1}
+      ref={modalRef}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-lg space-y-4">
+        <h2 className="text-lg font-semibold text-gray-100">Edit Schedule</h2>
+        <Input label="Name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+        <Input label="Cron Expression" value={editForm.cron_expression}
+          onChange={(e) => setEditForm({ ...editForm, cron_expression: e.target.value })} />
+        <Input label="Description" value={editForm.description}
+          onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+        <Input label="Agent Slug" value={editForm.agent_slug}
+          onChange={(e) => setEditForm({ ...editForm, agent_slug: e.target.value })} />
+        <div className="flex justify-end gap-3 pt-2">
+          <Button size="sm" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={onSave} disabled={saving || !editForm.name || !editForm.cron_expression}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
