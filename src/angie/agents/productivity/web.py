@@ -82,6 +82,9 @@ class WebAgent(BaseAgent):
         "- If the user provides a URL, use the appropriate tool based on their intent.\n"
         "- For 'summarize' requests, prefer summarize_page over get_page_content.\n"
         "- For 'what does this page say' requests, use get_page_content.\n"
+        "- When the screenshot tool returns a markdown image (![...](/api/v1/media/...)), "
+        "you MUST include that EXACT markdown image in your response. "
+        "Never replace the /api/v1/media/ URL with the original page URL.\n"
     )
 
     def build_pydantic_agent(self) -> Agent:
