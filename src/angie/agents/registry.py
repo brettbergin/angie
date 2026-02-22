@@ -27,6 +27,7 @@ AGENT_MODULES = [
     "angie.agents.networking.ubiquiti",
     "angie.agents.media.spotify",
     "angie.agents.dev.github",
+    "angie.agents.productivity.web",
 ]
 
 
