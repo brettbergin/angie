@@ -22,7 +22,11 @@ class Prompt(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
     user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"))
     agent_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("agents.id"))
-    type: Mapped[PromptType] = mapped_column(Enum(PromptType), nullable=False, index=True)
+    type: Mapped[PromptType] = mapped_column(
+        Enum(PromptType, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
+        index=True,
+    )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
