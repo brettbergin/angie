@@ -145,13 +145,20 @@ class WebAgent(BaseAgent):
             except ImportError:
                 return "Error: trafilatura is not installed. Run: pip install trafilatura"
 
-            async with httpx.AsyncClient(
-                timeout=settings.web_timeout_seconds,
-                headers={"User-Agent": settings.web_user_agent},
-                follow_redirects=True,
-            ) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
+            try:
+                async with httpx.AsyncClient(
+                    timeout=settings.web_timeout_seconds,
+                    headers={"User-Agent": settings.web_user_agent},
+                    follow_redirects=True,
+                ) as client:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                return f"Failed to fetch {url}: HTTP {e.response.status_code}"
+            except httpx.TimeoutException:
+                return f"Request to {url} timed out after {settings.web_timeout_seconds}s"
+            except httpx.RequestError as e:
+                return f"Failed to connect to {url}: {e}"
 
             text = trafilatura.extract(resp.text, include_comments=False, include_tables=True)
             if not text:
@@ -171,13 +178,20 @@ class WebAgent(BaseAgent):
             except ImportError:
                 return "Error: trafilatura is not installed."
 
-            async with httpx.AsyncClient(
-                timeout=settings.web_timeout_seconds,
-                headers={"User-Agent": settings.web_user_agent},
-                follow_redirects=True,
-            ) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
+            try:
+                async with httpx.AsyncClient(
+                    timeout=settings.web_timeout_seconds,
+                    headers={"User-Agent": settings.web_user_agent},
+                    follow_redirects=True,
+                ) as client:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                return f"Failed to fetch {url}: HTTP {e.response.status_code}"
+            except httpx.TimeoutException:
+                return f"Request to {url} timed out after {settings.web_timeout_seconds}s"
+            except httpx.RequestError as e:
+                return f"Failed to connect to {url}: {e}"
 
             text = trafilatura.extract(resp.text, include_comments=False, include_tables=True)
             if not text:
@@ -202,13 +216,20 @@ class WebAgent(BaseAgent):
             except ImportError:
                 return {"error": "beautifulsoup4 is not installed."}
 
-            async with httpx.AsyncClient(
-                timeout=settings.web_timeout_seconds,
-                headers={"User-Agent": settings.web_user_agent},
-                follow_redirects=True,
-            ) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
+            try:
+                async with httpx.AsyncClient(
+                    timeout=settings.web_timeout_seconds,
+                    headers={"User-Agent": settings.web_user_agent},
+                    follow_redirects=True,
+                ) as client:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                return {"error": f"HTTP {e.response.status_code}"}
+            except httpx.TimeoutException:
+                return {"error": f"Request timed out after {settings.web_timeout_seconds}s"}
+            except httpx.RequestError as e:
+                return {"error": f"Failed to connect: {e}"}
 
             soup = BeautifulSoup(resp.text, "html.parser")
 

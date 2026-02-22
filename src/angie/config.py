@@ -1,6 +1,5 @@
 """Application configuration via pydantic-settings."""
 
-import tempfile
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -120,7 +119,7 @@ class Settings(BaseSettings):
     web_max_screenshot_height: int = 720
     web_user_agent: str = "Angie/1.0"
     web_screenshots_dir: str = Field(
-        default_factory=lambda: str(Path(tempfile.gettempdir()) / "angie_screenshots")
+        default_factory=lambda: str(Path.cwd() / "data" / "screenshots")
     )
 
     # Celery

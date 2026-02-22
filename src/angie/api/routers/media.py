@@ -1,5 +1,6 @@
 """Media file serving — screenshots and other agent-generated files."""
 
+import mimetypes
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -42,11 +43,16 @@ async def get_media(filename: str, _: User = Depends(_authenticate_via_query)):
 
     # Prevent path traversal
     safe_name = Path(filename).name
-    if safe_name != filename or ".." in filename:
+    if safe_name != filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
     filepath = media_dir / safe_name
     if not filepath.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 
-    return FileResponse(filepath, media_type="image/png")
+    # Determine MIME type from file extension
+    media_type, _ = mimetypes.guess_type(filepath)
+    if media_type is None:
+        media_type = "application/octet-stream"
+
+    return FileResponse(filepath, media_type=media_type)

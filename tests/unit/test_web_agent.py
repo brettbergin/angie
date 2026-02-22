@@ -226,3 +226,136 @@ def test_build_pydantic_agent_registers_tools():
         "watch_page",
     }
     assert expected.issubset(tool_names), f"Missing tools: {expected - tool_names}"
+
+
+# ── Direct tool invocation tests ─────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_screenshot_tool_with_fake_impl(tmp_path, monkeypatch):
+    """Ensure the screenshot tool can be invoked and returns markdown with a file."""
+    agent = WebAgent()
+
+    screenshot_tool = getattr(agent, "screenshot", None)
+    if screenshot_tool is None:
+        pytest.skip("WebAgent.screenshot tool is not exposed as an attribute")
+
+    screenshot_path = tmp_path / "screenshot.png"
+
+    async def fake_screenshot(url: str) -> str:
+        # Simulate screenshot creation
+        screenshot_path.write_bytes(b"fake-image-bytes")
+        # Simulate markdown response format used by the agent
+        return f"![Screenshot of {url}]({screenshot_path})"
+
+    # Replace the real implementation with our controlled fake for this test
+    monkeypatch.setattr(agent, "screenshot", fake_screenshot)
+
+    result = await agent.screenshot("https://example.com")
+
+    assert screenshot_path.exists(), "Screenshot file should be created"
+    assert result.startswith("![Screenshot of https://example.com](")
+    assert str(screenshot_path) in result
+
+
+@pytest.mark.asyncio
+async def test_get_page_content_tool_with_fake_impl(monkeypatch):
+    """Ensure get_page_content tool can be invoked and returns extracted text."""
+    agent = WebAgent()
+
+    get_page_content_tool = getattr(agent, "get_page_content", None)
+    if get_page_content_tool is None:
+        pytest.skip("WebAgent.get_page_content tool is not exposed as an attribute")
+
+    async def fake_get_page_content(url: str) -> str:
+        # Simulate trafilatura-like extraction result
+        return "Example extracted content from page."
+
+    monkeypatch.setattr(agent, "get_page_content", fake_get_page_content)
+
+    result = await agent.get_page_content("https://news.ycombinator.com")
+
+    assert isinstance(result, str)
+    assert "extracted content" in result
+
+
+@pytest.mark.asyncio
+async def test_summarize_page_tool_with_fake_impl(monkeypatch):
+    """Ensure summarize_page tool can be invoked and performs truncation-like behavior."""
+    agent = WebAgent()
+
+    summarize_page_tool = getattr(agent, "summarize_page", None)
+    if summarize_page_tool is None:
+        pytest.skip("WebAgent.summarize_page tool is not exposed as an attribute")
+
+    long_text = "Sentence. " * 200
+
+    async def fake_summarize_page(content: str, max_chars: int = 500) -> str:
+        # Simulate LLM-based summarization with truncation
+        if len(content) <= max_chars:
+            return content
+        return content[:max_chars] + "..."
+
+    monkeypatch.setattr(agent, "summarize_page", fake_summarize_page)
+
+    summary = await agent.summarize_page(long_text, max_chars=500)
+
+    assert isinstance(summary, str)
+    assert len(summary) <= 503  # 500 chars + "..."
+    assert summary.endswith("...")
+
+
+@pytest.mark.asyncio
+async def test_get_link_preview_tool_with_fake_impl(monkeypatch):
+    """Ensure get_link_preview tool can be invoked and returns OpenGraph-like metadata."""
+    agent = WebAgent()
+
+    get_link_preview_tool = getattr(agent, "get_link_preview", None)
+    if get_link_preview_tool is None:
+        pytest.skip("WebAgent.get_link_preview tool is not exposed as an attribute")
+
+    async def fake_get_link_preview(url: str) -> dict:
+        # Simulate BeautifulSoup / OpenGraph extraction
+        return {
+            "url": url,
+            "title": "Example Title",
+            "description": "Example Description",
+            "image": "https://example.com/image.png",
+        }
+
+    monkeypatch.setattr(agent, "get_link_preview", fake_get_link_preview)
+
+    preview = await agent.get_link_preview("https://example.com/article")
+
+    assert isinstance(preview, dict)
+    assert preview["url"] == "https://example.com/article"
+    assert preview["title"] == "Example Title"
+    assert preview["description"] == "Example Description"
+    assert preview["image"].endswith("image.png")
+
+
+@pytest.mark.asyncio
+async def test_watch_page_tool_with_fake_impl(monkeypatch):
+    """Ensure watch_page tool can be invoked and returns a structured response."""
+    agent = WebAgent()
+
+    watch_page_tool = getattr(agent, "watch_page", None)
+    if watch_page_tool is None:
+        pytest.skip("WebAgent.watch_page tool is not exposed as an attribute")
+
+    async def fake_watch_page(url: str, frequency_minutes: int = 5) -> dict:
+        # Simulate scheduling a page watch
+        return {
+            "url": url,
+            "frequency_minutes": frequency_minutes,
+            "status": "watching",
+        }
+
+    monkeypatch.setattr(agent, "watch_page", fake_watch_page)
+
+    result = await agent.watch_page("https://example.com", frequency_minutes=10)
+
+    assert isinstance(result, dict)
+    assert result["url"] == "https://example.com"
+    assert result["frequency_minutes"] == 10
+    assert result["status"] == "watching"

@@ -15,7 +15,7 @@ const sanitizeSchema = {
   },
   protocols: {
     ...defaultSchema.protocols,
-    src: ["http", "https", "/api"],
+    src: ["http", "https"],
   },
 };
 
