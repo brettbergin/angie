@@ -100,3 +100,33 @@ def get_prompt_manager() -> PromptManager:
     if _manager is None:
         _manager = PromptManager()
     return _manager
+
+
+async def load_user_prompts_from_db(user_id: str) -> list[str]:
+    """Load active user prompts from the database.
+
+    Used by CLI commands to get DB-backed personalization.
+    Returns an empty list if the DB is unavailable or no prompts exist.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+    try:
+        from sqlalchemy import select
+
+        from angie.db.session import get_session_factory
+        from angie.models.prompt import Prompt, PromptType
+
+        factory = get_session_factory()
+        async with factory() as session:
+            result = await session.execute(
+                select(Prompt.content).where(
+                    Prompt.user_id == user_id,
+                    Prompt.type == PromptType.USER,
+                    Prompt.is_active.is_(True),
+                )
+            )
+            return [row[0] for row in result.all()]
+    except Exception as exc:
+        logger.debug("Could not load user prompts from DB: %s", exc)
+        return []

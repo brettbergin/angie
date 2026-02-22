@@ -56,11 +56,12 @@ def ask(question: str, user_id: str):
     async def _ask():
         from pydantic_ai import Agent
 
-        from angie.core.prompts import get_prompt_manager
+        from angie.core.prompts import get_prompt_manager, load_user_prompts_from_db
         from angie.llm import get_llm_model
 
         pm = get_prompt_manager()
-        system_prompt = pm.compose_with_user_prompts([])
+        user_prompts = await load_user_prompts_from_db(user_id)
+        system_prompt = pm.compose_with_user_prompts(user_prompts)
         model = get_llm_model()
         agent = Agent(model=model, system_prompt=system_prompt)
         result = await agent.run(question)

@@ -58,6 +58,9 @@ def test_cli_ask_command_success():
     with (
         patch("angie.llm.is_llm_configured", return_value=True),
         patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch(
+            "angie.core.prompts.load_user_prompts_from_db", new_callable=AsyncMock, return_value=[]
+        ),
         patch("angie.llm.get_llm_model") as mock_llm,
         patch("pydantic_ai.Agent", return_value=mock_agent),
     ):
@@ -66,7 +69,6 @@ def test_cli_ask_command_success():
 
         runner = CliRunner()
         result = runner.invoke(cli, ["ask", "who am I?"])
-
     assert result.exit_code == 0
 
 
@@ -112,6 +114,9 @@ def test_chat_no_agent_slug():
     with (
         patch("angie.agents.registry.get_registry", return_value=mock_registry),
         patch("angie.core.prompts.get_prompt_manager") as mock_pm,
+        patch(
+            "angie.core.prompts.load_user_prompts_from_db", new_callable=AsyncMock, return_value=[]
+        ),
         patch("angie.agents.base.BaseAgent.ask_llm", new_callable=AsyncMock, return_value="Hello!"),
     ):
         mock_pm.return_value.compose_with_user_prompts.return_value = "system"
