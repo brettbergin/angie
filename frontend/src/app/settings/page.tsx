@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { api, type ChannelConfig } from "@/lib/api";
+import { api } from "@/lib/api";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,20 +14,10 @@ const TIMEZONES: string[] =
     ? Intl.supportedValuesOf("timeZone")
     : ["UTC", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney"];
 
-const CHANNELS = [
-  { key: "slack", label: "Slack", field: "token", placeholder: "xoxb-..." },
-  { key: "discord", label: "Discord", field: "token", placeholder: "Bot token" },
-  { key: "imessage", label: "iMessage (BlueBubbles)", field: "url", placeholder: "http://localhost:1234" },
-  { key: "email", label: "Email (SMTP host)", field: "smtp_host", placeholder: "smtp.gmail.com" },
-];
-
 type PreferenceDef = { name: string; label: string; description: string; placeholder: string };
 
 export default function SettingsPage() {
   const { user, token } = useAuth();
-  const [channelValues, setChannelValues] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: "", timezone: "" });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -46,18 +36,6 @@ export default function SettingsPage() {
       setProfileForm({ full_name: user.full_name ?? "", timezone: user.timezone ?? "UTC" });
     }
   }, [user]);
-
-  useEffect(() => {
-    if (!token) return;
-    api.channels.list(token).then((configs: ChannelConfig[]) => {
-      const vals: Record<string, string> = {};
-      configs.forEach((c) => {
-        const ch = CHANNELS.find((ch) => ch.key === c.type);
-        if (ch) vals[c.type] = (c.config as Record<string, string>)[ch.field] ?? "";
-      });
-      setChannelValues(vals);
-    });
-  }, [token]);
 
   const loadPreferences = useCallback(async () => {
     if (!token) return;
@@ -86,25 +64,6 @@ export default function SettingsPage() {
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2000);
     } finally { setProfileSaving(false); }
-  };
-
-  const handleSaveChannels = async () => {
-    if (!token) return;
-    setSaving(true);
-    try {
-      await Promise.all(
-        CHANNELS.map((ch) =>
-          api.channels.upsert(token, ch.key, {
-            is_enabled: !!channelValues[ch.key],
-            config: { [ch.field]: channelValues[ch.key] ?? "" },
-          }),
-        ),
-      );
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleSavePreferences = async () => {
@@ -146,7 +105,7 @@ export default function SettingsPage() {
     <div className="p-8 space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-100">Settings</h1>
-        <p className="text-sm text-gray-400 mt-1">Configure Angie&apos;s channels, preferences, and profile</p>
+        <p className="text-sm text-gray-400 mt-1">Configure your profile and preferences</p>
       </div>
 
       <Card>
@@ -186,26 +145,6 @@ export default function SettingsPage() {
           </div>
           <Button variant="secondary" onClick={handleSaveProfile} disabled={profileSaving}>
             {profileSaved ? "Saved ✓" : profileSaving ? "Saving…" : "Save profile"}
-          </Button>
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader title="Communication Channels" subtitle="Configure where Angie can reach you" />
-        <div className="space-y-4">
-          {CHANNELS.map(({ key, label, placeholder }) => (
-            <div key={key} className="space-y-1">
-              <Input
-                label={label}
-                placeholder={placeholder}
-                type="password"
-                value={channelValues[key] ?? ""}
-                onChange={(e) => setChannelValues((v) => ({ ...v, [key]: e.target.value }))}
-              />
-            </div>
-          ))}
-          <Button variant="secondary" onClick={handleSaveChannels} disabled={saving}>
-            {saved ? "Saved ✓" : saving ? "Saving…" : "Save channels"}
           </Button>
         </div>
       </Card>
