@@ -22,7 +22,7 @@ def upgrade() -> None:
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('cron_expression', sa.String(length=50), nullable=False),
     sa.Column('agent_slug', sa.String(length=100), nullable=True),
-    sa.Column('task_payload', sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
+    sa.Column('task_payload', sa.JSON(), nullable=False),
     sa.Column('is_enabled', sa.Boolean(), nullable=False, server_default=sa.text('1')),
     sa.Column('last_run_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('next_run_at', sa.DateTime(timezone=True), nullable=True),

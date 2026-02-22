@@ -24,6 +24,11 @@ WORKDIR /app
 
 COPY --from=builder /app /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends git make && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
 # Playwright is only required in this worker container, where Celery tasks
 # perform browser automation and generate screenshots.
 # The "api" service shares the same "screenshots" volume to serve the files.
