@@ -7,14 +7,14 @@ Angie is a self-hosted, event-driven AI assistant that runs as a persistent back
 Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up on a schedule, monitors your channels, executes multi-step workflows, and reports back without being asked. Angie remembers context about you through a layered prompt hierarchy, so every interaction is personalized to your preferences, communication style, and routines.
 
 ### What Angie can do
-
-- **Unified inbox** — Connect Slack, Discord, iMessage, and email in one place. Angie routes incoming messages to the right agent automatically.
-- **Scheduled tasks** — Set cron jobs that run agents on a schedule ("every weekday at 8am, summarize my email and post to Slack").
-- **Multi-step workflows** — Chain agents together: check calendar → summarize emails → control smart lights → send morning briefing.
-- **Smart home control** — Adjust Philips Hue lighting and Home Assistant automations via natural language.
+- **Real time chat interface** — Chat directly with Angie and your fleet of AI agents.
+- **Unified inbox** — (UNDER DEVELOPMENT) Connect Slack, Discord, iMessage, and email in one place. Angie routes incoming messages to the right agent automatically.
+- **Scheduled tasks** — (UNDER DEVELOPMENT) Set cron jobs that run agents on a schedule ("every weekday at 8am, summarize my email and post to Slack").
+- **Multi-step workflows** — (UNDER DEVELOPMENT) Chain agents together: check calendar → summarize emails → control smart lights → send morning briefing.
+- **Smart home control** — (UNDER DEVELOPMENT) Adjust Philips Hue lighting and Home Assistant automations via natural language.
 - **Developer workflows** — Query GitHub issues, open PRs, and summarize repository activity.
-- **Media control** — Control Spotify playback, switch playlists, and manage your queue.
-- **Network management** — Inspect your UniFi network, connected devices, and bandwidth stats.
+- **Media control** — (UNDER DEVELOPMENT) Control Spotify playback, switch playlists, and manage your queue.
+- **Network management** — (UNDER DEVELOPMENT) Inspect your UniFi network, connected devices, and bandwidth stats.
 - **Personalized context** — Onboarding builds a private profile (personality, communication style, preferences) that shapes every LLM interaction.
 - **REST API + Web UI** — Full FastAPI backend with a Next.js dashboard for managing agents, teams, workflows, tasks, and events in real time.
 
@@ -27,7 +27,7 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
 │                          Channels                               │
 │  Slack(soon) · Discord(soon) · iMessage (soon) · Angie UI Chat  │
 └───────────────────────────┬─────────────────────────────────────┘
-                            │ events
+                            │ Events: infer task from user input
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Angie Daemon Loop                         │
@@ -35,7 +35,7 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
 │          ↑                                  ↑                   │
 │     CronEngine                       AgentRegistry              │
 └─────────────────────────────────────────────────────────────────┘
-                            │ resolved agents / teams
+                            │ Task: units of work, assigned to agents/teams
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Agent Fleet                             │
@@ -44,14 +44,14 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
 │  Calendar: gcal   Media: spotify   Dev: github                  │
 │  Smart Home: hue · home-assistant   Networking: ubiquiti        │
 └─────────────────────────────────────────────────────────────────┘
-                            │
+                            │ Agents & Teams: single teams of AI agents
                             ▼
-┌───────────────────┐   ┌───────────┐   ┌───────────────────────┐
-│   FastAPI (API)   │   │   MySQL   │   │   Redis (cache+queue) │
-│  /api/v1/*        │   │ 9 tables  │   │   Celery broker       │
-└───────────────────┘   └───────────┘   └───────────────────────┘
-                            │
-                            ▼
+┌───────────┐   ┌───────────────────┐   ┌───────────────────────┐
+│   MySQL   │-->│   FastAPI (API)   │<->│     Redis Cache       │
+│    DB     │<--│     /api/v1/*     │<->│    Celery broker      │
+└───────────┘   └───────────────────┘   └───────────────────────┘
+                           │ 
+                           ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │              Next.js Web UI  (frontend/)                        │
 │  Dashboard · Agents · Teams · Workflows · Tasks · Events        │
