@@ -5,7 +5,6 @@ import click
 from angie.cli.chat import chat
 from angie.cli.config import config
 from angie.cli.configure import configure
-from angie.cli.prompts import prompts
 from angie.cli.setup import setup
 from angie.cli.status import status
 
@@ -21,7 +20,6 @@ cli.add_command(chat)
 cli.add_command(config)
 cli.add_command(configure)
 cli.add_command(status)
-cli.add_command(prompts)
 
 
 @cli.command()
@@ -62,7 +60,7 @@ def ask(question: str, user_id: str):
         from angie.llm import get_llm_model
 
         pm = get_prompt_manager()
-        system_prompt = pm.compose_for_user(user_id)
+        system_prompt = pm.compose_with_user_prompts([])
         model = get_llm_model()
         agent = Agent(model=model, system_prompt=system_prompt)
         result = await agent.run(question)

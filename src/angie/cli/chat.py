@@ -48,7 +48,7 @@ async def _ask(text: str, user_id: str, agent_slug: str | None) -> None:
     else:
         # Fall back to LLM with user prompts
         pm = get_prompt_manager()
-        system = pm.compose_for_user(user_id)
+        system = pm.compose_with_user_prompts([])
         from angie.agents.base import BaseAgent
 
         class _TempAgent(BaseAgent):

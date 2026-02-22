@@ -243,9 +243,9 @@ def test_prompt_hierarchy_angie_present():
     assert len(angie) > 0
 
 
-def test_prompt_compose_for_user_includes_all_layers():
+def test_prompt_compose_with_user_prompts_includes_all_layers():
     from angie.core.prompts import PromptManager
 
     pm = PromptManager()
-    composed = pm.compose_for_user("test-user-123")
+    composed = pm.compose_with_user_prompts([])
     assert "system" in composed.lower() or len(composed) > 50

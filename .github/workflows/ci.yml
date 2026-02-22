@@ -135,7 +135,7 @@ jobs:
         run: npm ci
 
       - name: npm audit
-        run: npm audit --audit-level=high || true
+        run: npm audit --audit-level=high
 
       - name: ESLint
         run: npx next lint
@@ -147,6 +147,7 @@ jobs:
     name: Docker Build
     runs-on: ubuntu-latest
     needs: [lint, test, security-python, security-frontend]
+    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 

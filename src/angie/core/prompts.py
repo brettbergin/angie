@@ -22,7 +22,7 @@ class PromptManager:
         self.prompts_dir = Path(prompts_dir or settings.prompts_dir)
         self.user_prompts_dir = Path(settings.user_prompts_dir)
         self._env = Environment(  # noqa: S701  # nosec B701 — markdown prompts, not HTML
-            loader=FileSystemLoader([str(self.prompts_dir), str(self.user_prompts_dir)]),
+            loader=FileSystemLoader([str(self.prompts_dir)]),
             undefined=StrictUndefined,
             trim_blocks=True,
             lstrip_blocks=True,
@@ -59,15 +59,6 @@ class PromptManager:
             path = self.prompts_dir / "agents" / f"{agent_slug}.md"
             return self._load_file(path)
 
-    def get_user_prompts(self, user_id: str, context: dict | None = None) -> list[str]:
-        user_dir = self.user_prompts_dir / user_id
-        if not user_dir.exists():
-            return []
-        prompts = []
-        for md_file in sorted(user_dir.glob("*.md")):
-            prompts.append(md_file.read_text(encoding="utf-8"))
-        return prompts
-
     def compose_for_agent(
         self,
         agent_slug: str,
@@ -81,19 +72,6 @@ class PromptManager:
             self.get_system_prompt(context),
             self.get_angie_prompt(context),
             agent_prompt,
-        ]
-        return "\n\n---\n\n".join(p for p in parts if p.strip())
-
-    def compose_for_user(
-        self,
-        user_id: str,
-        context: dict | None = None,
-    ) -> str:
-        """Compose: SYSTEM > ANGIE > USER_PROMPTS (filesystem-based)."""
-        parts = [
-            self.get_system_prompt(context),
-            self.get_angie_prompt(context),
-            *self.get_user_prompts(user_id, context),
         ]
         return "\n\n---\n\n".join(p for p in parts if p.strip())
 
@@ -112,15 +90,6 @@ class PromptManager:
 
     def invalidate_cache(self) -> None:
         self._cache.clear()
-
-    def save_user_prompt(self, user_id: str, name: str, content: str) -> Path:
-        """Persist a USER_PROMPT markdown file."""
-        user_dir = self.user_prompts_dir / user_id
-        user_dir.mkdir(parents=True, exist_ok=True)
-        path = user_dir / f"{name}.md"
-        path.write_text(content, encoding="utf-8")
-        self.invalidate_cache()
-        return path
 
 
 _manager: PromptManager | None = None
