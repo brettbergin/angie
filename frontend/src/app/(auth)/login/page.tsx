@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -32,9 +33,14 @@ export default function LoginPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <div className="w-12 h-12 rounded-xl bg-angie-600 flex items-center justify-center mx-auto mb-4">
-          <span className="text-white font-bold text-xl">A</span>
-        </div>
+        <Image
+          src="/angie-logo.svg"
+          alt="Angie logo"
+          width={80}
+          height={80}
+          className="mx-auto mb-4"
+          priority
+        />
         <h1 className="text-2xl font-bold text-gray-100">Sign in to Angie</h1>
         <p className="text-sm text-gray-400 mt-1">Your personal AI assistant</p>
       </div>

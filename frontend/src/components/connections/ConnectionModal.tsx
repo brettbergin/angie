@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, type Connection, type ServiceDefinition, type TestResult } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,14 @@ export function ConnectionModal({ service, connection, onClose, onSaved }: Props
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
 
   const handleSave = async () => {
     if (!token) return;
@@ -103,7 +111,7 @@ export function ConnectionModal({ service, connection, onClose, onSaved }: Props
           </div>
         </div>
 
-        <div className="overflow-y-auto p-6 space-y-5 flex-1">
+        <form autoComplete="off" onSubmit={(e) => e.preventDefault()} className="overflow-y-auto p-6 space-y-5 flex-1">
           {/* Current status */}
           {connection && (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700">
@@ -150,6 +158,7 @@ export function ConnectionModal({ service, connection, onClose, onSaved }: Props
                   type={field.type === "password" && !showPasswords[field.key] ? "password" : "text"}
                   placeholder={connection ? "(unchanged)" : `Enter ${field.label.toLowerCase()}`}
                   value={fields[field.key]}
+                  autoComplete="off"
                   onChange={(e) => setFields((prev) => ({ ...prev, [field.key]: e.target.value }))}
                 />
                 {field.type === "password" && (
@@ -184,9 +193,7 @@ export function ConnectionModal({ service, connection, onClose, onSaved }: Props
               {error}
             </div>
           )}
-        </div>
-
-        {/* Footer actions */}
+        </form>
         <div className="px-6 py-4 border-t border-gray-800 flex items-center gap-3">
           {connection && (
             <>
