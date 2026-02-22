@@ -6,6 +6,7 @@ from angie.models.channel import ChannelConfig, ChannelType
 from angie.models.conversation import ChatMessage, Conversation, MessageRole
 from angie.models.event import Event, EventType
 from angie.models.prompt import Prompt, PromptType
+from angie.models.reminder import Reminder, ReminderStatus
 from angie.models.schedule import ScheduledJob
 from angie.models.task import Task, TaskStatus
 from angie.models.team import Team, TeamAgent
@@ -27,6 +28,8 @@ __all__ = [
     "Prompt",
     "PromptType",
     "ScheduledJob",
+    "Reminder",
+    "ReminderStatus",
     "ChannelConfig",
     "ChannelType",
     "Conversation",

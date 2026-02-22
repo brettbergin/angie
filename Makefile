@@ -5,7 +5,9 @@ PYTEST       := .venv/bin/pytest
 RUFF         := .venv/bin/ruff
 
 .PHONY: help install lint lint-fix format format-fix check fix test test-frontend test-backend test-single \
-        build docker-build docker-up docker-down docker-restart docker-logs migrate clean
+        build docker-build docker-up docker-down docker-restart docker-logs migrate clean \
+        docker-restart-api docker-restart-worker docker-restart-daemon docker-restart-frontend \
+        docker-restart-mysql docker-restart-redis
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -69,6 +71,24 @@ docker-down: ## Stop all services
 
 docker-restart: ## Rebuild images and restart all services
 	docker compose down && docker compose build && docker compose up -d
+
+docker-restart-api: ## Rebuild and restart the API service
+	docker compose up -d --build api
+
+docker-restart-worker: ## Rebuild and restart the Worker service
+	docker compose up -d --build worker
+
+docker-restart-daemon: ## Rebuild and restart the Daemon service
+	docker compose up -d --build daemon
+
+docker-restart-frontend: ## Rebuild and restart the Frontend service
+	docker compose up -d --build frontend
+
+docker-restart-mysql: ## Restart the MySQL service
+	docker compose up -d --build mysql
+
+docker-restart-redis: ## Restart the Redis service
+	docker compose up -d --build redis
 
 docker-logs: ## Tail logs from all services
 	docker compose logs -f

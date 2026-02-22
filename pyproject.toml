@@ -60,6 +60,8 @@ dependencies = [
     "structlog>=24.1.0",
     "tenacity>=8.3.0",
     "croniter>=2.0.0",
+    # Date parsing
+    "dateparser>=1.2.0",
 ]
 
 [project.optional-dependencies]
