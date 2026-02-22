@@ -197,6 +197,7 @@ export default function AgentsPage() {
           <button
             type="button"
             onClick={selectAll}
+            aria-pressed={selectedCategories.size === 0}
             className={cn(
               "text-xs font-medium whitespace-nowrap px-3 py-1.5 rounded-full border transition-colors",
               selectedCategories.size === 0
@@ -211,6 +212,7 @@ export default function AgentsPage() {
               type="button"
               key={category}
               onClick={() => toggleCategory(category)}
+              aria-pressed={selectedCategories.has(category)}
               className={cn(
                 "text-xs font-medium whitespace-nowrap px-3 py-1.5 rounded-full border transition-colors",
                 selectedCategories.has(category)
