@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import Image from "next/image";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -33,13 +32,13 @@ export default function LoginPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src="/angie-logo.svg"
           alt="Angie logo"
-          width={120}
-          height={120}
+          width={160}
+          height={192}
           className="mx-auto mb-4"
-          priority
         />
         <h1 className="text-2xl font-bold text-gray-100">Sign in to Angie</h1>
         <p className="text-sm text-gray-400 mt-1">Your personal AI assistant</p>
