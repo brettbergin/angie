@@ -30,6 +30,7 @@ AGENT_MODULES = [
     "angie.agents.dev.software_dev",
     "angie.agents.productivity.web",
     "angie.agents.productivity.reminders",
+    "angie.agents.lifestyle.weather",
 ]
 
 
