@@ -155,3 +155,12 @@ jobs:
 
       - name: Build Worker image
         run: docker build -f docker/Dockerfile.worker -t angie-worker:ci .
+
+      - name: Build Frontend image
+        run: docker build -f docker/Dockerfile.frontend -t angie-frontend:ci .
+
+      - name: Build Dev image
+        run: docker build -f docker/Dockerfile.dev -t angie-dev:ci .
+
+      - name: Build Base image
+        run: docker build -f docker/Dockerfile.base -t angie-base:ci .
