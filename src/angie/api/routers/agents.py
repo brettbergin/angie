@@ -55,6 +55,7 @@ async def get_agent(slug: str, _: User = Depends(get_current_user)):
         name=agent.name,
         description=agent.description,
         capabilities=agent.capabilities,
+        category=agent.category,
         instructions=instructions or "No agent-specific instructions configured.",
         system_prompt=agent.get_system_prompt(),
         module_path=module_path,

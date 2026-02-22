@@ -64,7 +64,9 @@ async def list_conversations(
     total = total_result.scalar() or 0
 
     result = await session.execute(
-        base.order_by(Conversation.updated_at.desc()).limit(limit).offset(offset)
+        base.order_by(Conversation.updated_at.desc(), Conversation.id.desc())
+        .limit(limit)
+        .offset(offset)
     )
     items = result.scalars().all()
 

@@ -39,6 +39,7 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
   const deletingRef = useRef<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
+  const loadingMoreRef = useRef(false);
 
   const loadConversations = useCallback(async () => {
     if (!token) return;
@@ -57,7 +58,8 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
   }, [token]);
 
   const loadMore = useCallback(async () => {
-    if (!token || loadingMore || !hasMore) return;
+    if (!token || loadingMoreRef.current || !hasMore) return;
+    loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
       const data = await api.conversations.list(token, { limit: PAGE_SIZE, offset: offsetRef.current });
@@ -67,9 +69,10 @@ export function ConversationSidebar({ activeId, onSelect, onNew, refreshKey }: P
     } catch {
       // ignore
     } finally {
+      loadingMoreRef.current = false;
       setLoadingMore(false);
     }
-  }, [token, loadingMore, hasMore]);
+  }, [token, hasMore]);
 
   useEffect(() => {
     loadConversations();
