@@ -17,33 +17,16 @@ help: ## Show this help
 install: ## Install all dependencies (including dev)
 	$(UV) sync --extra dev
 
-lint: ## Run ruff linter on Python (check only)
-	$(RUFF) check src/ tests/
+# Additional steps for Markdown formatting
+md-check:  ## Check Markdown formatting
+	.venv/bin/mdformat --check .
 
-lint-fix: ## Run ruff linter on Python and auto-fix
-	$(RUFF) check --fix src/ tests/
+md-fix:  ## Auto-fix Markdown formatting
+	.venv/bin/mdformat .
 
-format: ## Check Python formatting with ruff
-	$(RUFF) format --check src/ tests/
+check: lint format lint-frontend format-frontend md-check ## Run all checks (lint + format, including Markdown)
 
-format-fix: ## Auto-format Python with ruff
-	$(RUFF) format src/ tests/
-
-lint-frontend: ## Run ESLint on frontend
-	cd frontend && npx next lint
-
-lint-frontend-fix: ## Run ESLint on frontend with auto-fix
-	cd frontend && npx next lint --fix
-
-format-frontend: ## Check frontend formatting with Prettier
-	cd frontend && npx prettier --check "src/**/*.{ts,tsx,js,jsx,css,json}"
-
-format-frontend-fix: ## Auto-format frontend with Prettier
-	cd frontend && npx prettier --write "src/**/*.{ts,tsx,js,jsx,css,json}"
-
-check: lint format lint-frontend format-frontend ## Run all checks (lint + format)
-
-fix: lint-fix format-fix lint-frontend-fix format-frontend-fix ## Auto-fix all lint and format issues
+fix: lint-fix format-fix lint-frontend-fix format-frontend-fix md-fix ## Auto-fix all lint and format issues, including Markdown
 
 typecheck: ## Run mypy type checks
 	$(UV) run mypy src/
