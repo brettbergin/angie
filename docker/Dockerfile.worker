@@ -24,8 +24,31 @@ WORKDIR /app
 
 COPY --from=builder /app /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends git make && \
+# ---------------------------------------------------------------------------
+# Language runtimes & build tools used by the software-dev agent when it
+# clones repositories and runs project commands (make, npm/npx, go, etc.).
+# ---------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git make curl wget gnupg ca-certificates build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node.js 22.x LTS (provides node, npm, npx)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
     rm -rf /var/lib/apt/lists/*
+
+# Go (latest stable via official tarball)
+RUN ARCH=$(dpkg --print-architecture) && \
+    curl -fsSL "https://go.dev/dl/go1.23.6.linux-${ARCH}.tar.gz" \
+        | tar -C /usr/local -xz
+ENV PATH="/usr/local/go/bin:$PATH"
+
+# Rust (rustup minimal profile — provides rustc, cargo)
+ENV RUSTUP_HOME="/usr/local/rustup" CARGO_HOME="/usr/local/cargo"
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --profile minimal --default-toolchain stable && \
+    rm -rf /tmp/*
+ENV PATH="/usr/local/cargo/bin:$PATH"
 
 COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /usr/local/bin/uv
 

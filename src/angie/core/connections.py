@@ -137,6 +137,17 @@ SERVICE_REGISTRY: dict[str, dict[str, Any]] = {
         "test_endpoint": None,
         "agent_slug": None,
     },
+    "openweathermap": {
+        "name": "OpenWeatherMap",
+        "description": "Weather data — current conditions, forecasts, and severe weather alerts",
+        "auth_type": "api_key",
+        "color": "#EB6E4B",
+        "fields": [
+            {"key": "api_key", "label": "API Key", "type": "password"},
+        ],
+        "test_endpoint": "https://api.openweathermap.org/data/2.5/weather?q=London&appid={api_key}",
+        "agent_slug": "weather",
+    },
     "unifi": {
         "name": "UniFi Network",
         "description": "Network management — devices, clients, bandwidth stats",
@@ -243,6 +254,9 @@ async def test_connection_validity(credentials: dict, service_type: str) -> tupl
                 headers["Authorization"] = f"Bearer {credentials.get('token', '')}"
             elif service_type == "slack":
                 headers["Authorization"] = f"Bearer {credentials.get('bot_token', '')}"
+            elif service_type == "openweathermap":
+                api_key = credentials.get("api_key", "")
+                test_url = test_url.replace("{api_key}", api_key)
             elif service_type == "discord":
                 headers["Authorization"] = f"Bot {credentials.get('bot_token', '')}"
             else:
