@@ -60,12 +60,16 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 30
 
-    # LLM — GitHub Models API (preferred) or OpenAI fallback
+    # LLM — provider selection
+    llm_provider: Literal["github", "openai", "anthropic"] = "github"
     github_token: str | None = None
     copilot_model: str = "openai/gpt-4o"
     openai_api_key: str | None = None
     # GitHub Models API endpoint
     github_models_api_base: str = "https://models.github.ai/inference"
+    # Anthropic
+    anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-sonnet-4-20250514"
 
     # Slack
     slack_bot_token: str | None = None

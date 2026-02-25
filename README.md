@@ -89,7 +89,7 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
 | Layer | Technology |
 |---|---|
 | Language | Python 3.12, uv |
-| AI framework | pydantic-ai + github-copilot-sdk |
+| AI framework | pydantic-ai (GitHub Models, OpenAI, Anthropic) |
 | API | FastAPI + SQLAlchemy 2.0 async |
 | Database | MySQL 8 (aiomysql driver) |
 | Cache / Queue | Redis + Celery |
@@ -352,12 +352,24 @@ Copy `.env.example` to `.env`. The sections below describe every credential, whe
 
 ---
 
-### LLM — GitHub Copilot (required for AI features)
+### LLM Provider Selection
+
+Angie supports three LLM providers. Set `LLM_PROVIDER` to choose:
+
+| Provider | `LLM_PROVIDER` | Required Variables |
+|---|---|---|
+| GitHub Models API (default) | `github` | `GITHUB_TOKEN`, `COPILOT_MODEL` |
+| OpenAI | `openai` | `OPENAI_API_KEY`, `COPILOT_MODEL` |
+| Anthropic Claude | `anthropic` | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` |
+
+---
+
+### LLM — GitHub Models API (default)
 
 | Variable | Description |
 |---|---|
 | `GITHUB_TOKEN` | GitHub OAuth token used to obtain a short-lived Copilot session token. |
-| `COPILOT_MODEL` | Model to use (default: `gpt-4o`). Other options: `gpt-4o-mini`, `claude-3.5-sonnet`. |
+| `COPILOT_MODEL` | Model to use (default: `gpt-4o`). Other options: `gpt-4o-mini`, `o1-mini`. |
 | `COPILOT_API_BASE` | Copilot OpenAI-compatible endpoint (default: `https://api.githubcopilot.com`). |
 
 **How to get `GITHUB_TOKEN`:**
@@ -373,13 +385,25 @@ Copy `.env.example` to `.env`. The sections below describe every credential, whe
 
 ---
 
-### OpenAI (optional fallback)
+### OpenAI
 
 | Variable | Description |
 |---|---|
-| `OPENAI_API_KEY` | OpenAI API key (`sk-...`). Used if `GITHUB_TOKEN` is not set. |
+| `OPENAI_API_KEY` | OpenAI API key (`sk-...`). |
+| `COPILOT_MODEL` | Model to use (default: `gpt-4o`). |
 
 Get from: **platform.openai.com → API Keys → Create new secret key**. No special permissions needed — any key with access to `gpt-4o` works.
+
+---
+
+### Anthropic Claude
+
+| Variable | Description |
+|---|---|
+| `ANTHROPIC_API_KEY` | Anthropic API key (`sk-ant-...`). |
+| `ANTHROPIC_MODEL` | Model to use (default: `claude-sonnet-4-20250514`). Other options: `claude-opus-4-20250514`, `claude-haiku-4-20250514`. |
+
+Get from: **console.anthropic.com → API Keys → Create Key**.
 
 ---
 

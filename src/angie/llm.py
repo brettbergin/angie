@@ -1,10 +1,9 @@
 """LLM factory — returns a configured pydantic-ai model.
 
-Priority:
-  1. GitHub Models API (GITHUB_TOKEN set) — uses the OpenAI-compatible
-     inference endpoint at models.inference.ai.azure.com
-  2. OpenAI (OPENAI_API_KEY set)
-  3. Raises RuntimeError if neither is configured
+Supported providers (selected via LLM_PROVIDER env var):
+  1. ``github``  — GitHub Models API (OpenAI-compatible endpoint)
+  2. ``openai``  — OpenAI API
+  3. ``anthropic`` — Anthropic Claude API
 """
 
 from __future__ import annotations
@@ -32,30 +31,62 @@ def get_llm_model(*, force_refresh: bool = False) -> Model:
 
 
 def _build_model() -> tuple[Model, float]:
-    from pydantic_ai.models.openai import OpenAIChatModel
-    from pydantic_ai.providers.openai import OpenAIProvider
-
     from angie.config import get_settings
 
     settings = get_settings()
+    provider_name = settings.llm_provider
 
-    if settings.github_token:
-        logger.info("LLM: using GitHub Models API (%s)", settings.github_models_api_base)
-        provider = OpenAIProvider(
-            base_url=settings.github_models_api_base,
-            api_key=settings.github_token,
+    if provider_name == "anthropic":
+        return _build_anthropic(settings)
+    if provider_name == "openai":
+        return _build_openai(settings)
+    # Default: github
+    return _build_github(settings)
+
+
+def _build_github(settings: object) -> tuple[Model, float]:
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    if not settings.github_token:  # type: ignore[union-attr]
+        raise RuntimeError(
+            "LLM_PROVIDER is 'github' but GITHUB_TOKEN is not set. "
+            "Set GITHUB_TOKEN in your .env file."
         )
-        return OpenAIChatModel(settings.copilot_model, provider=provider), float("inf")
-
-    if settings.openai_api_key:
-        logger.info("LLM: using OpenAI (model=%s)", settings.copilot_model)
-        provider = OpenAIProvider(api_key=settings.openai_api_key)
-        return OpenAIChatModel(settings.copilot_model, provider=provider), float("inf")
-
-    raise RuntimeError(
-        "No LLM configured. Set GITHUB_TOKEN (GitHub Models) "
-        "or OPENAI_API_KEY (OpenAI) in your .env file."
+    logger.info("LLM: using GitHub Models API (%s)", settings.github_models_api_base)  # type: ignore[union-attr]
+    provider = OpenAIProvider(
+        base_url=settings.github_models_api_base,  # type: ignore[union-attr]
+        api_key=settings.github_token,  # type: ignore[union-attr]
     )
+    return OpenAIChatModel(settings.copilot_model, provider=provider), float("inf")  # type: ignore[union-attr]
+
+
+def _build_openai(settings: object) -> tuple[Model, float]:
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    if not settings.openai_api_key:  # type: ignore[union-attr]
+        raise RuntimeError(
+            "LLM_PROVIDER is 'openai' but OPENAI_API_KEY is not set. "
+            "Set OPENAI_API_KEY in your .env file."
+        )
+    logger.info("LLM: using OpenAI (model=%s)", settings.copilot_model)  # type: ignore[union-attr]
+    provider = OpenAIProvider(api_key=settings.openai_api_key)  # type: ignore[union-attr]
+    return OpenAIChatModel(settings.copilot_model, provider=provider), float("inf")  # type: ignore[union-attr]
+
+
+def _build_anthropic(settings: object) -> tuple[Model, float]:
+    from pydantic_ai.models.anthropic import AnthropicModel
+    from pydantic_ai.providers.anthropic import AnthropicProvider
+
+    if not settings.anthropic_api_key:  # type: ignore[union-attr]
+        raise RuntimeError(
+            "LLM_PROVIDER is 'anthropic' but ANTHROPIC_API_KEY is not set. "
+            "Set ANTHROPIC_API_KEY in your .env file."
+        )
+    logger.info("LLM: using Anthropic (model=%s)", settings.anthropic_model)  # type: ignore[union-attr]
+    provider = AnthropicProvider(api_key=settings.anthropic_api_key)  # type: ignore[union-attr]
+    return AnthropicModel(settings.anthropic_model, provider=provider), float("inf")  # type: ignore[union-attr]
 
 
 def is_llm_configured() -> bool:
@@ -63,4 +94,8 @@ def is_llm_configured() -> bool:
     from angie.config import get_settings
 
     s = get_settings()
+    if s.llm_provider == "anthropic":
+        return bool(s.anthropic_api_key)
+    if s.llm_provider == "openai":
+        return bool(s.openai_api_key)
     return bool(s.github_token or s.openai_api_key)

@@ -129,7 +129,7 @@ def test_configure_keys_llm(tmp_path):
         result = runner.invoke(
             configure,
             ["keys", "llm"],
-            input="ghp_testtoken\n\nhttps://api.githubcopilot.com\n",
+            input="github\nghp_testtoken\n\n\nhttps://api.githubcopilot.com\n",
         )
     assert result.exit_code == 0
 

@@ -1,4 +1,4 @@
-"""BaseAgent — pydantic-ai agent wrapper with copilot-sdk LLM backend."""
+"""BaseAgent — pydantic-ai agent wrapper with pluggable LLM backend."""
 
 from __future__ import annotations
 
@@ -22,12 +22,12 @@ class BaseAgent(ABC):
     Each agent wraps:
     - An external service SDK (Gmail, Slack, phue, etc.)
     - A pydantic-ai Agent whose @tool functions call the SDK
-    - A copilot-sdk session for the underlying LLM engine
+    - A pluggable LLM backend (GitHub Models, OpenAI, or Anthropic)
 
     The LLM decides which tool(s) to invoke based on a natural-language
     *intent* extracted from the incoming task.  The pydantic-ai model is
     injected at `agent.run()` time (never stored on the Agent instance)
-    so that Copilot token refreshes are always picked up automatically.
+    so that token refreshes are always picked up automatically.
     """
 
     # Subclasses must declare these
@@ -61,7 +61,7 @@ class BaseAgent(ABC):
         ``@agent.tool_plain`` (no deps) decorated functions.
 
         The Agent is built **without** a model — the model is injected at
-        ``.run()`` time so Copilot token refresh is always current.
+        ``.run()`` time so the configured LLM provider is always current.
         """
         from pydantic_ai import Agent
 
