@@ -28,7 +28,7 @@ _SERVICES: dict[str, list[tuple[str, str, bool]]] = {
     "llm": [
         ("LLM_PROVIDER", "LLM provider (github, openai, or anthropic)", False),
         ("GITHUB_TOKEN", "GitHub OAuth token (ghp_...)", True),
-        ("OPENAI_API_KEY", "OpenAI API key (sk-..., optional fallback)", True),
+        ("OPENAI_API_KEY", "OpenAI API key (sk-...)", True),
         ("ANTHROPIC_API_KEY", "Anthropic API key (sk-ant-...)", True),
         ("COPILOT_API_BASE", "Copilot API base URL", False),
     ],
