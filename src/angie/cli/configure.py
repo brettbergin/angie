@@ -15,9 +15,10 @@ console = Console()
 _KNOWN_MODELS = [
     "gpt-4o",
     "gpt-4o-mini",
-    "claude-3.5-sonnet",
-    "claude-3-haiku",
     "o1-mini",
+    "claude-sonnet-4-20250514",
+    "claude-opus-4-20250514",
+    "claude-haiku-4-20250514",
 ]
 
 # ── Service key catalogue ──────────────────────────────────────────────────────
@@ -25,8 +26,10 @@ _KNOWN_MODELS = [
 _SERVICES: dict[str, list[tuple[str, str, bool]]] = {
     # (env_key, prompt_label, is_secret)
     "llm": [
+        ("LLM_PROVIDER", "LLM provider (github, openai, or anthropic)", False),
         ("GITHUB_TOKEN", "GitHub OAuth token (ghp_...)", True),
-        ("OPENAI_API_KEY", "OpenAI API key (sk-..., optional fallback)", True),
+        ("OPENAI_API_KEY", "OpenAI API key (sk-...)", True),
+        ("ANTHROPIC_API_KEY", "Anthropic API key (sk-ant-...)", True),
         ("COPILOT_API_BASE", "Copilot API base URL", False),
     ],
     "slack": [
@@ -153,21 +156,37 @@ def list_keys():
 def model():
     """Select the LLM model and optionally set a custom API base."""
     env = read_env()
-    current_model = env.get("COPILOT_MODEL", "gpt-4o")
+    provider = env.get("LLM_PROVIDER", "github")
     current_base = env.get("COPILOT_API_BASE", "https://api.githubcopilot.com")
 
-    click.echo("\nLLM Model Configuration\n")
+    if provider == "anthropic":
+        current_model = env.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+        anthropic_models = [m for m in _KNOWN_MODELS if m.startswith("claude")]
+    else:
+        current_model = env.get("COPILOT_MODEL", "gpt-4o")
+
+    click.echo(f"\nLLM Model Configuration (provider: {provider})\n")
+
+    if provider == "anthropic":
+        display_models = anthropic_models
+    else:
+        display_models = [m for m in _KNOWN_MODELS if not m.startswith("claude")]
+
     click.echo(
-        "\n".join(f"  {'>' if m == current_model else ' '} {m}" for m in _KNOWN_MODELS)
+        "\n".join(f"  {'>' if m == current_model else ' '} {m}" for m in display_models)
         + "\n   (or enter custom)"
     )
 
     selected = click.prompt("Model", default=current_model)
-    api_base = click.prompt("API base URL", default=current_base)
 
-    write_env({"COPILOT_MODEL": selected, "COPILOT_API_BASE": api_base})
+    if provider == "anthropic":
+        write_env({"ANTHROPIC_MODEL": selected})
+    else:
+        api_base = click.prompt("API base URL", default=current_base)
+        write_env({"COPILOT_MODEL": selected, "COPILOT_API_BASE": api_base})
+        click.echo(f"✓ API base: {api_base}")
+
     click.echo(f"\n✓ Model set to {selected}")
-    click.echo(f"✓ API base: {api_base}")
 
 
 # ── configure seed ─────────────────────────────────────────────────────────────
