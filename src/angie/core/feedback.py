@@ -8,6 +8,33 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def extract_thread_kwargs(
+    task_dict: dict[str, Any] | None,
+    source_channel: str | None = None,
+) -> dict[str, Any]:
+    """Extract Slack/Discord thread-context kwargs from a task dict.
+
+    Shared by FeedbackManager._send and workers._send_reply to avoid
+    duplicating the channel-specific threading logic.
+    """
+    kwargs: dict[str, Any] = {}
+    if not task_dict:
+        return kwargs
+    input_data = task_dict.get("input_data", {})
+    channel = source_channel or task_dict.get("source_channel")
+    if channel == "slack":
+        if input_data.get("channel"):
+            kwargs["channel"] = input_data["channel"]
+        if input_data.get("thread_ts"):
+            kwargs["thread_ts"] = input_data["thread_ts"]
+    elif channel == "discord":
+        if input_data.get("channel_id"):
+            kwargs["channel_id"] = input_data["channel_id"]
+        if input_data.get("message_id"):
+            kwargs["reply_to_message_id"] = input_data["message_id"]
+    return kwargs
+
+
 class FeedbackManager:
     """Routes success/failure feedback to the originating channel."""
 
@@ -63,22 +90,7 @@ class FeedbackManager:
         from angie.channels.base import get_channel_manager
 
         mgr = get_channel_manager()
-        kwargs: dict[str, Any] = {}
-
-        # Extract thread context from task_dict for threaded replies
-        if task_dict:
-            input_data = task_dict.get("input_data", {})
-            source_channel = task_dict.get("source_channel")
-            if source_channel == "slack":
-                if input_data.get("channel"):
-                    kwargs["channel"] = input_data["channel"]
-                if input_data.get("thread_ts"):
-                    kwargs["thread_ts"] = input_data["thread_ts"]
-            elif source_channel == "discord":
-                if input_data.get("channel_id"):
-                    kwargs["channel_id"] = input_data["channel_id"]
-                if input_data.get("message_id"):
-                    kwargs["reply_to_message_id"] = input_data["message_id"]
+        kwargs = extract_thread_kwargs(task_dict)
 
         await mgr.send(user_id=user_id, text=text, channel_type=channel, **kwargs)
 

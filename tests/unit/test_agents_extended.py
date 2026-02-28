@@ -66,6 +66,7 @@ def test_base_agent_get_system_prompt():
     mock_pm.compose_for_agent.assert_called_once_with("dummy", agent_instructions="")
 
 
+@pytest.mark.asyncio
 async def test_base_agent_ask_llm():
     agent_obj = DummyAgent()
 
@@ -83,6 +84,7 @@ async def test_base_agent_ask_llm():
     assert response == "LLM response"
 
 
+@pytest.mark.asyncio
 async def test_base_agent_ask_llm_with_auto_system_prompt():
     agent_obj = DummyAgent()
 
@@ -104,6 +106,7 @@ async def test_base_agent_ask_llm_with_auto_system_prompt():
     assert response == "response"
 
 
+@pytest.mark.asyncio
 async def test_base_agent_ask_llm_raises():
     agent_obj = DummyAgent()
 
@@ -118,6 +121,7 @@ async def test_base_agent_ask_llm_raises():
             await agent_obj.ask_llm("Hello", system="sys")
 
 
+@pytest.mark.asyncio
 async def test_base_agent_execute():
     agent_obj = DummyAgent()
     result = await agent_obj.execute({"title": "test"})
@@ -285,6 +289,7 @@ def test_team_resolver_resolve_no_match():
     assert result is None
 
 
+@pytest.mark.asyncio
 async def test_team_resolver_execute_success():
     registry = AgentRegistry()
     registry.register(DummyAgent())
@@ -301,6 +306,7 @@ async def test_team_resolver_execute_success():
     assert result["results"][0]["agent"] == "dummy"
 
 
+@pytest.mark.asyncio
 async def test_team_resolver_execute_failure_continues():
     registry = AgentRegistry()
     registry.register(FailingAgent())
@@ -317,6 +323,7 @@ async def test_team_resolver_execute_failure_continues():
     assert result["team"] == "test-team"
 
 
+@pytest.mark.asyncio
 async def test_team_resolver_execute_no_match():
     registry = AgentRegistry()
     registry._loaded = True
@@ -333,6 +340,7 @@ async def test_team_resolver_execute_no_match():
 # ── System agent tests ────────────────────────────────────────────────────────
 
 
+@pytest.mark.asyncio
 async def test_task_manager_list_tool():
     from angie.agents.system.task_manager import TaskManagerAgent
 
@@ -364,6 +372,7 @@ def test_task_manager_cancel_tool():
     assert result["task_id"] == "t123"
 
 
+@pytest.mark.asyncio
 async def test_task_manager_retry_tool():
     from angie.agents.system.task_manager import TaskManagerAgent
 
@@ -401,6 +410,7 @@ async def test_task_manager_retry_tool():
     assert result["retried"] is True
 
 
+@pytest.mark.asyncio
 async def test_task_manager_execute():
     from angie.agents.system.task_manager import TaskManagerAgent
 
@@ -416,6 +426,7 @@ async def test_task_manager_execute():
     assert result == {"result": "Listing tasks..."}
 
 
+@pytest.mark.asyncio
 async def test_task_manager_execute_error():
     from angie.agents.system.task_manager import TaskManagerAgent
 
@@ -430,6 +441,7 @@ async def test_task_manager_execute_error():
     assert "error" in result
 
 
+@pytest.mark.asyncio
 async def test_workflow_manager_list_tool():
     from angie.agents.system.workflow_manager import WorkflowManagerAgent
 
@@ -465,6 +477,7 @@ def test_workflow_manager_trigger_tool():
     assert result["celery_id"] == "celery-wf-123"
 
 
+@pytest.mark.asyncio
 async def test_workflow_manager_execute():
     from angie.agents.system.workflow_manager import WorkflowManagerAgent
 
@@ -480,6 +493,7 @@ async def test_workflow_manager_execute():
     assert result == {"result": "Triggered workflow"}
 
 
+@pytest.mark.asyncio
 async def test_workflow_manager_execute_error():
     from angie.agents.system.workflow_manager import WorkflowManagerAgent
 
@@ -494,6 +508,7 @@ async def test_workflow_manager_execute_error():
     assert "error" in result
 
 
+@pytest.mark.asyncio
 async def test_event_manager_list_tool():
     from angie.agents.system.event_manager import EventManagerAgent
 
@@ -514,6 +529,7 @@ async def test_event_manager_list_tool():
     assert result["events"] == []
 
 
+@pytest.mark.asyncio
 async def test_event_manager_execute():
     from angie.agents.system.event_manager import EventManagerAgent
 
@@ -529,6 +545,7 @@ async def test_event_manager_execute():
     assert result == {"result": "Events: ..."}
 
 
+@pytest.mark.asyncio
 async def test_event_manager_execute_error():
     from angie.agents.system.event_manager import EventManagerAgent
 
@@ -543,6 +560,7 @@ async def test_event_manager_execute_error():
     assert "error" in result
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_create_tool():
     from angie.agents.system.cron import CronAgent
 
@@ -566,6 +584,7 @@ async def test_cron_agent_create_tool():
     assert result["expression"] == "0 * * * *"
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_create_missing_expression():
     from angie.agents.system.cron import CronAgent
 
@@ -576,6 +595,7 @@ async def test_cron_agent_create_missing_expression():
     assert "expression" in result["error"]
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_create_missing_user_id():
     from angie.agents.system.cron import CronAgent
 
@@ -587,6 +607,7 @@ async def test_cron_agent_create_missing_user_id():
     assert "user_id" in result["error"]
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_create_missing_task_name():
     from angie.agents.system.cron import CronAgent
 
@@ -597,6 +618,7 @@ async def test_cron_agent_create_missing_task_name():
     assert "task_name" in result["error"]
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_delete_tool():
     from angie.agents.system.cron import CronAgent
 
@@ -609,6 +631,7 @@ async def test_cron_agent_delete_tool():
     assert result["job_id"] == "job1"
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_delete_missing_job_id():
     from angie.agents.system.cron import CronAgent
 
@@ -619,6 +642,7 @@ async def test_cron_agent_delete_missing_job_id():
     assert "job_id" in result["error"]
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_list_tool():
     from angie.agents.system.cron import CronAgent
 
@@ -631,6 +655,7 @@ async def test_cron_agent_list_tool():
     assert len(result["schedules"]) == 1
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_create_exception():
     from angie.agents.system.cron import CronAgent
 
@@ -645,6 +670,7 @@ async def test_cron_agent_create_exception():
     assert "sched error" in result["error"]
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_delete_exception():
     from angie.agents.system.cron import CronAgent
 
@@ -658,6 +684,7 @@ async def test_cron_agent_delete_exception():
     assert "error" in result
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_list_exception():
     from angie.agents.system.cron import CronAgent
 
@@ -671,6 +698,7 @@ async def test_cron_agent_list_exception():
     assert "error" in result
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_execute():
     from angie.agents.system.cron import CronAgent
 
@@ -686,6 +714,7 @@ async def test_cron_agent_execute():
     assert result == {"result": "Created cron job..."}
 
 
+@pytest.mark.asyncio
 async def test_cron_agent_execute_error():
     from angie.agents.system.cron import CronAgent
 

@@ -119,11 +119,11 @@ class BaseAgent(ABC):
         title: str,
         intent: str,
         agent_slug: str | None = None,
-    ) -> str:
+    ) -> str | None:
         """Schedule a follow-up task to run after a delay.
 
         Creates a one-shot scheduled job in the DB that fires after delay_seconds.
-        Returns the scheduled job ID.
+        Returns the scheduled job ID on success, or ``None`` if the DB write failed.
         """
         import uuid
         from datetime import UTC, datetime, timedelta
@@ -150,10 +150,10 @@ class BaseAgent(ABC):
                 session.add(job)
                 await session.commit()
             self.logger.info("Scheduled follow-up %s in %ds", job_id, delay_seconds)
+            return job_id
         except Exception as exc:
             self.logger.warning("Failed to schedule follow-up: %s", exc)
-
-        return job_id
+            return None
 
     # ------------------------------------------------------------------
     # Helpers

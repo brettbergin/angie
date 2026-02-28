@@ -5,11 +5,33 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import uuid
 from typing import Any
 
 from angie.channels.base import BaseChannel
 
 logger = logging.getLogger(__name__)
+
+# Module-level sync Redis client — lazily initialised, reused across calls.
+_sync_redis_client = None
+_sync_redis_lock = __import__("threading").Lock()
+
+
+def _get_sync_redis():
+    """Return a lazily-initialised, module-level sync Redis client."""
+    global _sync_redis_client
+    if _sync_redis_client is None:
+        with _sync_redis_lock:
+            if _sync_redis_client is None:
+                import redis
+
+                from angie.config import get_settings
+
+                settings = get_settings()
+                _sync_redis_client = redis.from_url(
+                    settings.redis_url, decode_responses=True
+                )
+    return _sync_redis_client
 
 
 def _build_task_result_payload(
@@ -19,6 +41,7 @@ def _build_task_result_payload(
 ) -> dict[str, Any]:
     """Build the standard task_result JSON payload."""
     payload: dict[str, Any] = {
+        "message_id": str(uuid.uuid4()),
         "content": text,
         "role": "assistant",
         "conversation_id": conversation_id,
@@ -114,18 +137,10 @@ class WebChatChannel(BaseChannel):
         agent_slug: str | None = None,
     ) -> None:
         """Publish a task result to Redis from a sync context (Celery worker)."""
-        import redis
-
-        from angie.config import get_settings
-
-        settings = get_settings()
         channel_name = WebChatChannel.redis_channel(user_id)
         payload = _build_task_result_payload(text, conversation_id, agent_slug)
-        client = redis.from_url(settings.redis_url, decode_responses=True)
-        try:
-            client.publish(channel_name, json.dumps(payload))
-        finally:
-            client.close()
+        client = _get_sync_redis()
+        client.publish(channel_name, json.dumps(payload))
 
     async def mention_user(self, user_id: str, text: str, **kwargs: Any) -> None:
         await self.send(user_id, f"@{user_id} {text}")

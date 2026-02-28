@@ -87,7 +87,7 @@ const AGENT_COLORS: Record<string, AgentColor> = {
     borderClass: "border-sky-700/40",
     bgClass: "bg-sky-900/30",
     labelClass: "text-sky-400",
-    initial: "W",
+    initial: "B",
     chipBorder: "border-sky-700/50",
     chipText: "text-sky-400",
   },

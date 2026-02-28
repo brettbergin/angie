@@ -54,6 +54,7 @@ def test_channel_manager_build_with_slack_discord():
     assert isinstance(mgr._channels, dict)
 
 
+@pytest.mark.asyncio
 async def test_channel_manager_send_dispatches():
     from angie.channels.base import ChannelManager
 
@@ -66,6 +67,7 @@ async def test_channel_manager_send_dispatches():
     mock_channel.send.assert_called_once_with("U123", "hello")
 
 
+@pytest.mark.asyncio
 async def test_channel_manager_send_unknown_channel():
     from angie.channels.base import ChannelManager
 
@@ -79,6 +81,7 @@ async def test_channel_manager_send_unknown_channel():
 # ── channels/slack.py: _dispatch_event ────────────────────────────────────────
 
 
+@pytest.mark.asyncio
 async def test_slack_dispatch_event():
     """Cover _dispatch_event converting a message to an AngieEvent."""
     slack_sdk_modules = {
@@ -110,6 +113,7 @@ async def test_slack_dispatch_event():
 # ── channels/discord.py: _dispatch_event ─────────────────────────────────────
 
 
+@pytest.mark.asyncio
 async def test_discord_dispatch_event():
     """Cover _dispatch_event in DiscordChannel."""
     mock_discord = MagicMock()
@@ -137,6 +141,7 @@ async def test_discord_dispatch_event():
 # ── channels/email.py: _check_inbox + _poll_inbox ────────────────────────────
 
 
+@pytest.mark.asyncio
 async def test_email_dispatch_event():
     """Cover email _dispatch_event."""
     from angie.channels.email import EmailChannel
@@ -199,6 +204,7 @@ def test_email_extract_body_simple():
 # ── channels/imessage.py: _poll_messages + old-message skip ──────────────────
 
 
+@pytest.mark.asyncio
 async def test_imessage_dispatch_event():
     """Cover iMessage _dispatch_event."""
 
@@ -219,6 +225,7 @@ async def test_imessage_dispatch_event():
     mock_router.dispatch.assert_called_once()
 
 
+@pytest.mark.asyncio
 async def test_imessage_check_new_messages_no_http():
     """_check_new_messages returns immediately when _http is None."""
     from angie.channels.imessage import IMessageChannel
@@ -233,6 +240,7 @@ async def test_imessage_check_new_messages_no_http():
     # No error = pass
 
 
+@pytest.mark.asyncio
 async def test_imessage_check_new_messages_skips_old():
     """Messages with dateCreated <= _last_ms are skipped."""
 
@@ -262,6 +270,7 @@ async def test_imessage_check_new_messages_skips_old():
     mock_router.dispatch.assert_not_called()
 
 
+@pytest.mark.asyncio
 async def test_imessage_check_new_messages_processes_new():
     """New messages (dateCreated > _last_ms) are dispatched."""
     from angie.channels.imessage import IMessageChannel

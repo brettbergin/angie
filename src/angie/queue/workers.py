@@ -126,19 +126,9 @@ async def _send_reply(
         return
     try:
         from angie.channels.base import get_channel_manager
+        from angie.core.feedback import extract_thread_kwargs
 
-        input_data = (task_dict or {}).get("input_data", {})
-        kwargs: dict[str, Any] = {}
-        if source_channel == "slack":
-            if input_data.get("channel"):
-                kwargs["channel"] = input_data["channel"]
-            if input_data.get("thread_ts"):
-                kwargs["thread_ts"] = input_data["thread_ts"]
-        elif source_channel == "discord":
-            if input_data.get("channel_id"):
-                kwargs["channel_id"] = input_data["channel_id"]
-            if input_data.get("message_id"):
-                kwargs["reply_to_message_id"] = input_data["message_id"]
+        kwargs = extract_thread_kwargs(task_dict, source_channel=source_channel)
 
         mgr = get_channel_manager()
         await mgr.send(user_id, text, channel_type=source_channel, **kwargs)
@@ -230,12 +220,10 @@ def _emit_lifecycle_event(
             payload={"task_id": task_id, "result": result, "agent_slug": agent_slug},
             source_channel=source_channel,
         )
-        # Fire-and-forget in the current event loop (we're inside asyncio.run)
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(router.dispatch(event))
-        else:
-            loop.run_until_complete(router.dispatch(event))
+        # Fire-and-forget in the current event loop (called from _run_task
+        # which runs inside asyncio.run, so a loop is always running).
+        loop = asyncio.get_running_loop()
+        loop.create_task(router.dispatch(event))
     except Exception:
         logger.debug("Failed to emit lifecycle event", exc_info=True)
 

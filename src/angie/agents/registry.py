@@ -77,16 +77,17 @@ class AgentRegistry:
     def _llm_route_sync(self, task: dict[str, Any]) -> BaseAgent | None:
         """Synchronously try LLM routing."""
         import asyncio
+        import concurrent.futures
 
         try:
             return asyncio.run(self._llm_route(task))
         except RuntimeError:
-            # Already in an event loop
+            # Already inside a running event loop — run in a separate thread
+            # where asyncio.run() is safe to call.
             try:
-                loop = asyncio.new_event_loop()
-                result = loop.run_until_complete(self._llm_route(task))
-                loop.close()
-                return result
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(asyncio.run, self._llm_route(task))
+                    return future.result(timeout=30)
             except Exception:
                 logger.debug("LLM routing failed", exc_info=True)
                 return None

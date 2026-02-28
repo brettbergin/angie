@@ -217,8 +217,9 @@ class GitHubAgent(BaseAgent):
             """Get CI check status for a pull request."""
             try:
                 g = ctx.deps
-                pr = g.get_repo(repo).get_pull(number)
-                commit = pr.get_commits().reversed[0]
+                repository = g.get_repo(repo)
+                pr = repository.get_pull(number)
+                commit = repository.get_commit(pr.head.sha)
                 checks = []
                 for run in commit.get_check_runs():
                     checks.append(

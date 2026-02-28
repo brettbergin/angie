@@ -1,4 +1,8 @@
-"""Detailed health endpoint — component-level status for the Angie system."""
+"""Health endpoint — public liveness check for the Angie system.
+
+Returns only non-sensitive status information (no internal component details,
+agent names, or infrastructure topology) so it is safe to expose without auth.
+"""
 
 from __future__ import annotations
 
@@ -15,39 +19,21 @@ _start_time = time.monotonic()
 
 @router.get("/api/v1/health")
 async def health_check():
-    """Return detailed health status for all Angie components."""
-    result = {
-        "status": "ok",
-        "uptime_seconds": round(time.monotonic() - _start_time, 1),
-        "channels": {},
-        "db": "unknown",
-        "redis": "unknown",
-        "active_agents": [],
-    }
+    """Return a minimal health status (safe for unauthenticated access)."""
+    from sqlalchemy import text
 
-    # Check channels
-    try:
-        from angie.channels.base import get_channel_manager
-
-        mgr = get_channel_manager()
-        for name, channel in mgr._channels.items():
-            try:
-                healthy = await channel.health_check()
-                result["channels"][name] = "connected" if healthy else "unhealthy"
-            except Exception:
-                result["channels"][name] = "error"
-    except Exception:
-        pass
+    db_ok = False
+    redis_ok = False
 
     # Check DB
     try:
         from angie.db.session import get_session_factory
 
         async with get_session_factory()() as session:
-            await session.execute(__import__("sqlalchemy").text("SELECT 1"))
-        result["db"] = "connected"
+            await session.execute(text("SELECT 1"))
+        db_ok = True
     except Exception:
-        result["db"] = "disconnected"
+        pass
 
     # Check Redis
     try:
@@ -59,21 +45,13 @@ async def health_check():
         r = redis.from_url(settings.redis_url)
         r.ping()
         r.close()
-        result["redis"] = "connected"
-    except Exception:
-        result["redis"] = "disconnected"
-
-    # List active agents
-    try:
-        from angie.agents.registry import get_registry
-
-        registry = get_registry()
-        result["active_agents"] = [a.slug for a in registry.list_all()]
+        redis_ok = True
     except Exception:
         pass
 
-    # Set overall status
-    if result["db"] == "disconnected":
-        result["status"] = "degraded"
+    status = "ok" if (db_ok and redis_ok) else "degraded"
 
-    return result
+    return {
+        "status": status,
+        "uptime_seconds": round(time.monotonic() - _start_time, 1),
+    }

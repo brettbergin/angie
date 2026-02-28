@@ -96,6 +96,9 @@ class GitHubIssueScanner(Scanner):
             user = g.get_user()
             issues = user.get_issues(state="open", filter="assigned")
             for issue in list(issues[:5]):
+                # TODO: user_id should be resolved from a DB-backed
+                # token→user mapping so suggestions reach the correct user
+                # instead of the generic "system" identity.
                 suggestions.append(
                     Suggestion(
                         user_id="system",
@@ -132,8 +135,8 @@ class InitiativeEngine:
             ]
         logger.info("Initiative engine started with %d scanners", len(self._scanners))
         while self._running:
-            await asyncio.sleep(self._scan_interval)
             await self._run_scans()
+            await asyncio.sleep(self._scan_interval)
 
     async def stop(self) -> None:
         """Stop the scan loop."""

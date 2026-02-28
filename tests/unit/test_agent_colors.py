@@ -6,6 +6,8 @@ import json
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("DB_PASSWORD", "test-password")
 
@@ -35,6 +37,7 @@ def test_chat_message_agent_slug_none_by_default():
     assert msg.agent_slug is None
 
 
+@pytest.mark.asyncio
 async def test_deliver_chat_result_passes_agent_slug():
     """_deliver_chat_result should persist and publish agent_slug via Redis."""
     from angie.queue.workers import _deliver_chat_result
@@ -71,6 +74,7 @@ async def test_deliver_chat_result_passes_agent_slug():
     )
 
 
+@pytest.mark.asyncio
 async def test_deliver_chat_result_agent_slug_none():
     """_deliver_chat_result with no agent_slug should still work."""
     from angie.queue.workers import _deliver_chat_result
@@ -98,6 +102,7 @@ async def test_deliver_chat_result_agent_slug_none():
     assert add_call.agent_slug is None
 
 
+@pytest.mark.asyncio
 async def test_web_chat_send_includes_agent_slug():
     """WebChatChannel.send() should include agent_slug in JSON payload."""
     from angie.channels.web_chat import WebChatChannel
@@ -119,6 +124,7 @@ async def test_web_chat_send_includes_agent_slug():
     assert payload["type"] == "task_result"
 
 
+@pytest.mark.asyncio
 async def test_web_chat_send_omits_agent_slug_when_none():
     """WebChatChannel.send() should not include agent_slug when None."""
     from angie.channels.web_chat import WebChatChannel

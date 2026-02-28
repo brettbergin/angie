@@ -260,6 +260,9 @@ function ChatPageInner() {
         // onerror is always followed by onclose, so status update happens there
       };
 
+      // Track seen task_result message IDs for robust deduplication
+      const seenMessageIds = new Set<string>();
+
       ws.onmessage = (evt) => {
         const data = JSON.parse(evt.data);
 
@@ -284,36 +287,28 @@ function ChatPageInner() {
           return;
         }
 
+        // Deduplicate task_result messages by server-generated message_id
+        if (data.type === "task_result" && data.message_id) {
+          if (seenMessageIds.has(data.message_id)) return;
+          seenMessageIds.add(data.message_id);
+        }
+
         // Track pending tasks: increment on dispatch, decrement on result
         if (data.type === "task_result") {
           pendingTasksRef.current = Math.max(0, pendingTasksRef.current - 1);
         }
 
-        setMessages((prev) => {
-          // Deduplicate: if this is a task_result whose content already exists
-          // (e.g. delivered via both Redis push and DB poll), skip it
-          if (data.type === "task_result") {
-            const isDup = prev.some(
-              (m) =>
-                m.type === "task_result" &&
-                m.content === (data.content ?? data.message) &&
-                m.agent_slug === data.agent_slug
-            );
-            if (isDup) return prev;
-          }
-
-          return [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: "assistant" as const,
-              content: data.content ?? data.message ?? JSON.stringify(data),
-              ts: Date.now(),
-              type: data.type,
-              agent_slug: data.agent_slug,
-            },
-          ];
-        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant" as const,
+            content: data.content ?? data.message ?? JSON.stringify(data),
+            ts: Date.now(),
+            type: data.type,
+            agent_slug: data.agent_slug,
+          },
+        ]);
 
         // If a task was dispatched, bump pending counter and start polling as safety net
         if (data.task_dispatched && currentConvoRef.current) {

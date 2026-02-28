@@ -169,10 +169,12 @@ class AngieLoop:
         """Check DB, Redis, and Celery are reachable before starting."""
         # Test DB connection
         try:
+            from sqlalchemy import text
+
             from angie.db.session import get_session_factory
 
             async with get_session_factory()() as session:
-                await session.execute(__import__("sqlalchemy").text("SELECT 1"))
+                await session.execute(text("SELECT 1"))
             logger.info("DB connection verified")
         except Exception as exc:
             logger.warning("DB connection check failed: %s", exc)
