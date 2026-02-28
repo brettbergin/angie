@@ -28,9 +28,7 @@ def _get_sync_redis():
                 from angie.config import get_settings
 
                 settings = get_settings()
-                _sync_redis_client = redis.from_url(
-                    settings.redis_url, decode_responses=True
-                )
+                _sync_redis_client = redis.from_url(settings.redis_url, decode_responses=True)
     return _sync_redis_client
 
 
