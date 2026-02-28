@@ -333,7 +333,7 @@ async def test_team_resolver_execute_no_match():
 # ── System agent tests ────────────────────────────────────────────────────────
 
 
-def test_task_manager_list_tool():
+async def test_task_manager_list_tool():
     from angie.agents.system.task_manager import TaskManagerAgent
 
     a = TaskManagerAgent()
@@ -348,9 +348,7 @@ def test_task_manager_list_tool():
 
     mock_factory = MagicMock(return_value=mock_session)
     with patch("angie.db.session.get_session_factory", return_value=mock_factory):
-        import asyncio
-
-        result = asyncio.get_event_loop().run_until_complete(tool.function())
+        result = await tool.function()
     assert "tasks" in result
     assert result["tasks"] == []
 
@@ -366,7 +364,7 @@ def test_task_manager_cancel_tool():
     assert result["task_id"] == "t123"
 
 
-def test_task_manager_retry_tool():
+async def test_task_manager_retry_tool():
     from angie.agents.system.task_manager import TaskManagerAgent
 
     a = TaskManagerAgent()
@@ -399,9 +397,7 @@ def test_task_manager_retry_tool():
         patch("angie.queue.workers.execute_task") as mock_exec,
     ):
         mock_exec.delay.return_value = mock_celery_result
-        import asyncio
-
-        result = asyncio.get_event_loop().run_until_complete(tool.function(task_id="task42"))
+        result = await tool.function(task_id="task42")
     assert result["retried"] is True
 
 
@@ -434,7 +430,7 @@ async def test_task_manager_execute_error():
     assert "error" in result
 
 
-def test_workflow_manager_list_tool():
+async def test_workflow_manager_list_tool():
     from angie.agents.system.workflow_manager import WorkflowManagerAgent
 
     a = WorkflowManagerAgent()
@@ -449,9 +445,7 @@ def test_workflow_manager_list_tool():
 
     mock_factory = MagicMock(return_value=mock_session)
     with patch("angie.db.session.get_session_factory", return_value=mock_factory):
-        import asyncio
-
-        result = asyncio.get_event_loop().run_until_complete(tool.function())
+        result = await tool.function()
     assert "workflows" in result
     assert result["workflows"] == []
 
@@ -500,7 +494,7 @@ async def test_workflow_manager_execute_error():
     assert "error" in result
 
 
-def test_event_manager_list_tool():
+async def test_event_manager_list_tool():
     from angie.agents.system.event_manager import EventManagerAgent
 
     a = EventManagerAgent()
@@ -515,9 +509,7 @@ def test_event_manager_list_tool():
 
     mock_factory = MagicMock(return_value=mock_session)
     with patch("angie.db.session.get_session_factory", return_value=mock_factory):
-        import asyncio
-
-        result = asyncio.get_event_loop().run_until_complete(tool.function())
+        result = await tool.function()
     assert "events" in result
     assert result["events"] == []
 

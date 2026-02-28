@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Zap } from "lucide-react";
+import { getAgentColor } from "@/lib/agent-colors";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -24,6 +24,7 @@ type Props = {
   content: string;
   username?: string;
   type?: "task_result";
+  agentSlug?: string | null;
   token?: string;
 };
 
@@ -32,9 +33,11 @@ export function ChatMessageBubble({
   content,
   username,
   type,
+  agentSlug,
   token,
 }: Props) {
   const isTaskResult = type === "task_result";
+  const agentColor = isTaskResult ? getAgentColor(agentSlug) : null;
 
   return (
     <div
@@ -44,10 +47,16 @@ export function ChatMessageBubble({
         <div
           className={cn(
             "mr-2 mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white",
-            isTaskResult ? "bg-emerald-600" : "bg-angie-600"
+            agentColor ? agentColor.avatarBg : "bg-angie-600"
           )}
         >
-          {isTaskResult ? <Zap className="h-3.5 w-3.5" /> : "A"}
+          {agentColor?.icon ? (
+            <agentColor.icon className="h-4 w-4" />
+          ) : agentColor ? (
+            agentColor.initial
+          ) : (
+            "A"
+          )}
         </div>
       )}
       <div
@@ -56,13 +65,13 @@ export function ChatMessageBubble({
           role === "user"
             ? "rounded-tr-sm bg-angie-600 text-white"
             : isTaskResult
-              ? "rounded-tl-sm border border-emerald-700/40 bg-emerald-900/30 text-gray-100"
+              ? cn("rounded-tl-sm border text-gray-100", agentColor?.borderClass, agentColor?.bgClass)
               : "rounded-tl-sm bg-gray-800 text-gray-100"
         )}
       >
         {isTaskResult && (
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
-            Task Result
+          <p className={cn("mb-1 text-[10px] font-semibold uppercase tracking-wider", agentColor?.labelClass)}>
+            {agentSlug ? `${agentSlug} result` : "Task Result"}
           </p>
         )}
         {role === "assistant" ? (

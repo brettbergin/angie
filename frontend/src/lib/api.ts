@@ -137,6 +137,7 @@ export type ChatMessage = {
   conversation_id: string;
   role: "user" | "assistant";
   content: string;
+  agent_slug?: string | null;
   created_at: string;
 };
 

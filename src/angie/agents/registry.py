@@ -16,20 +16,9 @@ AGENT_MODULES = [
     "angie.agents.system.task_manager",
     "angie.agents.system.workflow_manager",
     "angie.agents.system.event_manager",
-    "angie.agents.email.gmail",
-    "angie.agents.email.outlook",
-    "angie.agents.email.yahoo",
-    "angie.agents.email.spam",
-    "angie.agents.email.correspondence",
-    "angie.agents.calendar.gcal",
-    "angie.agents.smart_home.hue",
-    "angie.agents.smart_home.home_assistant",
-    "angie.agents.networking.ubiquiti",
-    "angie.agents.media.spotify",
     "angie.agents.dev.github",
     "angie.agents.dev.software_dev",
     "angie.agents.productivity.web",
-    "angie.agents.productivity.reminders",
     "angie.agents.lifestyle.weather",
 ]
 
@@ -72,12 +61,66 @@ class AgentRegistry:
         return self._agents.get(slug)
 
     def resolve(self, task: dict[str, Any]) -> BaseAgent | None:
-        """Find the first agent that can handle this task."""
+        """Find the best agent by confidence score. Falls back to LLM routing."""
         self.load_all()
-        for agent in self._agents.values():
-            if agent.can_handle(task):
-                return agent
-        return None
+
+        # Confidence scoring
+        scored = [(agent, agent.confidence(task)) for agent in self._agents.values()]
+        scored.sort(key=lambda x: x[1], reverse=True)
+
+        if scored and scored[0][1] >= 0.5:
+            return scored[0][0]
+
+        # LLM-based routing (fallback for ambiguous tasks)
+        return self._llm_route_sync(task)
+
+    def _llm_route_sync(self, task: dict[str, Any]) -> BaseAgent | None:
+        """Synchronously try LLM routing."""
+        import asyncio
+
+        try:
+            return asyncio.run(self._llm_route(task))
+        except RuntimeError:
+            # Already in an event loop
+            try:
+                loop = asyncio.new_event_loop()
+                result = loop.run_until_complete(self._llm_route(task))
+                loop.close()
+                return result
+            except Exception:
+                logger.debug("LLM routing failed", exc_info=True)
+                return None
+
+    async def _llm_route(self, task: dict[str, Any]) -> BaseAgent | None:
+        """Ask the LLM which agent should handle this task."""
+        from angie.llm import get_llm_model, is_llm_configured
+
+        if not is_llm_configured():
+            return None
+
+        agent_descriptions = "\n".join(
+            f"- {a.slug}: {a.description} (capabilities: {', '.join(a.capabilities)})"
+            for a in self._agents.values()
+        )
+        prompt = (
+            f"Given this task: {task.get('title', '')}\n"
+            f"User text: {task.get('input_data', {}).get('text', '')}\n\n"
+            f"Available agents:\n{agent_descriptions}\n\n"
+            f"Which agent slug should handle this? Reply with just the slug, "
+            f"or 'none' if no agent fits."
+        )
+        try:
+            from pydantic_ai import Agent
+
+            agent = Agent(
+                system_prompt="You are a task router. Reply with only an agent slug or 'none'."
+            )
+            result = await agent.run(prompt, model=get_llm_model())
+            slug = str(result.output).strip().lower()
+            return self._agents.get(slug)
+        except Exception:
+            logger.debug("LLM route failed", exc_info=True)
+            return None
 
     def list_all(self) -> list[BaseAgent]:
         self.load_all()

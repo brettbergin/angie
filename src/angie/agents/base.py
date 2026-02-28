@@ -20,7 +20,7 @@ class BaseAgent(ABC):
     Base class for all Angie agents.
 
     Each agent wraps:
-    - An external service SDK (Gmail, Slack, phue, etc.)
+    - An external service SDK (GitHub, Slack, etc.)
     - A pydantic-ai Agent whose @tool functions call the SDK
     - A pluggable LLM backend (GitHub Models, OpenAI, or Anthropic)
 
@@ -72,6 +72,88 @@ class BaseAgent(ABC):
         if self._pydantic_agent is None:
             self._pydantic_agent = self.build_pydantic_agent()
         return self._pydantic_agent
+
+    # ------------------------------------------------------------------
+    # Confidence scoring (for smart routing)
+    # ------------------------------------------------------------------
+
+    def confidence(self, task: dict[str, Any]) -> float:
+        """Return 0.0-1.0 confidence that this agent can handle the task.
+
+        Default: keyword matching with scoring.
+        Subclasses can override for custom logic.
+        """
+        task_slug = task.get("agent_slug")
+        if task_slug and task_slug == self.slug:
+            return 1.0  # Explicit match
+        if task_slug:
+            return 0.0  # Different agent explicitly requested
+
+        title = task.get("title", "").lower()
+        text = task.get("input_data", {}).get("text", "").lower()
+        combined = f"{title} {text}"
+
+        if not self.capabilities:
+            return 0.0
+
+        matches = sum(1 for cap in self.capabilities if cap.lower() in combined)
+        return min(matches / len(self.capabilities), 1.0) * 0.8  # Cap at 0.8 for keyword
+
+    # ------------------------------------------------------------------
+    # Autonomous capabilities
+    # ------------------------------------------------------------------
+
+    async def notify_user(
+        self, user_id: str, message: str, channel: str | None = None, **kwargs: Any
+    ) -> None:
+        """Send a proactive notification to a user via their preferred channel."""
+        from angie.core.feedback import get_feedback
+
+        await get_feedback().send_mention(user_id, message, channel=channel, **kwargs)
+
+    async def schedule_followup(
+        self,
+        *,
+        user_id: str,
+        delay_seconds: int,
+        title: str,
+        intent: str,
+        agent_slug: str | None = None,
+    ) -> str:
+        """Schedule a follow-up task to run after a delay.
+
+        Creates a one-shot scheduled job in the DB that fires after delay_seconds.
+        Returns the scheduled job ID.
+        """
+        import uuid
+        from datetime import UTC, datetime, timedelta
+
+        from angie.db.session import get_session_factory
+        from angie.models.schedule import ScheduledJob
+
+        job_id = str(uuid.uuid4())
+        run_at = datetime.now(UTC) + timedelta(seconds=delay_seconds)
+
+        try:
+            async with get_session_factory()() as session:
+                job = ScheduledJob(
+                    id=job_id,
+                    user_id=user_id,
+                    name=title,
+                    description=f"Follow-up: {intent}",
+                    cron_expression="@once",
+                    agent_slug=agent_slug or self.slug,
+                    task_payload={"intent": intent, "title": title},
+                    is_enabled=True,
+                    next_run_at=run_at,
+                )
+                session.add(job)
+                await session.commit()
+            self.logger.info("Scheduled follow-up %s in %ds", job_id, delay_seconds)
+        except Exception as exc:
+            self.logger.warning("Failed to schedule follow-up: %s", exc)
+
+        return job_id
 
     # ------------------------------------------------------------------
     # Helpers

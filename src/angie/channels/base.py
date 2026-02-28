@@ -34,6 +34,13 @@ class BaseChannel(ABC):
         """@-mention a user with a message."""
         ...
 
+    async def health_check(self) -> bool:
+        """Return True if the channel connection is healthy.
+
+        Subclasses should override with platform-specific checks.
+        """
+        return True
+
 
 class ChannelManager:
     """Manages the lifecycle and routing of all active channels."""
@@ -60,14 +67,16 @@ class ChannelManager:
             except Exception:
                 pass
 
-    async def send(self, user_id: str, text: str, channel_type: str | None = None) -> None:
+    async def send(
+        self, user_id: str, text: str, channel_type: str | None = None, **kwargs: Any
+    ) -> None:
         if channel_type and channel_type in self._channels:
-            await self._channels[channel_type].send(user_id, text)
+            await self._channels[channel_type].send(user_id, text, **kwargs)
             return
         # Broadcast to all enabled channels if no specific type given
         for ch in self._channels.values():
             try:
-                await ch.send(user_id, text)
+                await ch.send(user_id, text, **kwargs)
             except Exception as e:
                 logger.warning("Channel %s send failed: %s", ch.channel_type, e)
 

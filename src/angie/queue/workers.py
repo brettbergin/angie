@@ -52,6 +52,7 @@ async def _deliver_chat_result(
     conversation_id: str,
     user_id: str,
     text: str,
+    agent_slug: str | None = None,
 ) -> None:
     """Persist a task result as a ChatMessage and push via WebSocket."""
     from sqlalchemy import func
@@ -67,6 +68,7 @@ async def _deliver_chat_result(
                 conversation_id=conversation_id,
                 role=MessageRole.ASSISTANT,
                 content=text,
+                agent_slug=agent_slug,
             )
             session.add(msg)
             # Touch conversation updated_at
@@ -77,17 +79,15 @@ async def _deliver_chat_result(
     except Exception as exc:
         logger.warning("Failed to persist chat result to conversation: %s", exc)
 
-    # Push via WebSocket if user is connected
+    # Push via Redis pub/sub so the FastAPI process can forward to the WebSocket
     try:
-        from angie.api.routers.chat import _web_channel
+        from angie.channels.web_chat import WebChatChannel
 
-        await _web_channel.send(
-            user_id,
-            text,
-            conversation_id=conversation_id,
+        WebChatChannel.publish_result_sync(
+            user_id, text, conversation_id, agent_slug=agent_slug
         )
     except Exception as exc:
-        logger.debug("WebSocket push failed (user may be offline): %s", exc)
+        logger.debug("Redis publish failed (user may be offline): %s", exc)
 
 
 # ── D3: Intent routing ────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ def _resolve_agent(task_dict: dict[str, Any]):
         if agent:
             return agent
 
-    # Keyword-based intent routing (fast, no LLM needed for routing)
+    # Confidence-scored + LLM fallback routing
     agent = registry.resolve(task_dict)
     if agent:
         return agent
@@ -117,15 +117,33 @@ def _resolve_agent(task_dict: dict[str, Any]):
 # ── D2: Channel reply ─────────────────────────────────────────────────────────
 
 
-async def _send_reply(source_channel: str | None, user_id: str | None, text: str) -> None:
-    """D2 — send task result back to the originating channel."""
+async def _send_reply(
+    source_channel: str | None,
+    user_id: str | None,
+    text: str,
+    task_dict: dict[str, Any] | None = None,
+) -> None:
+    """D2 — send task result back to the originating channel (with thread context)."""
     if not source_channel or not user_id:
         return
     try:
         from angie.channels.base import get_channel_manager
 
+        input_data = (task_dict or {}).get("input_data", {})
+        kwargs: dict[str, Any] = {}
+        if source_channel == "slack":
+            if input_data.get("channel"):
+                kwargs["channel"] = input_data["channel"]
+            if input_data.get("thread_ts"):
+                kwargs["thread_ts"] = input_data["thread_ts"]
+        elif source_channel == "discord":
+            if input_data.get("channel_id"):
+                kwargs["channel_id"] = input_data["channel_id"]
+            if input_data.get("message_id"):
+                kwargs["reply_to_message_id"] = input_data["message_id"]
+
         mgr = get_channel_manager()
-        await mgr.send(user_id, text, channel_type=source_channel)
+        await mgr.send(user_id, text, channel_type=source_channel, **kwargs)
     except Exception as exc:
         logger.warning("Channel reply failed (%s): %s", source_channel, exc)
 
@@ -145,7 +163,22 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
 
     agent = _resolve_agent(task_dict)
     if agent is None:
-        raise ValueError(f"No agent found for task '{task_dict.get('title')}'")
+        # Graceful handling: inform the user instead of raising
+        from angie.agents.registry import get_registry
+
+        registry = get_registry()
+        available = ", ".join(a.slug for a in registry.list_all())
+        msg = (
+            f"I couldn't find a suitable agent for this task. "
+            f"Available agents: {available}"
+        )
+        if conversation_id and user_id:
+            await _deliver_chat_result(conversation_id, user_id, msg)
+        else:
+            await _send_reply(source_channel, user_id, msg, task_dict)
+        if task_id:
+            await _update_task_in_db(task_id, "failure", {}, "No matching agent")
+        return {"status": "no_agent", "error": msg}
 
     result = await agent.execute(task_dict)
 
@@ -157,15 +190,59 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
         or result.get("message")
         or result.get("result")
         or result.get("error")
-        or "✅ Task complete."
+        or "Task complete."
     )
 
+    # Use FeedbackManager for task completion notifications
+    from angie.core.feedback import get_feedback
+
+    feedback = get_feedback()
+
     if conversation_id and user_id:
-        await _deliver_chat_result(conversation_id, user_id, summary)
+        await _deliver_chat_result(conversation_id, user_id, summary, agent_slug=agent.slug)
     else:
-        await _send_reply(source_channel, user_id, summary)
+        await feedback.send_success(
+            user_id or "system",
+            summary,
+            channel=source_channel,
+            task_id=task_id,
+            task_dict=task_dict,
+        )
+
+    # Emit lifecycle event for task completion
+    _emit_lifecycle_event("task_complete", task_id, user_id, source_channel, result, agent.slug)
 
     return {"status": "success", "result": result, "task_id": task_id}
+
+
+def _emit_lifecycle_event(
+    event_type: str,
+    task_id: str | None,
+    user_id: str | None,
+    source_channel: str | None,
+    result: dict[str, Any],
+    agent_slug: str,
+) -> None:
+    """Fire a TASK_COMPLETE or TASK_FAILED event for the subscription system."""
+    try:
+        from angie.core.events import AngieEvent, router
+        from angie.models.event import EventType
+
+        et = EventType.TASK_COMPLETE if event_type == "task_complete" else EventType.TASK_FAILED
+        event = AngieEvent(
+            type=et,
+            user_id=user_id,
+            payload={"task_id": task_id, "result": result, "agent_slug": agent_slug},
+            source_channel=source_channel,
+        )
+        # Fire-and-forget in the current event loop (we're inside asyncio.run)
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(router.dispatch(event))
+        else:
+            loop.run_until_complete(router.dispatch(event))
+    except Exception:
+        logger.debug("Failed to emit lifecycle event", exc_info=True)
 
 
 @shared_task(bind=True, name="angie.queue.workers.execute_task", max_retries=3)
@@ -188,14 +265,30 @@ def execute_task(self, task_dict: dict[str, Any]) -> dict[str, Any]:
             except Exception:
                 pass
 
-        error_msg = f"❌ Task failed: {exc}"
+        error_msg = f"Task failed: {exc}"
         try:
             if conversation_id and user_id:
                 asyncio.run(_deliver_chat_result(conversation_id, user_id, error_msg))
             else:
-                asyncio.run(_send_reply(source_channel, user_id, error_msg))
+                from angie.core.feedback import get_feedback
+
+                feedback = get_feedback()
+                asyncio.run(
+                    feedback.send_failure(
+                        user_id or "system",
+                        error_msg,
+                        channel=source_channel,
+                        task_id=task_id,
+                        task_dict=task_dict,
+                    )
+                )
         except Exception:
             pass
+
+        # Emit failure lifecycle event
+        _emit_lifecycle_event(
+            "task_failed", task_id, user_id, source_channel, {}, task_dict.get("agent_slug", "")
+        )
 
         raise self.retry(exc=exc, countdown=2**self.request.retries) from exc
 

@@ -44,6 +44,7 @@ class ChatMessage(Base, TimestampMixin):
         nullable=False,
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    agent_slug: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
 

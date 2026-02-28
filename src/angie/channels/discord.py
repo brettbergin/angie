@@ -62,6 +62,7 @@ class DiscordChannel(BaseChannel):
                 user_id=str(message.author.id),
                 text=text,
                 channel_id=str(message.channel.id),
+                message_id=str(message.id),
             )
 
         try:
@@ -69,14 +70,19 @@ class DiscordChannel(BaseChannel):
         except asyncio.CancelledError:
             await client.close()
 
-    async def _dispatch_event(self, user_id: str, text: str, channel_id: str) -> None:
+    async def _dispatch_event(
+        self, user_id: str, text: str, channel_id: str, message_id: str | None = None
+    ) -> None:
         from angie.core.events import AngieEvent, router
         from angie.models.event import EventType
 
+        payload: dict[str, Any] = {"text": text, "channel_id": channel_id}
+        if message_id:
+            payload["message_id"] = message_id
         event = AngieEvent(
             type=EventType.CHANNEL_MESSAGE,
             user_id=user_id,
-            payload={"text": text, "channel_id": channel_id},
+            payload=payload,
             source_channel="discord",
         )
         await router.dispatch(event)
@@ -88,13 +94,26 @@ class DiscordChannel(BaseChannel):
             self._bot_task.cancel()
 
     async def send(
-        self, user_id: str, text: str, channel_id: int | str | None = None, **kwargs: Any
+        self,
+        user_id: str,
+        text: str,
+        channel_id: int | str | None = None,
+        reply_to_message_id: str | None = None,
+        **kwargs: Any,
     ) -> None:
         if self._client is None:
             return
         if channel_id:
             channel = self._client.get_channel(int(channel_id))
             if channel:
+                # Reply to the original message for threading
+                if reply_to_message_id:
+                    try:
+                        original = await channel.fetch_message(int(reply_to_message_id))  # type: ignore[union-attr]
+                        await original.reply(text)
+                        return
+                    except Exception:
+                        logger.debug("Could not reply to message %s, sending normally", reply_to_message_id)
                 await channel.send(text)  # type: ignore[union-attr]
                 return
         # Fall back to DM
@@ -103,6 +122,12 @@ class DiscordChannel(BaseChannel):
             await user.send(text)
         except Exception as exc:
             logger.warning("Discord DM failed: %s", exc)
+
+    async def health_check(self) -> bool:
+        """Check if the Discord bot is connected and ready."""
+        if self._client is None:
+            return False
+        return self._client.is_ready() and not self._client.is_closed()
 
     async def mention_user(self, user_id: str, text: str, **kwargs: Any) -> None:
         await self.send(user_id, f"<@{user_id}> {text}", **kwargs)
