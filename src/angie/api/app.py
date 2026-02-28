@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
         connections,
         conversations,
         events,
+        health,
         media,
         prompts,
         schedules,
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(conversations.router, prefix="/api/v1/conversations", tags=["conversations"])
     app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
     app.include_router(media.router, prefix="/api/v1/media", tags=["media"])
+    app.include_router(health.router, tags=["health"])
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception):

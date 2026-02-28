@@ -46,6 +46,7 @@ class ChatMessageOut(BaseModel):
     conversation_id: str
     role: str
     content: str
+    agent_slug: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

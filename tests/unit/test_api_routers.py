@@ -1106,10 +1106,10 @@ def test_list_services():
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, list)
-    assert len(data) >= 10
+    assert len(data) >= 6
     keys = {s["key"] for s in data}
     assert "github" in keys
-    assert "spotify" in keys
+    assert "slack" in keys
     for svc in data:
         assert "name" in svc
         assert "fields" in svc

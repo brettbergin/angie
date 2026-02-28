@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api, Agent, Team, ChatMessage as ChatMessageType } from "@/lib/api";
 import { parseUTC } from "@/lib/utils";
+import { AGENT_COLORS, getAgentColor } from "@/lib/agent-colors";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { ChatMessageBubble } from "@/components/chat/ChatMessage";
@@ -24,6 +25,7 @@ type Message = {
   content: string;
   ts: number;
   type?: "task_result";
+  agent_slug?: string | null;
 };
 
 function ChatPageInner() {
@@ -43,12 +45,13 @@ function ChatPageInner() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const currentConvoRef = useRef<string | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollGenRef = useRef(0);
-  const messageCountRef = useRef<number>(0);
+  const pendingTasksRef = useRef(0);
+  const lastMessageTsRef = useRef<string>(""); // ISO timestamp of newest DB message
   const tokenRef = useRef(token);
   const reconnectAttempts = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const seenMessageIdsRef = useRef(new Set<string>());
   // Skip DB reload when we just created the conversation via WS
   const skipNextReloadRef = useRef(false);
 
@@ -121,9 +124,13 @@ function ChatPageInner() {
           role: m.role,
           content: m.content,
           ts: parseUTC(m.created_at).getTime(),
+          agent_slug: m.agent_slug,
+          type: m.agent_slug ? ("task_result" as const) : undefined,
         }));
         setMessages(mapped);
-        messageCountRef.current = mapped.length;
+        if (msgs.length > 0) {
+          lastMessageTsRef.current = msgs[msgs.length - 1].created_at;
+        }
         setLoadingMessages(false);
       })
       .catch(() => {
@@ -135,17 +142,21 @@ function ChatPageInner() {
     };
   }, [token, conversationId]);
 
-  // Poll for task results (worker persists to DB; WebSocket push from worker is unreliable)
+  // Poll for task results as a safety net (Redis pub/sub is the primary delivery path)
   const startPolling = useCallback((convoId: string) => {
-    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    // If polling is already running, just let it continue — don't restart
+    if (pollTimerRef.current) return;
     if (!tokenRef.current) return;
-    const gen = ++pollGenRef.current;
     let attempts = 0;
-    const maxAttempts = 20; // 60 seconds at 3s intervals
+    const maxAttempts = 30; // 90 seconds at 3s intervals
 
     const poll = async () => {
-      if (gen !== pollGenRef.current) return; // stale poll — newer one took over
       attempts++;
+      // Stop polling when no tasks are pending and we've done at least a few checks
+      if (pendingTasksRef.current <= 0 && attempts > 3) {
+        pollTimerRef.current = null;
+        return;
+      }
       if (attempts > maxAttempts) {
         pollTimerRef.current = null;
         return;
@@ -154,22 +165,24 @@ function ChatPageInner() {
       if (!currentToken) return;
       try {
         const msgs = await api.conversations.getMessages(currentToken, convoId);
-        if (msgs.length > messageCountRef.current) {
+        const latestTs =
+          msgs.length > 0 ? msgs[msgs.length - 1].created_at : "";
+        if (latestTs && latestTs > lastMessageTsRef.current) {
+          lastMessageTsRef.current = latestTs;
           setMessages(
             msgs.map((m: ChatMessageType) => ({
               id: m.id,
               role: m.role as "user" | "assistant",
               content: m.content,
               ts: parseUTC(m.created_at).getTime(),
+              agent_slug: m.agent_slug,
+              type: m.agent_slug ? ("task_result" as const) : undefined,
             }))
           );
-          messageCountRef.current = msgs.length;
-          // Don't stop — keep polling for more results (multiple tasks may be in flight)
         }
       } catch {
         // Polling error — ignore and retry
       }
-      if (gen !== pollGenRef.current) return; // check again after async work
       // Schedule next poll only after current one completes
       pollTimerRef.current = setTimeout(poll, 3000);
     };
@@ -259,6 +272,8 @@ function ChatPageInner() {
           currentConvoRef.current = data.conversation_id;
           skipNextReloadRef.current = true;
           router.push(`/chat?c=${data.conversation_id}`);
+          // Notify sidebar to reload so the new conversation appears
+          window.dispatchEvent(new CustomEvent("angie:conversation-created"));
         }
 
         // Task results for a different conversation — ignore (already persisted in DB)
@@ -270,23 +285,32 @@ function ChatPageInner() {
           return;
         }
 
-        setMessages((prev) => {
-          const updated = [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: "assistant" as const,
-              content: data.content ?? data.message ?? JSON.stringify(data),
-              ts: Date.now(),
-              type: data.type,
-            },
-          ];
-          messageCountRef.current = updated.length;
-          return updated;
-        });
+        // Deduplicate task_result messages by server-generated message_id
+        if (data.type === "task_result" && data.message_id) {
+          if (seenMessageIdsRef.current.has(data.message_id)) return;
+          seenMessageIdsRef.current.add(data.message_id);
+        }
 
-        // If a task was dispatched, start polling for the result
+        // Track pending tasks: increment on dispatch, decrement on result
+        if (data.type === "task_result") {
+          pendingTasksRef.current = Math.max(0, pendingTasksRef.current - 1);
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant" as const,
+            content: data.content ?? data.message ?? JSON.stringify(data),
+            ts: Date.now(),
+            type: data.type,
+            agent_slug: data.agent_slug,
+          },
+        ]);
+
+        // If a task was dispatched, bump pending counter and start polling as safety net
         if (data.task_dispatched && currentConvoRef.current) {
+          pendingTasksRef.current++;
           startPolling(currentConvoRef.current);
         }
       };
@@ -320,19 +344,15 @@ function ChatPageInner() {
     if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)
       return;
     wsRef.current.send(JSON.stringify({ content: text }));
-    setMessages((prev) => {
-      const updated = [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "user" as const,
-          content: text,
-          ts: Date.now(),
-        },
-      ];
-      messageCountRef.current = updated.length;
-      return updated;
-    });
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: "user" as const,
+        content: text,
+        ts: Date.now(),
+      },
+    ]);
     setInput("");
     setShowMentions(false);
     const ta = (e.target as HTMLElement)
@@ -387,7 +407,7 @@ function ChatPageInner() {
       }
     },
     [showMentions, mentionKeyDown]
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // Agent chip click handler — inserts @slug into input
   const handleAgentChipClick = useCallback((slug: string) => {
@@ -476,6 +496,8 @@ function ChatPageInner() {
                 role={msg.role}
                 content={msg.content}
                 username={user?.username}
+                type={msg.type}
+                agentSlug={msg.agent_slug}
                 token={token ?? undefined}
               />
             ))
@@ -503,7 +525,11 @@ function ChatPageInner() {
                       <button
                         key={a.slug}
                         onClick={() => handleAgentChipClick(a.slug)}
-                        className="cursor-pointer rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-angie-400 transition-colors hover:border-angie-500/50 hover:bg-gray-700"
+                        className={cn(
+                          "cursor-pointer rounded-md border bg-gray-800 px-2 py-1 text-xs transition-colors hover:bg-gray-700",
+                          getAgentColor(a.slug).chipBorder,
+                          getAgentColor(a.slug).chipText
+                        )}
                         title={a.description}
                       >
                         @{a.slug}
@@ -621,6 +647,7 @@ function ChatPageInner() {
             content={msg.content}
             username={user?.username}
             type={msg.type}
+            agentSlug={msg.agent_slug}
             token={token ?? undefined}
           />
         ))}

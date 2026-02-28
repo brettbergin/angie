@@ -63,7 +63,12 @@ class SlackChannel(BaseChannel):
             clean_text = text.replace(f"<@{bot_id}>", "").strip()
             logger.info("Slack inbound from %s: %s", user_id, clean_text)
 
-            await self._dispatch_event(user_id=user_id, text=clean_text, channel=channel)
+            await self._dispatch_event(
+                user_id=user_id,
+                text=clean_text,
+                channel=channel,
+                thread_ts=event.get("ts"),
+            )
 
         sm_client = SocketModeClient(app_token=app_token, web_client=self._client)
         sm_client.socket_mode_request_listeners.append(_process)
@@ -73,15 +78,20 @@ class SlackChannel(BaseChannel):
         while True:
             await asyncio.sleep(30)
 
-    async def _dispatch_event(self, user_id: str, text: str, channel: str) -> None:
+    async def _dispatch_event(
+        self, user_id: str, text: str, channel: str, thread_ts: str | None = None
+    ) -> None:
         """Convert inbound message to an AngieEvent and dispatch it."""
         from angie.core.events import AngieEvent, router
         from angie.models.event import EventType
 
+        payload: dict[str, Any] = {"text": text, "channel": channel}
+        if thread_ts:
+            payload["thread_ts"] = thread_ts
         event = AngieEvent(
             type=EventType.CHANNEL_MESSAGE,
             user_id=user_id,
-            payload={"text": text, "channel": channel},
+            payload=payload,
             source_channel="slack",
         )
         await router.dispatch(event)
@@ -92,12 +102,30 @@ class SlackChannel(BaseChannel):
         self._client = None
 
     async def send(
-        self, user_id: str, text: str, channel: str | None = None, **kwargs: Any
+        self,
+        user_id: str,
+        text: str,
+        channel: str | None = None,
+        thread_ts: str | None = None,
+        **kwargs: Any,
     ) -> None:
         if self._client is None:
             return
         target = channel or user_id
-        await self._client.chat_postMessage(channel=target, text=text)
+        msg_kwargs: dict[str, Any] = {"channel": target, "text": text}
+        if thread_ts:
+            msg_kwargs["thread_ts"] = thread_ts
+        await self._client.chat_postMessage(**msg_kwargs)
+
+    async def health_check(self) -> bool:
+        """Verify Slack connection is alive via auth.test."""
+        if self._client is None:
+            return False
+        try:
+            result = await self._client.auth_test()
+            return result.get("ok", False)
+        except Exception:
+            return False
 
     async def mention_user(
         self, user_id: str, text: str, channel: str | None = None, **kwargs: Any

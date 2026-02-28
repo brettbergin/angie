@@ -52,28 +52,6 @@ _SERVICES: dict[str, list[tuple[str, str, bool]]] = {
         ("EMAIL_USERNAME", "Email address", False),
         ("EMAIL_PASSWORD", "App password", True),
     ],
-    "google": [
-        ("GOOGLE_CREDENTIALS_FILE", "Path to credentials.json from Google Cloud Console", False),
-        ("GOOGLE_TOKEN_FILE", "Path to save OAuth token (default: token.json)", False),
-    ],
-    "spotify": [
-        ("SPOTIFY_CLIENT_ID", "Spotify client ID", False),
-        ("SPOTIFY_CLIENT_SECRET", "Spotify client secret", True),
-        ("SPOTIFY_REDIRECT_URI", "Redirect URI (default: http://localhost:8080/callback)", False),
-    ],
-    "hue": [
-        ("HUE_BRIDGE_IP", "Philips Hue bridge IP (e.g. 192.168.1.100)", False),
-        ("HUE_USERNAME", "Hue API username (from bridge pairing)", True),
-    ],
-    "homeassistant": [
-        ("HOME_ASSISTANT_URL", "Home Assistant URL (e.g. http://homeassistant.local:8123)", False),
-        ("HOME_ASSISTANT_TOKEN", "Long-lived access token", True),
-    ],
-    "unifi": [
-        ("UNIFI_HOST", "UniFi controller URL (e.g. https://192.168.1.1)", False),
-        ("UNIFI_USERNAME", "Controller admin username", False),
-        ("UNIFI_PASSWORD", "Controller admin password", True),
-    ],
     "github": [
         ("GITHUB_PAT", "GitHub PAT for GitHub agent (separate from GITHUB_TOKEN)", True),
     ],
@@ -96,8 +74,7 @@ def configure():
 def keys(service: str):
     """Set API keys for SERVICE.
 
-    SERVICE is one of: llm, slack, discord, imessage, email, google, spotify,
-    hue, homeassistant, unifi, github
+    SERVICE is one of: llm, slack, discord, imessage, email, github
     """
     env = read_env()
     click.echo(f"\nConfigure {service.upper()}\n")
@@ -246,9 +223,9 @@ async def _seed_db() -> None:
 
         # ── Sample team ────────────────────────────────────────────────────────
         email_team = Team(
-            name="Email Team",
-            slug="email-team",
-            description="Handles all email-related tasks",
+            name="Dev Team",
+            slug="dev-team",
+            description="Handles software development tasks",
         )
         session.add(email_team)
         await session.flush()
@@ -268,19 +245,19 @@ async def _seed_db() -> None:
             WorkflowStep(
                 workflow_id=workflow.id,
                 order=1,
-                name="Check calendar",
-                config={"agent_slug": "gcal-agent"},
+                name="Check GitHub notifications",
+                config={"agent_slug": "github"},
             ),
             WorkflowStep(
                 workflow_id=workflow.id,
                 order=2,
-                name="Summarise email",
-                config={"agent_slug": "gmail-agent"},
+                name="Check weather",
+                config={"agent_slug": "weather"},
             ),
             WorkflowStep(
                 workflow_id=workflow.id,
                 order=3,
-                name="Post to Slack",
+                name="Post summary to Slack",
                 config={"agent_slug": "task-manager"},
             ),
         ]
@@ -319,11 +296,11 @@ async def _seed_db() -> None:
         # ── Sample tasks ───────────────────────────────────────────────────────
         sample_tasks = [
             Task(
-                title="Summarise inbox",
+                title="List GitHub repositories",
                 user_id=demo_user.id,
                 status=TaskStatus.SUCCESS,
                 source_channel="slack",
-                output_data={"summary": "3 unread emails"},
+                output_data={"summary": "Found 12 repositories"},
             ),
             Task(
                 title="Morning briefing",
@@ -332,11 +309,11 @@ async def _seed_db() -> None:
                 source_channel="cron",
             ),
             Task(
-                title="Adjust living room lights",
+                title="Check weather forecast",
                 user_id=demo_user.id,
-                status=TaskStatus.FAILURE,
+                status=TaskStatus.SUCCESS,
                 source_channel="discord",
-                error="Bridge unreachable",
+                output_data={"summary": "Sunny, 72F"},
             ),
         ]
         session.add_all(sample_tasks)
@@ -349,7 +326,7 @@ async def _seed_db() -> None:
     table.add_column("item")
 
     table.add_row("✓", "Demo user created: [bold]demo@angie.local[/bold] / [bold]demo1234[/bold]")
-    table.add_row("✓", "Team created: [bold]email-team[/bold]")
+    table.add_row("✓", "Team created: [bold]dev-team[/bold]")
     table.add_row("✓", "Workflow created: [bold]morning-briefing[/bold] (3 steps)")
     table.add_row("✓", "5 sample events inserted")
     table.add_row("✓", "3 sample tasks inserted")
