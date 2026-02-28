@@ -74,9 +74,7 @@ async def test_slack_dispatch_includes_thread_ts():
         ch = SlackChannel()
 
     with patch("angie.core.events.router.dispatch", new_callable=AsyncMock) as mock_dispatch:
-        await ch._dispatch_event(
-            user_id="U123", text="hi", channel="C456", thread_ts="12345.678"
-        )
+        await ch._dispatch_event(user_id="U123", text="hi", channel="C456", thread_ts="12345.678")
         event = mock_dispatch.call_args[0][0]
         assert event.payload["thread_ts"] == "12345.678"
         assert event.payload["channel"] == "C456"
@@ -92,9 +90,7 @@ async def test_discord_dispatch_includes_message_id():
         ch = DiscordChannel()
 
     with patch("angie.core.events.router.dispatch", new_callable=AsyncMock) as mock_dispatch:
-        await ch._dispatch_event(
-            user_id="12345", text="hi", channel_id="67890", message_id="99999"
-        )
+        await ch._dispatch_event(user_id="12345", text="hi", channel_id="67890", message_id="99999")
         event = mock_dispatch.call_args[0][0]
         assert event.payload["message_id"] == "99999"
         assert event.payload["channel_id"] == "67890"
@@ -276,9 +272,8 @@ async def test_subscription_manager_callback_error_doesnt_propagate():
 
 
 def test_subscription_manager_singleton():
-    from angie.core.subscriptions import get_subscription_manager
-
     import angie.core.subscriptions as sub_mod
+    from angie.core.subscriptions import get_subscription_manager
 
     sub_mod._manager = None
     m1 = get_subscription_manager()
@@ -481,13 +476,15 @@ async def test_run_task_no_agent_graceful():
         patch("angie.queue.workers._update_task_in_db", new_callable=AsyncMock),
         patch("angie.queue.workers.reset_engine"),
     ):
-        result = await _run_task({
-            "id": "task-1",
-            "title": "unknown stuff",
-            "user_id": "u1",
-            "source_channel": "slack",
-            "input_data": {},
-        })
+        result = await _run_task(
+            {
+                "id": "task-1",
+                "title": "unknown stuff",
+                "user_id": "u1",
+                "source_channel": "slack",
+                "input_data": {},
+            }
+        )
 
     assert result["status"] == "no_agent"
     assert "mock" in result["error"]
@@ -504,9 +501,7 @@ async def test_notify_user():
     with patch("angie.core.feedback.get_feedback") as mock_fb:
         mock_fb.return_value.send_mention = AsyncMock()
         await agent.notify_user("u1", "Hello!", channel="slack")
-    mock_fb.return_value.send_mention.assert_called_once_with(
-        "u1", "Hello!", channel="slack"
-    )
+    mock_fb.return_value.send_mention.assert_called_once_with("u1", "Hello!", channel="slack")
 
 
 @pytest.mark.asyncio
@@ -540,9 +535,9 @@ async def test_schedule_followup():
 
 def test_github_error_handler_rate_limit():
     """_handle_github_error returns actionable msg for rate limits."""
-    from angie.agents.dev.github import _handle_github_error
-
     import github as gh_module
+
+    from angie.agents.dev.github import _handle_github_error
 
     exc = gh_module.RateLimitExceededException(403, {}, {})
     result = _handle_github_error(exc)
@@ -551,9 +546,9 @@ def test_github_error_handler_rate_limit():
 
 def test_github_error_handler_bad_credentials():
     """_handle_github_error returns auth guidance for bad creds."""
-    from angie.agents.dev.github import _handle_github_error
-
     import github as gh_module
+
+    from angie.agents.dev.github import _handle_github_error
 
     exc = gh_module.BadCredentialsException(401, {}, {})
     result = _handle_github_error(exc)
@@ -562,9 +557,9 @@ def test_github_error_handler_bad_credentials():
 
 def test_github_error_handler_not_found():
     """_handle_github_error returns helpful msg for 404."""
-    from angie.agents.dev.github import _handle_github_error
-
     import github as gh_module
+
+    from angie.agents.dev.github import _handle_github_error
 
     exc = gh_module.UnknownObjectException(404, {"message": "Not Found"}, {})
     result = _handle_github_error(exc)

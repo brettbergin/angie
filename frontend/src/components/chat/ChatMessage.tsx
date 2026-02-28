@@ -65,12 +65,21 @@ export function ChatMessageBubble({
           role === "user"
             ? "rounded-tr-sm bg-angie-600 text-white"
             : isTaskResult
-              ? cn("rounded-tl-sm border text-gray-100", agentColor?.borderClass, agentColor?.bgClass)
+              ? cn(
+                  "rounded-tl-sm border text-gray-100",
+                  agentColor?.borderClass,
+                  agentColor?.bgClass
+                )
               : "rounded-tl-sm bg-gray-800 text-gray-100"
         )}
       >
         {isTaskResult && (
-          <p className={cn("mb-1 text-[10px] font-semibold uppercase tracking-wider", agentColor?.labelClass)}>
+          <p
+            className={cn(
+              "mb-1 text-[10px] font-semibold uppercase tracking-wider",
+              agentColor?.labelClass
+            )}
+          >
             {agentSlug ? `${agentSlug} result` : "Task Result"}
           </p>
         )}

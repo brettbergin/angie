@@ -414,7 +414,7 @@ function ChatPageInner() {
       }
     },
     [showMentions, mentionKeyDown]
-  ); // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   // Agent chip click handler — inserts @slug into input
   const handleAgentChipClick = useCallback((slug: string) => {
@@ -535,7 +535,7 @@ function ChatPageInner() {
                         className={cn(
                           "cursor-pointer rounded-md border bg-gray-800 px-2 py-1 text-xs transition-colors hover:bg-gray-700",
                           getAgentColor(a.slug).chipBorder,
-                          getAgentColor(a.slug).chipText,
+                          getAgentColor(a.slug).chipText
                         )}
                         title={a.description}
                       >

@@ -79,7 +79,9 @@ class GitHubAgent(BaseAgent):
                 return _handle_github_error(exc)
 
         @agent.tool
-        def list_pull_requests(ctx: RunContext[object], repo: str, state: str = "open") -> list | dict:
+        def list_pull_requests(
+            ctx: RunContext[object], repo: str, state: str = "open"
+        ) -> list | dict:
             """List pull requests for a GitHub repository."""
             try:
                 g = ctx.deps
@@ -186,7 +188,9 @@ class GitHubAgent(BaseAgent):
                 if pr.merged:
                     return {"error": f"PR #{number} is already merged."}
                 if not pr.mergeable:
-                    return {"error": f"PR #{number} has merge conflicts that must be resolved first."}
+                    return {
+                        "error": f"PR #{number} has merge conflicts that must be resolved first."
+                    }
                 result = pr.merge(merge_method=merge_method)
                 return {
                     "merged": result.merged,

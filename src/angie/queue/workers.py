@@ -83,9 +83,7 @@ async def _deliver_chat_result(
     try:
         from angie.channels.web_chat import WebChatChannel
 
-        WebChatChannel.publish_result_sync(
-            user_id, text, conversation_id, agent_slug=agent_slug
-        )
+        WebChatChannel.publish_result_sync(user_id, text, conversation_id, agent_slug=agent_slug)
     except Exception as exc:
         logger.debug("Redis publish failed (user may be offline): %s", exc)
 
@@ -168,10 +166,7 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
 
         registry = get_registry()
         available = ", ".join(a.slug for a in registry.list_all())
-        msg = (
-            f"I couldn't find a suitable agent for this task. "
-            f"Available agents: {available}"
-        )
+        msg = f"I couldn't find a suitable agent for this task. Available agents: {available}"
         if conversation_id and user_id:
             await _deliver_chat_result(conversation_id, user_id, msg)
         else:

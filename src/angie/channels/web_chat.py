@@ -60,9 +60,7 @@ class WebChatChannel(BaseChannel):
         if ws:
             try:
                 if conversation_id:
-                    payload_dict = _build_task_result_payload(
-                        text, conversation_id, agent_slug
-                    )
+                    payload_dict = _build_task_result_payload(text, conversation_id, agent_slug)
                     await ws.send_text(json.dumps(payload_dict))
                 else:
                     await ws.send_text(text)

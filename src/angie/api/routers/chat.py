@@ -217,9 +217,7 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
     # Start Redis pub/sub listener so Celery task results reach the WebSocket
     redis_listener_task: asyncio.Task | None = None
     try:
-        redis_listener_task = asyncio.create_task(
-            _web_channel.listen_redis(user_id, websocket)
-        )
+        redis_listener_task = asyncio.create_task(_web_channel.listen_redis(user_id, websocket))
     except Exception as exc:
         logger.warning("Could not start Redis listener for %s: %s", user_id, exc)
 

@@ -146,7 +146,9 @@ class SoftwareDeveloperAgent(BaseAgent):
                     clone_url = f"https://github.com/{repo}.git"
                     _run_git(["git", "clone", clone_url, str(repo_dir)], env=git_env)
                 # Configure git identity for commits
-                _run_git(["git", "config", "user.email", "angie@angie.bot"], cwd=repo_dir, env=git_env)
+                _run_git(
+                    ["git", "config", "user.email", "angie@angie.bot"], cwd=repo_dir, env=git_env
+                )
                 _run_git(["git", "config", "user.name", "Angie"], cwd=repo_dir, env=git_env)
                 if branch:
                     _run_git(["git", "checkout", branch], cwd=repo_dir, env=git_env)
@@ -170,7 +172,9 @@ class SoftwareDeveloperAgent(BaseAgent):
                 }
             try:
                 _run_git(
-                    ["git", "checkout", "-b", branch_name], cwd=ctx.deps.repo_dir, env=ctx.deps._git_env
+                    ["git", "checkout", "-b", branch_name],
+                    cwd=ctx.deps.repo_dir,
+                    env=ctx.deps._git_env,
                 )
                 return {"created": True, "branch": branch_name}
             except subprocess.CalledProcessError as exc:
@@ -400,7 +404,11 @@ class SoftwareDeveloperAgent(BaseAgent):
                 _run_git(["git", "add", "-A"], cwd=cwd, env=git_env)
                 _run_git(["git", "commit", "-m", message], cwd=cwd, env=git_env)
                 # Use --force-with-lease for safe push that rejects if remote has diverged
-                _run_git(["git", "push", "--force-with-lease", "-u", "origin", "HEAD"], cwd=cwd, env=git_env)
+                _run_git(
+                    ["git", "push", "--force-with-lease", "-u", "origin", "HEAD"],
+                    cwd=cwd,
+                    env=git_env,
+                )
             except subprocess.CalledProcessError as exc:
                 err_msg = _sanitize_token(exc.stderr or exc.output or "", ctx.deps.github_token)
                 return {"error": _classify_git_error(exc.returncode, err_msg)}
@@ -540,9 +548,7 @@ class SoftwareDeveloperAgent(BaseAgent):
             if workspace_dir.exists():
                 shutil.rmtree(workspace_dir, ignore_errors=True)
 
-    async def _schedule_ci_followup(
-        self, summary: str, task: dict[str, Any], token: str
-    ) -> None:
+    async def _schedule_ci_followup(self, summary: str, task: dict[str, Any], token: str) -> None:
         """If a PR was created, schedule a follow-up to check CI status."""
         # Look for PR URL in the summary
         pr_match = re.search(r"https://github\.com/([^/]+/[^/]+)/pull/(\d+)", summary)
@@ -561,9 +567,7 @@ class SoftwareDeveloperAgent(BaseAgent):
                 intent=f"check_ci_for_pr:{repo}:{pr_number}",
                 agent_slug="software-dev",
             )
-            self.logger.info(
-                "Scheduled CI follow-up for %s#%s in 10 minutes", repo, pr_number
-            )
+            self.logger.info("Scheduled CI follow-up for %s#%s in 10 minutes", repo, pr_number)
         except Exception:
             self.logger.debug("Failed to schedule CI follow-up", exc_info=True)
 

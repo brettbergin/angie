@@ -113,7 +113,9 @@ class DiscordChannel(BaseChannel):
                         await original.reply(text)
                         return
                     except Exception:
-                        logger.debug("Could not reply to message %s, sending normally", reply_to_message_id)
+                        logger.debug(
+                            "Could not reply to message %s, sending normally", reply_to_message_id
+                        )
                 await channel.send(text)  # type: ignore[union-attr]
                 return
         # Fall back to DM
