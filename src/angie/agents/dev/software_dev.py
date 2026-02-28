@@ -29,6 +29,9 @@ _SHELL_INJECTION = re.compile(
     r"\|\s*(?:rm|curl|wget|nc|bash|sh\b)|>\s*/(?:etc|dev|proc)",
 )
 _COMMAND_TIMEOUT = 120
+_MAX_FILE_SIZE = 100 * 1024  # 100KB
+_MAX_WORKSPACE_SIZE = 500 * 1024 * 1024  # 500MB
+_BRANCH_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9._/-]+$")
 
 
 @dataclass
@@ -76,7 +79,17 @@ class SoftwareDeveloperAgent(BaseAgent):
         "- PR body must include 'Closes #N' to auto-link the issue\n"
         "- Make minimal, focused changes\n"
         "- Always run tests if a test suite exists\n"
-        "- Return the PR URL as a clickable HTML link in your final response"
+        "- Return the PR URL as a clickable HTML link in your final response\n\n"
+        "Fallback strategies:\n"
+        "- If `run_command` for tests fails, use `run_tests` to read test output and explain "
+        "what went wrong.\n"
+        "- If `clone_repo` fails with auth error, inform the user their GitHub token needs "
+        "'repo' scope.\n"
+        "- If `create_pull_request` fails because the branch already exists, try updating the "
+        "existing PR instead.\n"
+        "- If the issue is too complex, break it into sub-tasks and explain what you can and "
+        "cannot do.\n"
+        "- Always use `check_ci_status` after opening a PR to verify CI passes."
     )
 
     def build_pydantic_agent(self) -> Agent:
@@ -92,28 +105,33 @@ class SoftwareDeveloperAgent(BaseAgent):
             """Fetch a GitHub issue by URL. Returns title, body, labels, and comments."""
             import github as gh_module
 
-            owner, repo, number = _parse_issue_url(issue_url)
-            g = (
-                gh_module.Github(ctx.deps.github_token)
-                if ctx.deps.github_token
-                else gh_module.Github()
-            )
-            repo_obj = g.get_repo(f"{owner}/{repo}")
-            issue = repo_obj.get_issue(number)
-            comments = [
-                {"author": c.user.login, "body": c.body}
-                for _, c in zip(range(10), issue.get_comments(), strict=False)
-            ]
-            return {
-                "owner": owner,
-                "repo": repo,
-                "number": number,
-                "title": issue.title,
-                "body": issue.body or "",
-                "labels": [lb.name for lb in issue.labels],
-                "comments": comments,
-                "default_branch": repo_obj.default_branch,
-            }
+            try:
+                owner, repo, number = _parse_issue_url(issue_url)
+                g = (
+                    gh_module.Github(ctx.deps.github_token)
+                    if ctx.deps.github_token
+                    else gh_module.Github()
+                )
+                repo_obj = g.get_repo(f"{owner}/{repo}")
+                issue = repo_obj.get_issue(number)
+                comments = [
+                    {"author": c.user.login, "body": c.body}
+                    for _, c in zip(range(10), issue.get_comments(), strict=False)
+                ]
+                return {
+                    "owner": owner,
+                    "repo": repo,
+                    "number": number,
+                    "title": issue.title,
+                    "body": issue.body or "",
+                    "labels": [lb.name for lb in issue.labels],
+                    "comments": comments,
+                    "default_branch": repo_obj.default_branch,
+                }
+            except ValueError as exc:
+                return {"error": str(exc)}
+            except Exception as exc:
+                return {"error": f"Failed to fetch issue: {exc}"}
 
         @agent.tool
         def clone_repo(ctx: RunContext[SoftwareDevDeps], repo: str, branch: str = "") -> dict:
@@ -121,28 +139,47 @@ class SoftwareDeveloperAgent(BaseAgent):
             repo_dir = ctx.deps.workspace_dir / repo.replace("/", "_")
             git_env = _build_git_env(ctx.deps.github_token, ctx.deps.workspace_dir)
             ctx.deps._git_env = git_env
-            if repo_dir.exists():
-                _run_git(["git", "pull"], cwd=repo_dir, env=git_env)
-            else:
-                clone_url = f"https://github.com/{repo}.git"
-                _run_git(["git", "clone", clone_url, str(repo_dir)], env=git_env)
-            # Configure git identity for commits
-            _run_git(["git", "config", "user.email", "angie@angie.bot"], cwd=repo_dir, env=git_env)
-            _run_git(["git", "config", "user.name", "Angie"], cwd=repo_dir, env=git_env)
-            if branch:
-                _run_git(["git", "checkout", branch], cwd=repo_dir, env=git_env)
-            ctx.deps.repo_dir = repo_dir
-            return {"cloned": True, "repo_dir": str(repo_dir), "branch": branch or "default"}
+            try:
+                if repo_dir.exists():
+                    _run_git(["git", "pull"], cwd=repo_dir, env=git_env)
+                else:
+                    clone_url = f"https://github.com/{repo}.git"
+                    _run_git(["git", "clone", clone_url, str(repo_dir)], env=git_env)
+                # Configure git identity for commits
+                _run_git(
+                    ["git", "config", "user.email", "angie@angie.bot"], cwd=repo_dir, env=git_env
+                )
+                _run_git(["git", "config", "user.name", "Angie"], cwd=repo_dir, env=git_env)
+                if branch:
+                    _run_git(["git", "checkout", branch], cwd=repo_dir, env=git_env)
+                ctx.deps.repo_dir = repo_dir
+                return {"cloned": True, "repo_dir": str(repo_dir), "branch": branch or "default"}
+            except subprocess.CalledProcessError as exc:
+                err_msg = _sanitize_token(exc.stderr or exc.output or "", ctx.deps.github_token)
+                return {"error": _classify_git_error(exc.returncode, err_msg)}
 
         @agent.tool
         def create_branch(ctx: RunContext[SoftwareDevDeps], branch_name: str) -> dict:
             """Create and checkout a new branch in the cloned repo."""
             if not ctx.deps.repo_dir:
                 return {"error": "No repository cloned yet. Call clone_repo first."}
-            _run_git(
-                ["git", "checkout", "-b", branch_name], cwd=ctx.deps.repo_dir, env=ctx.deps._git_env
-            )
-            return {"created": True, "branch": branch_name}
+            if not _BRANCH_NAME_PATTERN.match(branch_name):
+                return {
+                    "error": (
+                        f"Invalid branch name '{branch_name}'. "
+                        "Use only alphanumeric characters, dots, hyphens, underscores, and slashes."
+                    )
+                }
+            try:
+                _run_git(
+                    ["git", "checkout", "-b", branch_name],
+                    cwd=ctx.deps.repo_dir,
+                    env=ctx.deps._git_env,
+                )
+                return {"created": True, "branch": branch_name}
+            except subprocess.CalledProcessError as exc:
+                err_msg = _sanitize_token(exc.stderr or "", ctx.deps.github_token)
+                return {"error": f"Failed to create branch: {err_msg}"}
 
         @agent.tool
         def read_file(ctx: RunContext[SoftwareDevDeps], path: str) -> dict:
@@ -213,10 +250,122 @@ class SoftwareDeveloperAgent(BaseAgent):
             """Write or overwrite a file in the cloned repository."""
             if not ctx.deps.repo_dir:
                 return {"error": "No repository cloned yet."}
+            if len(content.encode("utf-8")) > _MAX_FILE_SIZE:
+                return {
+                    "error": (
+                        f"File content exceeds {_MAX_FILE_SIZE // 1024}KB limit. "
+                        "Break the content into smaller files."
+                    )
+                }
+            # Check workspace size
+            workspace_size = _get_dir_size(ctx.deps.workspace_dir)
+            if workspace_size > _MAX_WORKSPACE_SIZE:
+                return {
+                    "error": (
+                        f"Workspace exceeds {_MAX_WORKSPACE_SIZE // (1024 * 1024)}MB limit. "
+                        "Clean up unnecessary files first."
+                    )
+                }
             file_path = ctx.deps.repo_dir / path
             file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(content, encoding="utf-8")
             return {"written": True, "path": path, "size": len(content)}
+
+        @agent.tool
+        def apply_patch(ctx: RunContext[SoftwareDevDeps], path: str, patch_content: str) -> dict:
+            """Apply a unified diff patch to a file in the repository."""
+            if not ctx.deps.repo_dir:
+                return {"error": "No repository cloned yet."}
+            try:
+                result = subprocess.run(
+                    ["patch", "-p0", "--no-backup-if-mismatch"],
+                    input=patch_content,
+                    cwd=ctx.deps.repo_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if result.returncode == 0:
+                    return {"applied": True, "output": result.stdout.strip()}
+                return {"error": f"Patch failed: {result.stderr.strip() or result.stdout.strip()}"}
+            except subprocess.TimeoutExpired:
+                return {"error": "Patch application timed out"}
+
+        @agent.tool
+        def run_tests(ctx: RunContext[SoftwareDevDeps], test_command: str = "") -> dict:
+            """Run the test suite. Auto-detects pytest/npm test if no command given."""
+            if not ctx.deps.repo_dir:
+                return {"error": "No repository cloned yet."}
+            repo_dir = ctx.deps.repo_dir
+
+            # Auto-detect test command if not provided
+            if not test_command:
+                if (repo_dir / "pyproject.toml").exists() or (repo_dir / "setup.py").exists():
+                    test_command = "python -m pytest -x --tb=short -q"
+                elif (repo_dir / "package.json").exists():
+                    test_command = "npm test"
+                elif (repo_dir / "Makefile").exists():
+                    test_command = "make test"
+                else:
+                    return {"error": "No test framework detected. Provide a test_command."}
+
+            if _BLOCKED_COMMANDS.search(test_command) or _SHELL_INJECTION.search(test_command):
+                return {"error": "Test command blocked for safety reasons."}
+
+            try:
+                result = subprocess.run(
+                    ["sh", "-c", test_command],
+                    cwd=repo_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,  # 5 minutes for tests
+                    env={**os.environ, **ctx.deps._git_env},
+                )
+                stdout = result.stdout[-5000:] if len(result.stdout) > 5000 else result.stdout
+                stderr = result.stderr[-2000:] if len(result.stderr) > 2000 else result.stderr
+                return {
+                    "passed": result.returncode == 0,
+                    "returncode": result.returncode,
+                    "stdout": _sanitize_token(stdout, ctx.deps.github_token),
+                    "stderr": _sanitize_token(stderr, ctx.deps.github_token),
+                }
+            except subprocess.TimeoutExpired:
+                return {"error": "Tests timed out after 5 minutes"}
+
+        @agent.tool
+        def check_ci_status(ctx: RunContext[SoftwareDevDeps], repo: str, branch: str) -> dict:
+            """Check CI/check status for a branch after pushing."""
+            try:
+                import github as gh_module
+
+                g = (
+                    gh_module.Github(ctx.deps.github_token)
+                    if ctx.deps.github_token
+                    else gh_module.Github()
+                )
+                repo_obj = g.get_repo(repo)
+                branch_obj = repo_obj.get_branch(branch)
+                commit = repo_obj.get_commit(branch_obj.commit.sha)
+
+                checks = []
+                for run in commit.get_check_runs():
+                    checks.append(
+                        {
+                            "name": run.name,
+                            "status": run.status,
+                            "conclusion": run.conclusion,
+                        }
+                    )
+
+                combined = commit.get_combined_status()
+                return {
+                    "branch": branch,
+                    "overall_state": combined.state,
+                    "checks": checks,
+                    "total_checks": len(checks),
+                }
+            except Exception as exc:
+                return {"error": f"Failed to check CI status: {exc}"}
 
         @agent.tool
         def run_command(ctx: RunContext[SoftwareDevDeps], command: str) -> dict:
@@ -246,7 +395,7 @@ class SoftwareDeveloperAgent(BaseAgent):
 
         @agent.tool
         def commit_and_push(ctx: RunContext[SoftwareDevDeps], message: str) -> dict:
-            """Stage all changes, commit with the given message, and push."""
+            """Stage all changes, commit with the given message, and push with lease protection."""
             if not ctx.deps.repo_dir:
                 return {"error": "No repository cloned yet."}
             cwd = ctx.deps.repo_dir
@@ -254,7 +403,12 @@ class SoftwareDeveloperAgent(BaseAgent):
             try:
                 _run_git(["git", "add", "-A"], cwd=cwd, env=git_env)
                 _run_git(["git", "commit", "-m", message], cwd=cwd, env=git_env)
-                _run_git(["git", "push", "-u", "origin", "HEAD"], cwd=cwd, env=git_env)
+                # Use --force-with-lease for safe push that rejects if remote has diverged
+                _run_git(
+                    ["git", "push", "--force-with-lease", "-u", "origin", "HEAD"],
+                    cwd=cwd,
+                    env=git_env,
+                )
             except subprocess.CalledProcessError as exc:
                 err_msg = _sanitize_token(exc.stderr or exc.output or "", ctx.deps.github_token)
                 return {"error": _classify_git_error(exc.returncode, err_msg)}
@@ -290,18 +444,32 @@ class SoftwareDeveloperAgent(BaseAgent):
             if issue_number and f"#{issue_number}" not in body:
                 body += f"\n\nCloses #{issue_number}"
 
-            pr = repo_obj.create_pull(
-                title=title,
-                body=body,
-                head=branch,
-                base=repo_obj.default_branch,
-            )
-            return {
-                "created": True,
-                "pr_number": pr.number,
-                "pr_url": pr.html_url,
-                "title": pr.title,
-            }
+            try:
+                pr = repo_obj.create_pull(
+                    title=title,
+                    body=body,
+                    head=branch,
+                    base=repo_obj.default_branch,
+                )
+                return {
+                    "created": True,
+                    "pr_number": pr.number,
+                    "pr_url": pr.html_url,
+                    "title": pr.title,
+                }
+            except gh_module.GithubException as exc:
+                # If PR already exists for this branch, try to find and return it
+                if exc.status == 422:
+                    pulls = repo_obj.get_pulls(state="open", head=f"{repo.split('/')[0]}:{branch}")
+                    for existing_pr in pulls:
+                        return {
+                            "created": False,
+                            "pr_number": existing_pr.number,
+                            "pr_url": existing_pr.html_url,
+                            "title": existing_pr.title,
+                            "note": "PR already exists for this branch.",
+                        }
+                return {"error": f"Failed to create PR: {exc.data.get('message', str(exc))}"}
 
         return agent
 
@@ -335,7 +503,7 @@ class SoftwareDeveloperAgent(BaseAgent):
                 return {
                     "error": (
                         "No GitHub credentials found. Please add a GitHub Personal Access "
-                        "Token in Settings → Connections with 'repo' scope."
+                        "Token in Settings -> Connections with 'repo' scope."
                     )
                 }
 
@@ -365,7 +533,12 @@ class SoftwareDeveloperAgent(BaseAgent):
                 prompt = intent
 
             result = await self._get_agent().run(prompt, model=get_llm_model(), deps=deps)
-            return {"summary": str(result.output)}
+            summary = str(result.output)
+
+            # Schedule CI follow-up if a PR was opened
+            await self._schedule_ci_followup(summary, task, token)
+
+            return {"summary": summary}
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("SoftwareDeveloperAgent error")
             safe_msg = _sanitize_token(str(exc), token if "token" in dir() else "")
@@ -374,6 +547,29 @@ class SoftwareDeveloperAgent(BaseAgent):
             # Clean up workspace
             if workspace_dir.exists():
                 shutil.rmtree(workspace_dir, ignore_errors=True)
+
+    async def _schedule_ci_followup(self, summary: str, task: dict[str, Any], token: str) -> None:
+        """If a PR was created, schedule a follow-up to check CI status."""
+        # Look for PR URL in the summary
+        pr_match = re.search(r"https://github\.com/([^/]+/[^/]+)/pull/(\d+)", summary)
+        if not pr_match:
+            return
+
+        repo = pr_match.group(1)
+        pr_number = pr_match.group(2)
+        user_id = task.get("user_id", "system")
+
+        try:
+            await self.schedule_followup(
+                user_id=user_id,
+                delay_seconds=600,  # 10 minutes
+                title=f"Check CI status for {repo}#{pr_number}",
+                intent=f"check_ci_for_pr:{repo}:{pr_number}",
+                agent_slug="software-dev",
+            )
+            self.logger.info("Scheduled CI follow-up for %s#%s in 10 minutes", repo, pr_number)
+        except Exception:
+            self.logger.debug("Failed to schedule CI follow-up", exc_info=True)
 
 
 # ------------------------------------------------------------------
@@ -442,6 +638,18 @@ def _sanitize_token(text: str, token: str) -> str:
     return text.replace(token, "***")
 
 
+def _get_dir_size(path: Path) -> int:
+    """Calculate total size of a directory in bytes."""
+    total = 0
+    try:
+        for entry in path.rglob("*"):
+            if entry.is_file():
+                total += entry.stat().st_size
+    except (OSError, PermissionError):
+        pass
+    return total
+
+
 _AUTH_ERROR_PATTERNS = re.compile(
     r"authentication failed|could not read username|"
     r"permission.denied|403|401|invalid credentials",
@@ -454,6 +662,6 @@ def _classify_git_error(returncode: int, stderr: str) -> str:
     if returncode == 128 and _AUTH_ERROR_PATTERNS.search(stderr):
         return (
             "GitHub authentication failed. Please verify your Personal Access Token "
-            "in Settings → Connections has the 'repo' scope and has not expired."
+            "in Settings -> Connections has the 'repo' scope and has not expired."
         )
     return f"git failed (exit {returncode}): {stderr}"

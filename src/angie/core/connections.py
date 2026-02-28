@@ -22,72 +22,6 @@ SERVICE_REGISTRY: dict[str, dict[str, Any]] = {
         "test_endpoint": "https://api.github.com/user",
         "agent_slug": "github",
     },
-    "spotify": {
-        "name": "Spotify",
-        "description": "Music playback — play, pause, skip, search, queue",
-        "auth_type": "oauth2",
-        "color": "#1DB954",
-        "fields": [
-            {"key": "client_id", "label": "Client ID", "type": "text"},
-            {"key": "client_secret", "label": "Client Secret", "type": "password"},
-            {"key": "access_token", "label": "Access Token", "type": "password"},
-            {"key": "refresh_token", "label": "Refresh Token", "type": "password"},
-        ],
-        "test_endpoint": "https://api.spotify.com/v1/me",
-        "agent_slug": "spotify",
-    },
-    "gmail": {
-        "name": "Gmail",
-        "description": "Email management — read, send, organize, spam detection",
-        "auth_type": "oauth2",
-        "color": "#EA4335",
-        "fields": [
-            {"key": "client_id", "label": "Client ID", "type": "text"},
-            {"key": "client_secret", "label": "Client Secret", "type": "password"},
-            {"key": "access_token", "label": "Access Token", "type": "password"},
-            {"key": "refresh_token", "label": "Refresh Token", "type": "password"},
-        ],
-        "test_endpoint": "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-        "agent_slug": "gmail",
-    },
-    "gcal": {
-        "name": "Google Calendar",
-        "description": "Calendar management — events, scheduling, availability",
-        "auth_type": "oauth2",
-        "color": "#4285F4",
-        "fields": [
-            {"key": "client_id", "label": "Client ID", "type": "text"},
-            {"key": "client_secret", "label": "Client Secret", "type": "password"},
-            {"key": "access_token", "label": "Access Token", "type": "password"},
-            {"key": "refresh_token", "label": "Refresh Token", "type": "password"},
-        ],
-        "test_endpoint": "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-        "agent_slug": "google-calendar",
-    },
-    "hue": {
-        "name": "Philips Hue",
-        "description": "Smart lighting — control lights, scenes, and brightness",
-        "auth_type": "credentials",
-        "color": "#0065D3",
-        "fields": [
-            {"key": "bridge_ip", "label": "Bridge IP Address", "type": "text"},
-            {"key": "username", "label": "API Username / Key", "type": "password"},
-        ],
-        "test_endpoint": None,
-        "agent_slug": "hue",
-    },
-    "home_assistant": {
-        "name": "Home Assistant",
-        "description": "Home automation — devices, scenes, automations",
-        "auth_type": "token",
-        "color": "#41BDF5",
-        "fields": [
-            {"key": "url", "label": "Home Assistant URL", "type": "text"},
-            {"key": "token", "label": "Long-Lived Access Token", "type": "password"},
-        ],
-        "test_endpoint": "/api/",
-        "agent_slug": "home-assistant",
-    },
     "slack": {
         "name": "Slack",
         "description": "Team messaging — send and receive messages via Slack",
@@ -147,19 +81,6 @@ SERVICE_REGISTRY: dict[str, dict[str, Any]] = {
         ],
         "test_endpoint": "https://api.openweathermap.org/data/2.5/weather?q=London&appid={api_key}",
         "agent_slug": "weather",
-    },
-    "unifi": {
-        "name": "UniFi Network",
-        "description": "Network management — devices, clients, bandwidth stats",
-        "auth_type": "credentials",
-        "color": "#006FFF",
-        "fields": [
-            {"key": "host", "label": "Controller URL", "type": "text"},
-            {"key": "username", "label": "Username", "type": "text"},
-            {"key": "password", "label": "Password", "type": "password"},
-        ],
-        "test_endpoint": None,
-        "agent_slug": "ubiquiti",
     },
 }
 
@@ -232,7 +153,6 @@ async def test_connection_validity(credentials: dict, service_type: str) -> tupl
         return True, "No test endpoint available — credentials saved"
 
     test_url = service["test_endpoint"]
-    auth_type = service["auth_type"]
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -242,16 +162,6 @@ async def test_connection_validity(credentials: dict, service_type: str) -> tupl
                 token = credentials.get("personal_access_token", "")
                 headers["Authorization"] = f"Bearer {token}"
                 headers["Accept"] = "application/vnd.github+json"
-            elif service_type in ("spotify", "gmail", "gcal"):
-                token = credentials.get("access_token", "")
-                headers["Authorization"] = f"Bearer {token}"
-            elif auth_type == "token" and service_type == "home_assistant":
-                base_url = credentials.get("url", "").rstrip("/")
-                valid, err = _validate_url(base_url)
-                if not valid:
-                    return False, f"Invalid Home Assistant URL: {err}"
-                test_url = f"{base_url}{test_url}"
-                headers["Authorization"] = f"Bearer {credentials.get('token', '')}"
             elif service_type == "slack":
                 headers["Authorization"] = f"Bearer {credentials.get('bot_token', '')}"
             elif service_type == "openweathermap":

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -55,7 +54,8 @@ def test_channel_manager_build_with_slack_discord():
     assert isinstance(mgr._channels, dict)
 
 
-def test_channel_manager_send_dispatches():
+@pytest.mark.asyncio
+async def test_channel_manager_send_dispatches():
     from angie.channels.base import ChannelManager
 
     manager = ChannelManager()
@@ -63,24 +63,26 @@ def test_channel_manager_send_dispatches():
     mock_channel = AsyncMock()
     manager._channels = {"slack": mock_channel}
 
-    asyncio.get_event_loop().run_until_complete(manager.send("U123", "hello", channel_type="slack"))
+    await manager.send("U123", "hello", channel_type="slack")
     mock_channel.send.assert_called_once_with("U123", "hello")
 
 
-def test_channel_manager_send_unknown_channel():
+@pytest.mark.asyncio
+async def test_channel_manager_send_unknown_channel():
     from angie.channels.base import ChannelManager
 
     manager = ChannelManager()
     manager._channels = {}
 
     # Should not raise
-    asyncio.get_event_loop().run_until_complete(manager.send("U123", "hello", channel_type="slack"))
+    await manager.send("U123", "hello", channel_type="slack")
 
 
 # ── channels/slack.py: _dispatch_event ────────────────────────────────────────
 
 
-def test_slack_dispatch_event():
+@pytest.mark.asyncio
+async def test_slack_dispatch_event():
     """Cover _dispatch_event converting a message to an AngieEvent."""
     slack_sdk_modules = {
         "slack_sdk": MagicMock(),
@@ -103,9 +105,7 @@ def test_slack_dispatch_event():
         mock_router.dispatch = AsyncMock()
 
         with patch("angie.core.events.router", mock_router):
-            asyncio.get_event_loop().run_until_complete(
-                ch._dispatch_event(user_id="U123", text="hello world", channel="C456")
-            )
+            await ch._dispatch_event(user_id="U123", text="hello world", channel="C456")
 
     mock_router.dispatch.assert_called_once()
 
@@ -113,7 +113,8 @@ def test_slack_dispatch_event():
 # ── channels/discord.py: _dispatch_event ─────────────────────────────────────
 
 
-def test_discord_dispatch_event():
+@pytest.mark.asyncio
+async def test_discord_dispatch_event():
     """Cover _dispatch_event in DiscordChannel."""
     mock_discord = MagicMock()
     mock_discord.Intents.default.return_value = MagicMock()
@@ -132,9 +133,7 @@ def test_discord_dispatch_event():
         mock_router.dispatch = AsyncMock()
 
         with patch("angie.core.events.router", mock_router):
-            asyncio.get_event_loop().run_until_complete(
-                ch._dispatch_event(user_id="U789", text="hello discord", channel_id="C111")
-            )
+            await ch._dispatch_event(user_id="U789", text="hello discord", channel_id="C111")
 
     mock_router.dispatch.assert_called_once()
 
@@ -142,7 +141,8 @@ def test_discord_dispatch_event():
 # ── channels/email.py: _check_inbox + _poll_inbox ────────────────────────────
 
 
-def test_email_dispatch_event():
+@pytest.mark.asyncio
+async def test_email_dispatch_event():
     """Cover email _dispatch_event."""
     from angie.channels.email import EmailChannel
 
@@ -154,9 +154,7 @@ def test_email_dispatch_event():
     mock_router.dispatch = AsyncMock()
 
     with patch("angie.core.events.router", mock_router):
-        asyncio.get_event_loop().run_until_complete(
-            ch._dispatch_event("sender@example.com", "Test Subject", "Hello there")
-        )
+        await ch._dispatch_event("sender@example.com", "Test Subject", "Hello there")
 
     mock_router.dispatch.assert_called_once()
 
@@ -206,7 +204,8 @@ def test_email_extract_body_simple():
 # ── channels/imessage.py: _poll_messages + old-message skip ──────────────────
 
 
-def test_imessage_dispatch_event():
+@pytest.mark.asyncio
+async def test_imessage_dispatch_event():
     """Cover iMessage _dispatch_event."""
 
     from angie.channels.imessage import IMessageChannel
@@ -221,14 +220,13 @@ def test_imessage_dispatch_event():
     mock_router.dispatch = AsyncMock()
 
     with patch("angie.core.events.router", mock_router):
-        asyncio.get_event_loop().run_until_complete(
-            ch._dispatch_event("+15551234567", "Hello from iMessage")
-        )
+        await ch._dispatch_event("+15551234567", "Hello from iMessage")
 
     mock_router.dispatch.assert_called_once()
 
 
-def test_imessage_check_new_messages_no_http():
+@pytest.mark.asyncio
+async def test_imessage_check_new_messages_no_http():
     """_check_new_messages returns immediately when _http is None."""
     from angie.channels.imessage import IMessageChannel
 
@@ -238,11 +236,12 @@ def test_imessage_check_new_messages_no_http():
     ch._last_ms = 0
     ch._poll_task = None
 
-    asyncio.get_event_loop().run_until_complete(ch._check_new_messages())
+    await ch._check_new_messages()
     # No error = pass
 
 
-def test_imessage_check_new_messages_skips_old():
+@pytest.mark.asyncio
+async def test_imessage_check_new_messages_skips_old():
     """Messages with dateCreated <= _last_ms are skipped."""
 
     from angie.channels.imessage import IMessageChannel
@@ -266,12 +265,13 @@ def test_imessage_check_new_messages_skips_old():
     mock_router.dispatch = AsyncMock()
 
     with patch("angie.core.events.router", mock_router):
-        asyncio.get_event_loop().run_until_complete(ch._check_new_messages())
+        await ch._check_new_messages()
 
     mock_router.dispatch.assert_not_called()
 
 
-def test_imessage_check_new_messages_processes_new():
+@pytest.mark.asyncio
+async def test_imessage_check_new_messages_processes_new():
     """New messages (dateCreated > _last_ms) are dispatched."""
     from angie.channels.imessage import IMessageChannel
 
@@ -294,7 +294,7 @@ def test_imessage_check_new_messages_processes_new():
     mock_router.dispatch = AsyncMock()
 
     with patch("angie.core.events.router", mock_router):
-        asyncio.get_event_loop().run_until_complete(ch._check_new_messages())
+        await ch._check_new_messages()
 
     mock_router.dispatch.assert_called_once()
     assert ch._last_ms == 2000

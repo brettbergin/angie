@@ -98,6 +98,15 @@ export function ConversationSidebar({
     loadConversations();
   }, [loadConversations, refreshKey]);
 
+  // Reload when a new conversation is created via WebSocket.
+  // The chat page fires this custom event after router.push to the new conversation.
+  useEffect(() => {
+    const handler = () => loadConversations();
+    window.addEventListener("angie:conversation-created", handler);
+    return () =>
+      window.removeEventListener("angie:conversation-created", handler);
+  }, [loadConversations]);
+
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
