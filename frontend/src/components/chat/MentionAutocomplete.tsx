@@ -3,6 +3,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { getAgentColor } from "@/lib/agent-colors";
 
 export type MentionItem = {
   slug: string;
@@ -80,10 +81,15 @@ export function MentionAutocomplete({
               "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-[10px] font-bold",
               item.kind === "team"
                 ? "bg-blue-600/30 text-blue-400"
-                : "bg-angie-600/30 text-angie-400"
+                : cn(getAgentColor(item.slug).avatarBg, "text-white")
             )}
           >
-            {item.kind === "team" ? "T" : "@"}
+            {item.kind === "team"
+              ? "T"
+              : (() => {
+                  const ac = getAgentColor(item.slug);
+                  return ac.icon ? <ac.icon className="h-3 w-3" /> : ac.initial;
+                })()}
           </span>
           <span className="font-medium text-gray-100">@{item.slug}</span>
           <span className="truncate text-xs text-gray-500">{item.name}</span>

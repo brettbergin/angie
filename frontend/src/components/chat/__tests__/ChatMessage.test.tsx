@@ -33,11 +33,70 @@ describe("ChatMessageBubble", () => {
     expect(avatars[0]?.textContent).toBe("A");
   });
 
-  it('task result messages show emerald styling and "Task Result" label', () => {
-    render(
+  it('task result without agentSlug shows emerald fallback and "Task Result" label', () => {
+    const { container } = render(
       <ChatMessageBubble role="assistant" content="Done" type="task_result" />
     );
     expect(screen.getByText("Task Result")).toBeInTheDocument();
+    // Fallback avatar should have emerald bg and "A" initial
+    const avatar = container.querySelector(".rounded-full");
+    expect(avatar?.textContent).toBe("A");
+    expect(avatar?.className).toContain("bg-emerald-600");
+  });
+
+  it('task result with agentSlug="github" shows green avatar with logo and "github result" label', () => {
+    const { container } = render(
+      <ChatMessageBubble
+        role="assistant"
+        content="Repos listed"
+        type="task_result"
+        agentSlug="github"
+      />
+    );
+    expect(screen.getByText("github result")).toBeInTheDocument();
+    const avatar = container.querySelector(".rounded-full");
+    expect(avatar?.className).toContain("bg-green-600");
+    // Should render the GitHub SVG logo instead of text initial
+    expect(avatar?.querySelector("svg")).toBeTruthy();
+  });
+
+  it('task result with agentSlug="weather" shows teal avatar and "weather result" label', () => {
+    const { container } = render(
+      <ChatMessageBubble
+        role="assistant"
+        content="Sunny today"
+        type="task_result"
+        agentSlug="weather"
+      />
+    );
+    expect(screen.getByText("weather result")).toBeInTheDocument();
+    const avatar = container.querySelector(".rounded-full");
+    expect(avatar?.textContent).toBe("W");
+    expect(avatar?.className).toContain("bg-teal-600");
+  });
+
+  it('task result with agentSlug="cron" shows amber avatar', () => {
+    const { container } = render(
+      <ChatMessageBubble
+        role="assistant"
+        content="Scheduled"
+        type="task_result"
+        agentSlug="cron"
+      />
+    );
+    expect(screen.getByText("cron result")).toBeInTheDocument();
+    const avatar = container.querySelector(".rounded-full");
+    expect(avatar?.textContent).toBe("C");
+    expect(avatar?.className).toContain("bg-amber-600");
+  });
+
+  it("non-task-result assistant messages use Angie avatar regardless of agentSlug", () => {
+    const { container } = render(
+      <ChatMessageBubble role="assistant" content="Hello" agentSlug="github" />
+    );
+    const avatar = container.querySelector(".rounded-full");
+    expect(avatar?.textContent).toBe("A");
+    expect(avatar?.className).toContain("bg-angie-600");
   });
 
   it('username initial extraction: "alice" → "A", undefined → "U"', () => {

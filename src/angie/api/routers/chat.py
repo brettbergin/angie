@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -213,6 +214,17 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
     await websocket.accept()
     _web_channel.register_connection(user_id, websocket)
 
+    # Start Redis pub/sub listener so Celery task results reach the WebSocket
+    def _on_redis_listener_done(task: asyncio.Task) -> None:
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc:
+            logger.warning("Redis listener for %s failed: %s", user_id, exc)
+
+    redis_listener_task = asyncio.create_task(_web_channel.listen_redis(user_id, websocket))
+    redis_listener_task.add_done_callback(_on_redis_listener_done)
+
     from angie.core.prompts import get_prompt_manager
     from angie.db.session import get_session_factory
     from angie.llm import is_llm_configured
@@ -417,4 +429,6 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
             await websocket.send_text(json.dumps(response))
 
     except WebSocketDisconnect:
+        if redis_listener_task:
+            redis_listener_task.cancel()
         _web_channel.unregister_connection(user_id)

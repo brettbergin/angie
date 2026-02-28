@@ -41,7 +41,8 @@ def test_registry_resolve_by_slug():
 def test_registry_resolve_by_capability():
     registry = AgentRegistry()
     registry.register(MockAgent())
-    task = {"title": "run a mock operation", "input_data": {}}
+    # Both capabilities ("mock" and "test") must appear for confidence >= 0.5
+    task = {"title": "run a mock test operation", "input_data": {}}
     agent = registry.resolve(task)
     assert agent is not None
     assert agent.slug == "mock"
