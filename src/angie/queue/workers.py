@@ -200,6 +200,28 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
     return {"status": "success", "result": result, "task_id": task_id}
 
 
+async def _dispatch_lifecycle_event(
+    event_type: str,
+    task_id: str | None,
+    user_id: str | None,
+    source_channel: str | None,
+    result: dict[str, Any],
+    agent_slug: str,
+) -> None:
+    """Dispatch a TASK_COMPLETE or TASK_FAILED event."""
+    from angie.core.events import AngieEvent, router
+    from angie.models.event import EventType
+
+    et = EventType.TASK_COMPLETE if event_type == "task_complete" else EventType.TASK_FAILED
+    event = AngieEvent(
+        type=et,
+        user_id=user_id,
+        payload={"task_id": task_id, "result": result, "agent_slug": agent_slug},
+        source_channel=source_channel,
+    )
+    await router.dispatch(event)
+
+
 def _emit_lifecycle_event(
     event_type: str,
     task_id: str | None,
@@ -208,22 +230,29 @@ def _emit_lifecycle_event(
     result: dict[str, Any],
     agent_slug: str,
 ) -> None:
-    """Fire a TASK_COMPLETE or TASK_FAILED event for the subscription system."""
-    try:
-        from angie.core.events import AngieEvent, router
-        from angie.models.event import EventType
+    """Fire a TASK_COMPLETE or TASK_FAILED event for the subscription system.
 
-        et = EventType.TASK_COMPLETE if event_type == "task_complete" else EventType.TASK_FAILED
-        event = AngieEvent(
-            type=et,
-            user_id=user_id,
-            payload={"task_id": task_id, "result": result, "agent_slug": agent_slug},
-            source_channel=source_channel,
-        )
-        # Fire-and-forget in the current event loop (called from _run_task
-        # which runs inside asyncio.run, so a loop is always running).
+    Works from both async contexts (inside _run_task) and sync contexts
+    (the except block of execute_task where no event loop is running).
+    """
+    try:
         loop = asyncio.get_running_loop()
-        loop.create_task(router.dispatch(event))
+    except RuntimeError:
+        loop = None
+
+    try:
+        if loop and loop.is_running():
+            loop.create_task(
+                _dispatch_lifecycle_event(
+                    event_type, task_id, user_id, source_channel, result, agent_slug
+                )
+            )
+        else:
+            asyncio.run(
+                _dispatch_lifecycle_event(
+                    event_type, task_id, user_id, source_channel, result, agent_slug
+                )
+            )
     except Exception:
         logger.debug("Failed to emit lifecycle event", exc_info=True)
 

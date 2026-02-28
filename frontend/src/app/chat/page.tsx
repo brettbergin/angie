@@ -51,6 +51,7 @@ function ChatPageInner() {
   const reconnectAttempts = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const seenMessageIdsRef = useRef(new Set<string>());
   // Skip DB reload when we just created the conversation via WS
   const skipNextReloadRef = useRef(false);
 
@@ -260,9 +261,6 @@ function ChatPageInner() {
         // onerror is always followed by onclose, so status update happens there
       };
 
-      // Track seen task_result message IDs for robust deduplication
-      const seenMessageIds = new Set<string>();
-
       ws.onmessage = (evt) => {
         const data = JSON.parse(evt.data);
 
@@ -289,8 +287,8 @@ function ChatPageInner() {
 
         // Deduplicate task_result messages by server-generated message_id
         if (data.type === "task_result" && data.message_id) {
-          if (seenMessageIds.has(data.message_id)) return;
-          seenMessageIds.add(data.message_id);
+          if (seenMessageIdsRef.current.has(data.message_id)) return;
+          seenMessageIdsRef.current.add(data.message_id);
         }
 
         // Track pending tasks: increment on dispatch, decrement on result

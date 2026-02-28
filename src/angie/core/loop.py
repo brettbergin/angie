@@ -138,7 +138,7 @@ class AngieLoop:
                 logger.exception("Channel health check failed: %s", name)
 
     async def _cleanup_stale_tasks(self) -> None:
-        """Mark tasks stuck in 'queued' status for >30 minutes as 'failed'."""
+        """Mark tasks stuck in 'pending' status for >30 minutes as 'failed'."""
         try:
             from datetime import UTC, datetime, timedelta
 

@@ -135,10 +135,17 @@ class WebChatChannel(BaseChannel):
         agent_slug: str | None = None,
     ) -> None:
         """Publish a task result to Redis from a sync context (Celery worker)."""
+        global _sync_redis_client
         channel_name = WebChatChannel.redis_channel(user_id)
         payload = _build_task_result_payload(text, conversation_id, agent_slug)
-        client = _get_sync_redis()
-        client.publish(channel_name, json.dumps(payload))
+        try:
+            client = _get_sync_redis()
+            client.publish(channel_name, json.dumps(payload))
+        except Exception:
+            # Reset singleton so next call creates a fresh connection
+            _sync_redis_client = None
+            logger.warning("Redis publish failed for user %s, connection reset", user_id)
+            raise
 
     async def mention_user(self, user_id: str, text: str, **kwargs: Any) -> None:
         await self.send(user_id, f"@{user_id} {text}")
