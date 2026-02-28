@@ -151,12 +151,7 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
 
     agent = _resolve_agent(task_dict)
     if agent is None:
-        # Graceful handling: inform the user instead of raising
-        from angie.agents.registry import get_registry
-
-        registry = get_registry()
-        available = ", ".join(a.slug for a in registry.list_all())
-        msg = f"I couldn't find a suitable agent for this task. Available agents: {available}"
+        msg = "I couldn't find a suitable agent for this task. Please try rephrasing your request."
         if conversation_id and user_id:
             await _deliver_chat_result(conversation_id, user_id, msg)
         else:
@@ -194,8 +189,11 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
             task_dict=task_dict,
         )
 
-    # Emit lifecycle event for task completion
-    _emit_lifecycle_event("task_complete", task_id, user_id, source_channel, result, agent.slug)
+    # Emit lifecycle event for task completion (awaited to ensure it runs
+    # before asyncio.run() in execute_task tears down the event loop).
+    await _dispatch_lifecycle_event(
+        "task_complete", task_id, user_id, source_channel, result, agent.slug
+    )
 
     return {"status": "success", "result": result, "task_id": task_id}
 
