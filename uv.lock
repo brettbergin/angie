@@ -151,7 +151,7 @@ wheels = [
 ]
 
 [[package]]
-name = "angie"
+name = "angie-ai"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
