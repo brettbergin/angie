@@ -20,14 +20,16 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
 
 ### What Angie can do
 
-- **Real time chat interface** — Chat directly with Angie and your fleet of AI agents.
-- **Unified inbox** — (UNDER DEVELOPMENT) Connect Slack, Discord, iMessage, and email in one place. Angie routes incoming messages to the right agent automatically.
-- **Scheduled tasks** — (UNDER DEVELOPMENT) Set cron jobs that run agents on a schedule ("every weekday at 8am, summarize my email and post to Slack").
-- **Multi-step workflows** — (UNDER DEVELOPMENT) Chain agents together: check calendar → summarize emails → control smart lights → send morning briefing.
-- **Smart home control** — (UNDER DEVELOPMENT) Adjust Philips Hue lighting and Home Assistant automations via natural language.
-- **Developer workflows** — Query GitHub issues, open PRs, and summarize repository activity.
-- **Media control** — (UNDER DEVELOPMENT) Control Spotify playback, switch playlists, and manage your queue.
-- **Network management** — (UNDER DEVELOPMENT) Inspect your UniFi network, connected devices, and bandwidth stats.
+- **Real-time chat interface** — Chat directly with Angie and your fleet of AI agents from the terminal or the web UI.
+- **Developer workflows** — Query GitHub issues, open PRs, summarize repository activity, and turn issues into pull requests autonomously.
+- **Web browsing** — Browse URLs, take screenshots, extract content, and summarize web pages.
+- **Weather** — Get current conditions, forecasts, and severe weather alerts.
+- **Unified inbox** — (planned) Connect Slack, Discord, iMessage, and email in one place. Angie routes incoming messages to the right agent automatically.
+- **Scheduled tasks** — (planned) Set cron jobs that run agents on a schedule ("every weekday at 8am, summarize my email and post to Slack").
+- **Multi-step workflows** — (planned) Chain agents together: check calendar → summarize emails → control smart lights → send morning briefing.
+- **Smart home control** — (planned) Adjust Philips Hue lighting and Home Assistant automations via natural language.
+- **Media control** — (planned) Control Spotify playback, switch playlists, and manage your queue.
+- **Network management** — (planned) Inspect your UniFi network, connected devices, and bandwidth stats.
 - **Personalized context** — Onboarding builds a private profile (personality, communication style, preferences) that shapes every LLM interaction.
 - **REST API + Web UI** — Full FastAPI backend with a Next.js dashboard for managing agents, teams, workflows, tasks, and events in real time.
 
@@ -38,7 +40,7 @@ ______________________________________________________________________
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                          Channels                               │
-│  Slack(soon) · Discord(soon) · iMessage (soon) · Angie UI Chat  │
+│  Slack · Discord · iMessage · Email · Angie UI Chat             │
 └───────────────────────────┬─────────────────────────────────────┘
                             │ Events: infer task from user input
                             ▼
@@ -53,9 +55,8 @@ ______________________________________________________________________
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Agent Fleet                             │
 │  System: cron · task-manager · workflow-manager · event-manager │
-│  Email: gmail · outlook · yahoo · spam · correspondence         │
-│  Calendar: gcal   Media: spotify   Dev: github                  │
-│  Smart Home: hue · home-assistant   Networking: ubiquiti        │
+│  Dev: github · software-dev                                     │
+│  Productivity: web   Lifestyle: weather                         │
 └─────────────────────────────────────────────────────────────────┘
                             │ Agents & Teams: single teams of AI agents
                             ▼
@@ -132,7 +133,7 @@ make migrate          # runs Alembic migrations
 
 ```bash
 # Start the daemon (background loop + Celery worker)
-angie daemon start
+angie daemon
 
 # Or start services individually:
 uvicorn angie.api.app:create_app --factory --reload   # API on :8000
@@ -160,23 +161,30 @@ ______________________________________________________________________
 angie --help
 
 # Daemon
-angie daemon start          # Start background daemon
-angie daemon stop
-angie daemon status
+angie daemon                 # Start background daemon (event loop)
 
 # One-shot queries
 angie ask "What's on my calendar today?"
 
-# Configuration
+# Interactive chat
+angie chat "Hello Angie"             # Chat from the terminal
+angie chat --agent github "List PRs" # Route directly to a specific agent
+
+# Channel configuration
 angie config slack           # Set Slack bot token
 angie config discord         # Set Discord bot token
 angie config imessage        # Set BlueBubbles URL
 angie config email           # Set SMTP/IMAP credentials
+angie config channels        # Show status of all configured channels
 
-# Prompt management
-angie prompts list           # Show all active prompts
-angie prompts edit           # Open prompt in $EDITOR
-angie prompts reset          # Re-run onboarding for a prompt
+# Unified configuration wizard
+angie configure keys slack   # Set API keys for a service
+angie configure list         # Show all configured keys grouped by service
+angie configure model        # Select the LLM model
+angie configure seed         # Seed the database with demo data
+
+# Onboarding
+angie setup                  # Interactive first-run onboarding
 
 # Status
 angie status                 # Show active tasks, registered agents
@@ -194,23 +202,18 @@ Agents are pydantic-ai powered workers. Each declares:
 
 ### Built-in Agents
 
-| Slug               | Category   | Description                    |
-| ------------------ | ---------- | ------------------------------ |
-| `cron-manager`     | System     | Create, list, delete cron jobs |
-| `task-manager`     | System     | Manage task queue and status   |
-| `workflow-manager` | System     | Trigger and monitor workflows  |
-| `event-manager`    | System     | Inspect and replay events      |
-| `gmail-agent`      | Email      | Gmail read/send/search         |
-| `outlook-agent`    | Email      | Office 365 mail                |
-| `yahoo-agent`      | Email      | Yahoo Mail                     |
-| `spam-deletion`    | Email      | Delete spam across providers   |
-| `correspondence`   | Email      | Draft and send replies         |
-| `gcal-agent`       | Calendar   | Google Calendar CRUD           |
-| `spotify-agent`    | Media      | Playback control, playlists    |
-| `github-agent`     | Dev        | Issues, PRs, repos             |
-| `hue-agent`        | Smart Home | Philips Hue lighting           |
-| `home-assistant`   | Smart Home | Home Assistant integration     |
-| `ubiquiti-agent`   | Networking | UniFi network management       |
+| Slug               | Category     | Description                                                    |
+| ------------------ | ------------ | -------------------------------------------------------------- |
+| `cron`             | System       | Create, delete, and list cron scheduled tasks                  |
+| `task-manager`     | System       | List, cancel, and retry Angie tasks                            |
+| `workflow-manager` | System       | Manage and trigger Angie workflows                             |
+| `event-manager`    | System       | Query, filter, and manage Angie events                         |
+| `github`           | Dev          | GitHub repository and PR management                            |
+| `software-dev`     | Dev          | Turn GitHub issues into pull requests autonomously             |
+| `web`              | Productivity | Browse URLs, take screenshots, extract and summarize web pages |
+| `weather`          | Lifestyle    | Weather conditions, forecasts, and severe weather alerts       |
+
+More agents are planned — see the environment variables section below for services Angie will support.
 
 ### Adding a New Agent
 
@@ -222,6 +225,7 @@ class MyAgent(BaseAgent):
     name = "My Agent"
     slug = "my-agent"
     description = "Does something useful"
+    category = "General"
     capabilities = ["useful", "something"]
 
     async def execute(self, task: dict) -> dict:
@@ -240,7 +244,7 @@ ______________________________________________________________________
 ```bash
 curl -X POST http://localhost:8000/api/v1/teams/ \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"name":"Email Team","slug":"email","agent_slugs":["gmail-agent","outlook-agent","spam-deletion"]}'
+  -d '{"name":"Dev Team","slug":"dev","agent_slugs":["github","software-dev"]}'
 ```
 
 ### Defining a Workflow (API)
@@ -253,9 +257,9 @@ curl -X POST http://localhost:8000/api/v1/workflows/ \
     "slug": "morning-briefing",
     "trigger_event": "cron",
     "steps": [
-      {"order": 1, "name": "Check calendar", "agent_slug": "gcal-agent"},
-      {"order": 2, "name": "Check email", "agent_slug": "gmail-agent"},
-      {"order": 3, "name": "Report to Slack", "agent_slug": "task-manager"}
+      {"order": 1, "name": "Check weather", "agent_slug": "weather"},
+      {"order": 2, "name": "Browse news", "agent_slug": "web"},
+      {"order": 3, "name": "Report status", "agent_slug": "task-manager"}
     ]
   }'
 ```
@@ -282,7 +286,6 @@ For user interactions: `SYSTEM → ANGIE → USER_PROMPTS`
 Reconfigure at any time:
 
 ```bash
-angie prompts edit
 angie setup           # re-run full onboarding
 ```
 
@@ -477,120 +480,12 @@ ______________________________________________________________________
 - A way to expose the server publicly (ngrok, Cloudflare Tunnel, or static IP)
 - No Apple credentials needed — BlueBubbles uses the Mac's existing iMessage session
 
-______________________________________________________________________
-
-### Email — SMTP/IMAP (optional)
-
-| Variable          | Description                                          |
-| ----------------- | ---------------------------------------------------- |
-| `EMAIL_SMTP_HOST` | SMTP server hostname (e.g. `smtp.gmail.com`)         |
-| `EMAIL_SMTP_PORT` | SMTP port (default: `587` for STARTTLS)              |
-| `EMAIL_IMAP_HOST` | IMAP server hostname (e.g. `imap.gmail.com`)         |
-| `EMAIL_IMAP_PORT` | IMAP port (default: `993` for SSL)                   |
-| `EMAIL_USERNAME`  | Email address (e.g. `you@gmail.com`)                 |
-| `EMAIL_PASSWORD`  | App password (not your regular password — see below) |
-
-**Gmail setup:**
-
-1. Enable **2-Step Verification** on your Google account
-1. Go to **Google Account → Security → App passwords**
-1. Create an app password for "Mail" → use this as `EMAIL_PASSWORD`
-1. SMTP: `smtp.gmail.com:587`, IMAP: `imap.gmail.com:993`
-
-**Other providers:** Use standard SMTP/IMAP settings. For Office 365: SMTP `smtp.office365.com:587`, IMAP `outlook.office365.com:993`.
 
 ______________________________________________________________________
 
-### Google Calendar (optional)
+### GitHub Agent (optional — separate from Copilot API token)
 
-| Variable                  | Description                                                     |
-| ------------------------- | --------------------------------------------------------------- |
-| `GOOGLE_CREDENTIALS_FILE` | Path to your `credentials.json` from Google Cloud Console       |
-| `GOOGLE_TOKEN_FILE`       | Path where Angie stores the OAuth token (default: `token.json`) |
-
-**Setup:**
-
-1. Go to [console.cloud.google.com](https://console.cloud.google.com) → create a project
-1. Enable the **Google Calendar API**
-1. Under **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID** (Desktop app)
-1. Download the JSON → save as `credentials.json` → set `GOOGLE_CREDENTIALS_FILE`
-1. Required OAuth scopes:
-   - `https://www.googleapis.com/auth/calendar` — full read/write access to calendars
-   - `https://www.googleapis.com/auth/calendar.events` — create/edit/delete events
-1. On first run, a browser window opens for authorization; the token is saved automatically
-
-______________________________________________________________________
-
-### Spotify (optional)
-
-| Variable                | Description                                                    |
-| ----------------------- | -------------------------------------------------------------- |
-| `SPOTIFY_CLIENT_ID`     | Spotify app client ID                                          |
-| `SPOTIFY_CLIENT_SECRET` | Spotify app client secret                                      |
-| `SPOTIFY_REDIRECT_URI`  | OAuth callback URL (default: `http://localhost:8080/callback`) |
-
-**Setup:**
-
-1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → **Create app**
-1. Set the Redirect URI to `http://localhost:8080/callback`
-1. Copy **Client ID** and **Client Secret**
-1. Required scopes (requested at runtime):
-   - `user-read-playback-state` — current track and device
-   - `user-modify-playback-state` — play/pause/skip/volume
-   - `user-read-currently-playing` — now-playing info
-   - `playlist-read-private` — access private playlists
-   - `playlist-modify-public`, `playlist-modify-private` — create/edit playlists
-
-______________________________________________________________________
-
-### Philips Hue (optional)
-
-| Variable        | Description                                                |
-| --------------- | ---------------------------------------------------------- |
-| `HUE_BRIDGE_IP` | Local IP address of your Hue Bridge (e.g. `192.168.1.100`) |
-| `HUE_USERNAME`  | API username registered on the bridge                      |
-
-**Setup:**
-
-1. Find your bridge IP in the Hue app or at [discovery.meethue.com](https://discovery.meethue.com)
-1. Press the **link button** on the physical bridge
-1. Within 30 seconds, POST to `http://<bridge_ip>/api` with `{"devicetype":"angie"}` to get your username
-1. No cloud account or API key needed — this is a local LAN API
-
-______________________________________________________________________
-
-### Home Assistant (optional)
-
-| Variable               | Description                                                                       |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `HOME_ASSISTANT_URL`   | Base URL of your Home Assistant instance (e.g. `http://homeassistant.local:8123`) |
-| `HOME_ASSISTANT_TOKEN` | Long-lived access token                                                           |
-
-**Setup:**
-
-1. In Home Assistant, go to **Profile → Long-Lived Access Tokens → Create Token**
-1. Give it a name (e.g. "Angie") and copy the token
-1. The token inherits your user's permissions — use an account with access to the devices Angie should control
-
-______________________________________________________________________
-
-### UniFi / Ubiquiti (optional)
-
-| Variable         | Description                                                                 |
-| ---------------- | --------------------------------------------------------------------------- |
-| `UNIFI_HOST`     | UniFi Controller URL (e.g. `https://192.168.1.1` or `https://unifi.ui.com`) |
-| `UNIFI_USERNAME` | Controller admin username                                                   |
-| `UNIFI_PASSWORD` | Controller admin password                                                   |
-
-**Requirements:**
-
-- A local UniFi Network Controller (self-hosted) or UniFi Cloud (unifi.ui.com)
-- Admin credentials — a read-only account works for monitoring; admin is needed for device management
-- For cloud access, use your Ubiquiti SSO credentials
-
-______________________________________________________________________
-
-### GitHub Agent (optional — separate from Copilot token)
+This should be set from the Connections page in the Angie web UI. If not, we have:
 
 | Variable     | Description                                                            |
 | ------------ | ---------------------------------------------------------------------- |
@@ -610,7 +505,7 @@ ______________________________________________________________________
 Three GitHub Actions workflows:
 
 - **`ci.yml`** — runs on every push/PR: lint → format → markdown format → test → security → Docker build
-- **`deploy.yml`** — runs on `v*` tags: build PyInstaller binary → GitHub Release + publish to PyPI (OIDC trusted publishing)
+- **`deploy.yml`** — runs on `v*.*.*` tags: build PyInstaller binary → GitHub Release + publish `angie-ai` to PyPI (via `PYPI_TOKEN`)
 
 ______________________________________________________________________
 
