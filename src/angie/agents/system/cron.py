@@ -128,8 +128,21 @@ class CronAgent(BaseAgent):
         from angie.llm import get_llm_model
 
         intent = self._extract_intent(task, fallback="list scheduled tasks")
+        input_data = task.get("input_data", {})
         user_id = task.get("user_id", "")
-        conversation_id = task.get("input_data", {}).get("conversation_id", "")
+        conversation_id = input_data.get("conversation_id", "")
+
+        job_id = input_data.get("job_id")
+        if job_id:
+            task_name = input_data.get("task_name", "")
+            intent = (
+                f"A scheduled cron job just fired (job_id={job_id}). "
+                f"The job name is '{task_name}'. "
+                f"Your task: {intent}. "
+                f"Execute the described task. If this is a reminder or notification, "
+                f"acknowledge it clearly and provide any helpful context. "
+                f"If the task involves listing or managing schedules, use your tools."
+            )
         self.logger.info("CronAgent intent=%r user_id=%s", intent, user_id)
         try:
             # Build a fresh agent with user_id baked into tool closures
