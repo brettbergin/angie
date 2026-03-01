@@ -25,8 +25,8 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
 - **Web browsing** — Browse URLs, take screenshots, extract content, and summarize web pages.
 - **Weather** — Get current conditions, forecasts, and severe weather alerts.
 - **Unified inbox** — (planned) Connect Slack, Discord, iMessage, and email in one place. Angie routes incoming messages to the right agent automatically.
-- **Scheduled tasks** — (planned) Set cron jobs that run agents on a schedule ("every weekday at 8am, summarize my email and post to Slack").
-- **Multi-step workflows** — (planned) Chain agents together: check calendar → summarize emails → control smart lights → send morning briefing.
+- **Scheduled tasks** — Set cron jobs that run agents on a schedule ("every weekday at 8am, summarize my email and post to Slack").
+- **Multi-step workflows** — Chain agents together: check calendar → summarize emails → control smart lights → send morning briefing.
 - **Smart home control** — (planned) Adjust Philips Hue lighting and Home Assistant automations via natural language.
 - **Media control** — (planned) Control Spotify playback, switch playlists, and manage your queue.
 - **Network management** — (planned) Inspect your UniFi network, connected devices, and bandwidth stats.
