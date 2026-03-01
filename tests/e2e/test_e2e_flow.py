@@ -56,7 +56,7 @@ def test_agent_registration_and_dispatch():
     registry.register(GreetAgent())
     registry.register(EchoAgent())
 
-    task = {"title": "greet and say hello and welcome", "input_data": {}}
+    task = {"agent_slug": "greet", "title": "greet and say hello and welcome", "input_data": {}}
     agent = registry.resolve(task)
     assert agent is not None
     assert agent.slug == "greet"
