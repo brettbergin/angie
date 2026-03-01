@@ -9,19 +9,19 @@ teams that execute workflows. Users interact with Angie via Slack, Discord, iMes
 
 ## Decided Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Language | Python 3.12+ (managed with `uv`) |
-| AI Engines | `pydantic-ai` (agent schemas, tools, structured I/O) + `github-copilot-sdk` (LLM engine, sessions, streaming) |
-| API | FastAPI (async) |
-| Database | MySQL 8 via SQLAlchemy 2.0 (async) + Alembic migrations |
-| Cache | Redis |
-| Task Queue | Celery (Redis broker) |
-| Frontend | Next.js (React, SSR) |
-| Containerization | Docker Compose (cloud-ready later) |
-| CLI | `click` |
-| Build/Dev | Makefile, pytest, ruff, pyinstaller |
-| Auth | Multi-user, JWT-based |
+| Layer            | Technology                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------- |
+| Language         | Python 3.12+ (managed with `uv`)                                                                              |
+| AI Engines       | `pydantic-ai` (agent schemas, tools, structured I/O) + `github-copilot-sdk` (LLM engine, sessions, streaming) |
+| API              | FastAPI (async)                                                                                               |
+| Database         | MySQL 8 via SQLAlchemy 2.0 (async) + Alembic migrations                                                       |
+| Cache            | Redis                                                                                                         |
+| Task Queue       | Celery (Redis broker)                                                                                         |
+| Frontend         | Next.js (React, SSR)                                                                                          |
+| Containerization | Docker Compose (cloud-ready later)                                                                            |
+| CLI              | `click`                                                                                                       |
+| Build/Dev        | Makefile, pytest, ruff, pyinstaller                                                                           |
+| Auth             | Multi-user, JWT-based                                                                                         |
 
 ## High-Level Architecture
 
@@ -201,135 +201,147 @@ angie/
 ## Implementation Phases
 
 ### Phase 1 — Project Skeleton & Dev Environment
+
 Set up the monorepo structure, tooling, and dev workflow so every subsequent phase has a solid foundation.
 
 1. **project-init**: Initialize `pyproject.toml` with `uv`, configure ruff, pytest, and project metadata.
-2. **makefile**: Create Makefile with targets: `install`, `lint`, `lint-fix`, `format`, `format-fix`, `check` (lint+format+typecheck), `fix` (lint-fix+format-fix), `test`, `test-single` (run one test), `build`, `docker-up`, `docker-down`, `docker-build`, `clean`.
-3. **docker-compose**: Define services — `mysql`, `redis`, `api`, `worker`, `daemon`, `frontend`. Include health checks, volumes, networks.
-4. **dockerfiles**: Create Dockerfiles for each service (`docker/`).
-5. **github-ci**: CI workflow — lint, test, build on push/PR. Release workflow stub.
-6. **copilot-instructions**: `.github/copilot-instructions.md` with project conventions.
+1. **makefile**: Create Makefile with targets: `install`, `lint`, `lint-fix`, `format`, `format-fix`, `check` (lint+format+typecheck), `fix` (lint-fix+format-fix), `test`, `test-single` (run one test), `build`, `docker-up`, `docker-down`, `docker-build`, `clean`.
+1. **docker-compose**: Define services — `mysql`, `redis`, `api`, `worker`, `daemon`, `frontend`. Include health checks, volumes, networks.
+1. **dockerfiles**: Create Dockerfiles for each service (`docker/`).
+1. **github-ci**: CI workflow — lint, test, build on push/PR. Release workflow stub.
+1. **copilot-instructions**: `.github/copilot-instructions.md` with project conventions.
 
 ### Phase 2 — Database & Core Models
+
 Stand up the data layer that everything else depends on.
 
 7. **db-setup**: SQLAlchemy async engine, session factory, Alembic init. `src/angie/db/`.
-8. **models**: Define all SQLAlchemy models — User, Agent, Team, Workflow, WorkflowStep, Task, Event, Prompt, Channel config. `src/angie/models/`.
-9. **migrations**: Initial Alembic migration generating all tables.
-10. **cache-layer**: Redis client wrapper with cache decorators. `src/angie/cache/`.
+1. **models**: Define all SQLAlchemy models — User, Agent, Team, Workflow, WorkflowStep, Task, Event, Prompt, Channel config. `src/angie/models/`.
+1. **migrations**: Initial Alembic migration generating all tables.
+1. **cache-layer**: Redis client wrapper with cache decorators. `src/angie/cache/`.
 
 ### Phase 3 — Config, Prompts & Auth
+
 The prompt system and config are foundational to every agent interaction.
 
 11. **config**: pydantic-settings based config loading (env vars, `.env` file). `src/angie/config.py`.
-12. **prompt-hierarchy**: Prompt manager that loads and composes `SYSTEM_PROMPT → ANGIE_PROMPT → AGENT_PROMPT / USER_PROMPTS`. Template rendering with Jinja2. `src/angie/core/prompts.py` + `prompts/` directory.
-13. **auth**: JWT-based auth (login, register, token refresh). Password hashing with bcrypt. `src/angie/api/auth.py`.
+01. **prompt-hierarchy**: Prompt manager that loads and composes `SYSTEM_PROMPT → ANGIE_PROMPT → AGENT_PROMPT / USER_PROMPTS`. Template rendering with Jinja2. `src/angie/core/prompts.py` + `prompts/` directory.
+01. **auth**: JWT-based auth (login, register, token refresh). Password hashing with bcrypt. `src/angie/api/auth.py`.
 
 ### Phase 4 — Event System & Task Queue
+
 The nervous system of Angie — how work enters and flows through the system.
 
 14. **event-system**: Event base class, event types enum, EventRouter that maps events to handlers. `src/angie/core/events.py`.
-15. **celery-setup**: Celery app config with Redis broker, result backend. Task serialization. `src/angie/queue/`.
-16. **task-dispatcher**: AngieTask model, dispatcher that creates tasks from events and enqueues them via Celery. `src/angie/core/tasks.py`.
-17. **workers**: Celery workers that pick up tasks, resolve the target agent/team, and execute. `src/angie/queue/workers.py`.
+01. **celery-setup**: Celery app config with Redis broker, result backend. Task serialization. `src/angie/queue/`.
+01. **task-dispatcher**: AngieTask model, dispatcher that creates tasks from events and enqueues them via Celery. `src/angie/core/tasks.py`.
+01. **workers**: Celery workers that pick up tasks, resolve the target agent/team, and execute. `src/angie/queue/workers.py`.
 
 ### Phase 5 — Agent Framework
+
 The pluggable agent system — the core abstraction layer.
 
 18. **base-agent**: `BaseAgent` class wrapping pydantic-ai. Defines interface: `name`, `description`, `tools`, `prompt`, `execute()`, `can_handle()`. Integrates copilot-sdk for LLM sessions. `src/angie/agents/base.py`.
-19. **agent-registry**: Auto-discovery registry. Agents register by decorator or config. Supports listing, lookup by capability. `src/angie/agents/registry.py`.
-20. **team-model**: Team abstraction — a named group of agents. Team resolver picks the right agent(s) for a task. `src/angie/agents/teams.py` (runtime) + DB model.
-21. **workflow-engine**: Workflow executor — runs ordered steps, passes context between agents, handles branching/failure. `src/angie/core/workflows.py`.
+01. **agent-registry**: Auto-discovery registry. Agents register by decorator or config. Supports listing, lookup by capability. `src/angie/agents/registry.py`.
+01. **team-model**: Team abstraction — a named group of agents. Team resolver picks the right agent(s) for a task. `src/angie/agents/teams.py` (runtime) + DB model.
+01. **workflow-engine**: Workflow executor — runs ordered steps, passes context between agents, handles branching/failure. `src/angie/core/workflows.py`.
 
 ### Phase 6 — API Layer
+
 CRUD API for all entities plus real-time chat.
 
 22. **fastapi-app**: FastAPI app with middleware (CORS, auth, error handling), dependency injection. `src/angie/api/app.py`.
-23. **crud-routers**: REST routers for agents, teams, workflows, tasks, events, users, prompts. Standard CRUD patterns. `src/angie/api/routers/`.
-24. **chat-endpoint**: WebSocket endpoint for real-time chat with Angie from the web UI. `src/angie/api/routers/chat.py`.
+01. **crud-routers**: REST routers for agents, teams, workflows, tasks, events, users, prompts. Standard CRUD patterns. `src/angie/api/routers/`.
+01. **chat-endpoint**: WebSocket endpoint for real-time chat with Angie from the web UI. `src/angie/api/routers/chat.py`.
 
 ### Phase 7 — Communication Channels
+
 Pluggable adapters for each communication platform.
 
 25. **channel-base**: `BaseChannel` abstract class — `send()`, `receive()`, `mention_user()`, `listen()`. `src/angie/channels/base.py`.
-26. **slack-channel**: Slack integration using `slack-sdk`. Bot that listens in configured channels, can @-mention user. `src/angie/channels/slack.py`.
-27. **discord-channel**: Discord integration using `discord.py`. Similar bot pattern. `src/angie/channels/discord.py`.
-28. **imessage-channel**: BlueBubbles REST API wrapper for iMessage send/receive/webhooks. `src/angie/channels/imessage.py`.
-29. **email-channel**: Email send/receive (SMTP/IMAP) for notifications. `src/angie/channels/email.py`.
-30. **web-chat-channel**: WebSocket bridge connecting the API chat endpoint to the channel system. `src/angie/channels/web_chat.py`.
+01. **slack-channel**: Slack integration using `slack-sdk`. Bot that listens in configured channels, can @-mention user. `src/angie/channels/slack.py`.
+01. **discord-channel**: Discord integration using `discord.py`. Similar bot pattern. `src/angie/channels/discord.py`.
+01. **imessage-channel**: BlueBubbles REST API wrapper for iMessage send/receive/webhooks. `src/angie/channels/imessage.py`.
+01. **email-channel**: Email send/receive (SMTP/IMAP) for notifications. `src/angie/channels/email.py`.
+01. **web-chat-channel**: WebSocket bridge connecting the API chat endpoint to the channel system. `src/angie/channels/web_chat.py`.
 
 ### Phase 8 — Core Event Loop (Angie Daemon)
+
 The main daemon that ties everything together.
 
 31. **daemon**: Main Angie daemon — starts event loop, initializes channels, polls cron registry, processes task queue results, handles feedback/logging. Runs as a long-lived process. `src/angie/core/loop.py` + `src/angie/main.py`.
-32. **cron-engine**: Cron scheduler within the daemon — evaluates cron expressions, fires events. Uses APScheduler or similar. `src/angie/core/cron.py`.
-33. **feedback-system**: Logging + user feedback — Angie reports success/failure back through the originating channel. `src/angie/core/feedback.py`.
+01. **cron-engine**: Cron scheduler within the daemon — evaluates cron expressions, fires events. Uses APScheduler or similar. `src/angie/core/cron.py`.
+01. **feedback-system**: Logging + user feedback — Angie reports success/failure back through the originating channel. `src/angie/core/feedback.py`.
 
 ### Phase 9 — CLI
+
 User-facing CLI for setup, quick interaction, and management.
 
 34. **cli-framework**: Click-based CLI entry point. `src/angie/cli/main.py`.
-35. **cli-onboarding**: `angie setup` — interactive first-run that asks questions, generates USER_PROMPTS markdown files, persists to DB. `src/angie/cli/setup.py`.
-36. **cli-chat**: `angie ask "..."` — quick question to Angie from terminal. `src/angie/cli/chat.py`.
-37. **cli-config**: `angie config slack|discord|email|imessage` — configure channel integrations. `src/angie/cli/config.py`.
-38. **cli-status**: `angie status` — what is Angie doing right now, active tasks, recent events. `src/angie/cli/status.py`.
-39. **cli-prompts**: `angie prompts edit|list|reset` — manage USER_PROMPTS. `src/angie/cli/prompts.py`.
+01. **cli-onboarding**: `angie setup` — interactive first-run that asks questions, generates USER_PROMPTS markdown files, persists to DB. `src/angie/cli/setup.py`.
+01. **cli-chat**: `angie ask "..."` — quick question to Angie from terminal. `src/angie/cli/chat.py`.
+01. **cli-config**: `angie config slack|discord|email|imessage` — configure channel integrations. `src/angie/cli/config.py`.
+01. **cli-status**: `angie status` — what is Angie doing right now, active tasks, recent events. `src/angie/cli/status.py`.
+01. **cli-prompts**: `angie prompts edit|list|reset` — manage USER_PROMPTS. `src/angie/cli/prompts.py`.
 
 ### Phase 10 — Agent Fleet (Initial Set)
+
 Implement the first batch of agents, each wrapping its respective SDK.
 
 40. **agent-cron**: Cron task manager agent (create/delete/list crons). `src/angie/agents/system/cron.py`.
-41. **agent-task-mgr**: Task manager agent (list/cancel/retry tasks). `src/angie/agents/system/task_manager.py`.
-42. **agent-workflow-mgr**: Workflow manager agent. `src/angie/agents/system/workflow_manager.py`.
-43. **agent-event-mgr**: Event manager agent. `src/angie/agents/system/event_manager.py`.
-44. **agent-gmail**: Gmail agent (send, read, search, labels) via `google-api-python-client`. `src/angie/agents/email/gmail.py`.
-45. **agent-outlook**: Office 365 mail agent via `O365` SDK. `src/angie/agents/email/outlook.py`.
-46. **agent-yahoo**: Yahoo mail agent. `src/angie/agents/email/yahoo.py`.
-47. **agent-spam**: Email spam deletion agent (works across all mail agents). `src/angie/agents/email/spam.py`.
-48. **agent-gcal**: Google Calendar agent via `google-api-python-client`. `src/angie/agents/calendar/gcal.py`.
-49. **agent-hue**: Philips Hue agent via `phue`. `src/angie/agents/smart_home/hue.py`.
-50. **agent-ha**: Home Assistant agent via `homeassistant-api`. `src/angie/agents/smart_home/home_assistant.py`.
-51. **agent-ubiquiti**: UniFi networking agent via `aiounifi` or `pyunifi`. `src/angie/agents/networking/ubiquiti.py`.
-52. **agent-spotify**: Spotify agent via `spotipy`. `src/angie/agents/media/spotify.py`.
-53. **agent-github**: GitHub agent via `PyGithub` or `githubkit`. `src/angie/agents/dev/github.py`.
-54. **agent-email-correspond**: Email correspondence agent (drafts context-aware replies). `src/angie/agents/email/correspondence.py`.
+01. **agent-task-mgr**: Task manager agent (list/cancel/retry tasks). `src/angie/agents/system/task_manager.py`.
+01. **agent-workflow-mgr**: Workflow manager agent. `src/angie/agents/system/workflow_manager.py`.
+01. **agent-event-mgr**: Event manager agent. `src/angie/agents/system/event_manager.py`.
+01. **agent-gmail**: Gmail agent (send, read, search, labels) via `google-api-python-client`. `src/angie/agents/email/gmail.py`.
+01. **agent-outlook**: Office 365 mail agent via `O365` SDK. `src/angie/agents/email/outlook.py`.
+01. **agent-yahoo**: Yahoo mail agent. `src/angie/agents/email/yahoo.py`.
+01. **agent-spam**: Email spam deletion agent (works across all mail agents). `src/angie/agents/email/spam.py`.
+01. **agent-gcal**: Google Calendar agent via `google-api-python-client`. `src/angie/agents/calendar/gcal.py`.
+01. **agent-hue**: Philips Hue agent via `phue`. `src/angie/agents/smart_home/hue.py`.
+01. **agent-ha**: Home Assistant agent via `homeassistant-api`. `src/angie/agents/smart_home/home_assistant.py`.
+01. **agent-ubiquiti**: UniFi networking agent via `aiounifi` or `pyunifi`. `src/angie/agents/networking/ubiquiti.py`.
+01. **agent-spotify**: Spotify agent via `spotipy`. `src/angie/agents/media/spotify.py`.
+01. **agent-github**: GitHub agent via `PyGithub` or `githubkit`. `src/angie/agents/dev/github.py`.
+01. **agent-email-correspond**: Email correspondence agent (drafts context-aware replies). `src/angie/agents/email/correspondence.py`.
 
 ### Phase 11 — Frontend (Next.js)
+
 Rich web application for managing everything.
 
 55. **frontend-init**: Next.js project setup with TypeScript, Tailwind, shadcn/ui component library. `frontend/`.
-56. **frontend-auth**: Login/register pages, JWT token management, auth context. `frontend/src/app/(auth)/`.
-57. **frontend-dashboard**: Dashboard — task history, event timeline, success/failure stats, active agents. `frontend/src/app/dashboard/`.
-58. **frontend-agents**: Agent fleet management — list, create, edit, delete agents. `frontend/src/app/agents/`.
-59. **frontend-teams**: Team management — group agents, assign roles. `frontend/src/app/teams/`.
-60. **frontend-workflows**: Workflow builder — define steps, assign agents/teams, visual editor. `frontend/src/app/workflows/`.
-61. **frontend-tasks**: Task history — list, filter, view details, retry. `frontend/src/app/tasks/`.
-62. **frontend-events**: Event log — past events, future scheduled events, cron status. `frontend/src/app/events/`.
-63. **frontend-chat**: Chat interface — real-time WebSocket chat with Angie. `frontend/src/app/chat/`.
-64. **frontend-settings**: User settings — channel config, prompt management, profile. `frontend/src/app/settings/`.
+01. **frontend-auth**: Login/register pages, JWT token management, auth context. `frontend/src/app/(auth)/`.
+01. **frontend-dashboard**: Dashboard — task history, event timeline, success/failure stats, active agents. `frontend/src/app/dashboard/`.
+01. **frontend-agents**: Agent fleet management — list, create, edit, delete agents. `frontend/src/app/agents/`.
+01. **frontend-teams**: Team management — group agents, assign roles. `frontend/src/app/teams/`.
+01. **frontend-workflows**: Workflow builder — define steps, assign agents/teams, visual editor. `frontend/src/app/workflows/`.
+01. **frontend-tasks**: Task history — list, filter, view details, retry. `frontend/src/app/tasks/`.
+01. **frontend-events**: Event log — past events, future scheduled events, cron status. `frontend/src/app/events/`.
+01. **frontend-chat**: Chat interface — real-time WebSocket chat with Angie. `frontend/src/app/chat/`.
+01. **frontend-settings**: User settings — channel config, prompt management, profile. `frontend/src/app/settings/`.
 
 ### Phase 12 — Polish & Release
+
 Final integration, testing, and packaging.
 
 65. **e2e-tests**: End-to-end tests covering critical flows (onboarding → create agent → run task → get feedback).
-66. **pyinstaller**: PyInstaller config to build standalone `angie` CLI binary.
-67. **docs**: README overhaul, architecture docs, quickstart guide.
+01. **pyinstaller**: PyInstaller config to build standalone `angie` CLI binary.
+01. **docs**: README overhaul, architecture docs, quickstart guide.
 
 ## Key Design Decisions
 
 1. **Event-driven, not request-driven**: Everything enters via events. User messages, cron ticks, webhooks, API calls — all become events. This makes the system pluggable.
 
-2. **Agent = pydantic-ai Agent + SDK wrapper**: Each agent defines its pydantic-ai schema (tools, structured I/O) and uses the underlying service SDK for actual work. copilot-sdk provides the LLM session/engine.
+1. **Agent = pydantic-ai Agent + SDK wrapper**: Each agent defines its pydantic-ai schema (tools, structured I/O) and uses the underlying service SDK for actual work. copilot-sdk provides the LLM session/engine.
 
-3. **Prompt composition at runtime**: Prompts are Jinja2 markdown templates. The prompt manager composes `SYSTEM + ANGIE + (AGENT | USER_PROMPTS)` at request time, injecting user context and agent capabilities.
+1. **Prompt composition at runtime**: Prompts are Jinja2 markdown templates. The prompt manager composes `SYSTEM + ANGIE + (AGENT | USER_PROMPTS)` at request time, injecting user context and agent capabilities.
 
-4. **Celery for async task execution**: User-facing requests return immediately. Tasks execute asynchronously in Celery workers. Results flow back through channels.
+1. **Celery for async task execution**: User-facing requests return immediately. Tasks execute asynchronously in Celery workers. Results flow back through channels.
 
-5. **Channel abstraction**: All communication platforms implement the same `BaseChannel` interface. Angie doesn't know or care which platform she's talking through.
+1. **Channel abstraction**: All communication platforms implement the same `BaseChannel` interface. Angie doesn't know or care which platform she's talking through.
 
-6. **Redis for caching AND Celery broker**: Single Redis instance serves dual purpose. Cache invalidation via TTL and event-based clearing.
+1. **Redis for caching AND Celery broker**: Single Redis instance serves dual purpose. Cache invalidation via TTL and event-based clearing.
 
-7. **Multi-user from day one**: JWT auth, per-user prompt configs, per-user channel bindings. Users are isolated.
+1. **Multi-user from day one**: JWT auth, per-user prompt configs, per-user channel bindings. Users are isolated.
 
 ## Notes
 
@@ -338,8 +350,7 @@ Final integration, testing, and packaging.
 - The agent fleet is large (14+ agents). Implement system agents first (cron, task, workflow, event managers), then communication agents, then service agents. Each agent should be independently testable.
 - The frontend is a full application. Consider using shadcn/ui for consistent, accessible components.
 
-
----
+______________________________________________________________________
 
 ## Appendix: Original Requirements (User Input)
 

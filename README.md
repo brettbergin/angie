@@ -19,6 +19,7 @@ Angie is a self-hosted, event-driven AI assistant that runs as a persistent back
 Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up on a schedule, monitors your channels, executes multi-step workflows, and reports back without being asked. Angie remembers context about you through a layered prompt hierarchy, so every interaction is personalized to your preferences, communication style, and routines.
 
 ### What Angie can do
+
 - **Real time chat interface** — Chat directly with Angie and your fleet of AI agents.
 - **Unified inbox** — (UNDER DEVELOPMENT) Connect Slack, Discord, iMessage, and email in one place. Angie routes incoming messages to the right agent automatically.
 - **Scheduled tasks** — (UNDER DEVELOPMENT) Set cron jobs that run agents on a schedule ("every weekday at 8am, summarize my email and post to Slack").
@@ -30,7 +31,7 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
 - **Personalized context** — Onboarding builds a private profile (personality, communication style, preferences) that shapes every LLM interaction.
 - **REST API + Web UI** — Full FastAPI backend with a Next.js dashboard for managing agents, teams, workflows, tasks, and events in real time.
 
----
+______________________________________________________________________
 
 ## Architecture Overview
 
@@ -73,35 +74,35 @@ Unlike chat-only AI tools, Angie is **proactive and persistent**: Angie wakes up
 
 ### Key Concepts
 
-| Concept | Description |
-|---|---|
-| **Event** | Any trigger: user message, cron tick, webhook, task completion |
-| **Task** | A unit of work dispatched from an event to an agent |
-| **Agent** | A pydantic-ai powered worker that can handle specific task types |
-| **Team** | A named group of agents that collaborate on related tasks |
-| **Workflow** | An ordered sequence of steps across agents/teams for a goal |
+| Concept              | Description                                                           |
+| -------------------- | --------------------------------------------------------------------- |
+| **Event**            | Any trigger: user message, cron tick, webhook, task completion        |
+| **Task**             | A unit of work dispatched from an event to an agent                   |
+| **Agent**            | A pydantic-ai powered worker that can handle specific task types      |
+| **Team**             | A named group of agents that collaborate on related tasks             |
+| **Workflow**         | An ordered sequence of steps across agents/teams for a goal           |
 | **Prompt Hierarchy** | `SYSTEM → ANGIE → AGENT/USER` — layered context fed to every LLM call |
 
----
+______________________________________________________________________
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Language | Python 3.12, uv |
-| AI framework | pydantic-ai (GitHub Models, OpenAI, Anthropic) |
-| API | FastAPI + SQLAlchemy 2.0 async |
-| Database | MySQL 8 (aiomysql driver) |
-| Cache / Queue | Redis + Celery |
-| Scheduler | APScheduler |
-| Channels | Slack SDK · discord.py · BlueBubbles REST · SMTP/IMAP |
-| CLI | Click |
-| Frontend | Next.js 15 · TypeScript · Tailwind CSS v3 |
-| Build | PyInstaller (standalone `angie` binary) |
-| CI/CD | GitHub Actions |
-| Dev | Docker Compose, Ruff, pytest |
+| Layer         | Technology                                            |
+| ------------- | ----------------------------------------------------- |
+| Language      | Python 3.12, uv                                       |
+| AI framework  | pydantic-ai (GitHub Models, OpenAI, Anthropic)        |
+| API           | FastAPI + SQLAlchemy 2.0 async                        |
+| Database      | MySQL 8 (aiomysql driver)                             |
+| Cache / Queue | Redis + Celery                                        |
+| Scheduler     | APScheduler                                           |
+| Channels      | Slack SDK · discord.py · BlueBubbles REST · SMTP/IMAP |
+| CLI           | Click                                                 |
+| Frontend      | Next.js 15 · TypeScript · Tailwind CSS v3             |
+| Build         | PyInstaller (standalone `angie` binary)               |
+| CI/CD         | GitHub Actions                                        |
+| Dev           | Docker Compose, Ruff, pytest                          |
 
----
+______________________________________________________________________
 
 ## Quick Start
 
@@ -151,7 +152,7 @@ angie setup
 
 This asks a series of questions and generates personalized `prompts/user/<id>/` markdown files that become part of every LLM interaction.
 
----
+______________________________________________________________________
 
 ## CLI Reference
 
@@ -181,34 +182,35 @@ angie prompts reset          # Re-run onboarding for a prompt
 angie status                 # Show active tasks, registered agents
 ```
 
----
+______________________________________________________________________
 
 ## Agent Fleet
 
 Agents are pydantic-ai powered workers. Each declares:
+
 - `slug` — unique identifier used for routing
 - `capabilities` — keywords that trigger auto-selection
 - `execute(task)` — async method that does the work
 
 ### Built-in Agents
 
-| Slug | Category | Description |
-|---|---|---|
-| `cron-manager` | System | Create, list, delete cron jobs |
-| `task-manager` | System | Manage task queue and status |
-| `workflow-manager` | System | Trigger and monitor workflows |
-| `event-manager` | System | Inspect and replay events |
-| `gmail-agent` | Email | Gmail read/send/search |
-| `outlook-agent` | Email | Office 365 mail |
-| `yahoo-agent` | Email | Yahoo Mail |
-| `spam-deletion` | Email | Delete spam across providers |
-| `correspondence` | Email | Draft and send replies |
-| `gcal-agent` | Calendar | Google Calendar CRUD |
-| `spotify-agent` | Media | Playback control, playlists |
-| `github-agent` | Dev | Issues, PRs, repos |
-| `hue-agent` | Smart Home | Philips Hue lighting |
-| `home-assistant` | Smart Home | Home Assistant integration |
-| `ubiquiti-agent` | Networking | UniFi network management |
+| Slug               | Category   | Description                    |
+| ------------------ | ---------- | ------------------------------ |
+| `cron-manager`     | System     | Create, list, delete cron jobs |
+| `task-manager`     | System     | Manage task queue and status   |
+| `workflow-manager` | System     | Trigger and monitor workflows  |
+| `event-manager`    | System     | Inspect and replay events      |
+| `gmail-agent`      | Email      | Gmail read/send/search         |
+| `outlook-agent`    | Email      | Office 365 mail                |
+| `yahoo-agent`      | Email      | Yahoo Mail                     |
+| `spam-deletion`    | Email      | Delete spam across providers   |
+| `correspondence`   | Email      | Draft and send replies         |
+| `gcal-agent`       | Calendar   | Google Calendar CRUD           |
+| `spotify-agent`    | Media      | Playback control, playlists    |
+| `github-agent`     | Dev        | Issues, PRs, repos             |
+| `hue-agent`        | Smart Home | Philips Hue lighting           |
+| `home-assistant`   | Smart Home | Home Assistant integration     |
+| `ubiquiti-agent`   | Networking | UniFi network management       |
 
 ### Adding a New Agent
 
@@ -229,7 +231,7 @@ class MyAgent(BaseAgent):
 
 Then add to `AGENT_MODULES` in `src/angie/agents/registry.py`.
 
----
+______________________________________________________________________
 
 ## Teams & Workflows
 
@@ -258,7 +260,7 @@ curl -X POST http://localhost:8000/api/v1/workflows/ \
   }'
 ```
 
----
+______________________________________________________________________
 
 ## Prompt Hierarchy
 
@@ -284,7 +286,7 @@ angie prompts edit
 angie setup           # re-run full onboarding
 ```
 
----
+______________________________________________________________________
 
 ## Development
 
@@ -294,6 +296,8 @@ make help             # list all targets
 make install          # install deps
 make check            # lint + format check
 make fix              # auto-fix lint + format
+make md-check         # check Markdown formatting
+make md-fix           # auto-format Markdown files
 make test             # run all tests (unit + e2e)
 make test-cov         # with coverage report
 make test-single K=test_name  # single test
@@ -306,6 +310,9 @@ make docker-down      # stop
 make docker-reset     # stop + wipe volumes
 
 make build            # PyInstaller standalone binary → dist/angie
+make dist             # build sdist + wheel into dist/
+make clean-dist       # remove distribution artifacts
+make clean            # remove all build artifacts
 ```
 
 ### Project Structure
@@ -335,89 +342,91 @@ angie/
 └── angie.spec          # PyInstaller spec
 ```
 
----
+______________________________________________________________________
 
 ## Environment Variables & API Key Permissions
 
 Copy `.env.example` to `.env`. The sections below describe every credential, where to obtain it, and the exact permissions/scopes required.
 
----
+______________________________________________________________________
 
 ### Core (required)
 
-| Variable | Description |
-|---|---|
-| `SECRET_KEY` | JWT signing secret. Generate with `openssl rand -hex 32`. Keep this private. |
-| `DB_PASSWORD` | MySQL password for the `angie` database user. |
+| Variable      | Description                                                                  |
+| ------------- | ---------------------------------------------------------------------------- |
+| `SECRET_KEY`  | JWT signing secret. Generate with `openssl rand -hex 32`. Keep this private. |
+| `DB_PASSWORD` | MySQL password for the `angie` database user.                                |
 
----
+______________________________________________________________________
 
 ### LLM Provider Selection
 
 Angie supports three LLM providers. Set `LLM_PROVIDER` to choose:
 
-| Provider | `LLM_PROVIDER` | Required Variables |
-|---|---|---|
-| GitHub Models API (default) | `github` | `GITHUB_TOKEN`, `COPILOT_MODEL` |
-| OpenAI | `openai` | `OPENAI_API_KEY`, `COPILOT_MODEL` |
-| Anthropic Claude | `anthropic` | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` |
+| Provider                    | `LLM_PROVIDER` | Required Variables                     |
+| --------------------------- | -------------- | -------------------------------------- |
+| GitHub Models API (default) | `github`       | `GITHUB_TOKEN`, `COPILOT_MODEL`        |
+| OpenAI                      | `openai`       | `OPENAI_API_KEY`, `COPILOT_MODEL`      |
+| Anthropic Claude            | `anthropic`    | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` |
 
----
+______________________________________________________________________
 
 ### LLM — GitHub Models API (default)
 
-| Variable | Description |
-|---|---|
-| `GITHUB_TOKEN` | GitHub OAuth token used to obtain a short-lived Copilot session token. |
-| `COPILOT_MODEL` | Model to use (default: `gpt-4o`). Other options: `gpt-4o-mini`, `o1-mini`. |
+| Variable           | Description                                                                    |
+| ------------------ | ------------------------------------------------------------------------------ |
+| `GITHUB_TOKEN`     | GitHub OAuth token used to obtain a short-lived Copilot session token.         |
+| `COPILOT_MODEL`    | Model to use (default: `gpt-4o`). Other options: `gpt-4o-mini`, `o1-mini`.     |
 | `COPILOT_API_BASE` | Copilot OpenAI-compatible endpoint (default: `https://api.githubcopilot.com`). |
 
 **How to get `GITHUB_TOKEN`:**
+
 1. Go to **GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic)**
-2. Click **Generate new token (classic)**
-3. Under **Scopes**, enable:
+1. Click **Generate new token (classic)**
+1. Under **Scopes**, enable:
    - `read:user` — required to identify your account
    - No additional scopes are needed; Copilot access is governed by your GitHub Copilot subscription, not token scopes
-4. You must have an active **GitHub Copilot Individual, Business, or Enterprise** subscription
-5. Paste the `ghp_...` token as `GITHUB_TOKEN`
+1. You must have an active **GitHub Copilot Individual, Business, or Enterprise** subscription
+1. Paste the `ghp_...` token as `GITHUB_TOKEN`
 
 > **Alternative:** Run `gh auth token` after authenticating with the [GitHub CLI](https://cli.github.com/) to get a token that already has the right access.
 
----
+______________________________________________________________________
 
 ### OpenAI
 
-| Variable | Description |
-|---|---|
-| `OPENAI_API_KEY` | OpenAI API key (`sk-...`). |
-| `COPILOT_MODEL` | Model to use (default: `gpt-4o`). |
+| Variable         | Description                       |
+| ---------------- | --------------------------------- |
+| `OPENAI_API_KEY` | OpenAI API key (`sk-...`).        |
+| `COPILOT_MODEL`  | Model to use (default: `gpt-4o`). |
 
 Get from: **platform.openai.com → API Keys → Create new secret key**. No special permissions needed — any key with access to `gpt-4o` works.
 
----
+______________________________________________________________________
 
 ### Anthropic Claude
 
-| Variable | Description |
-|---|---|
-| `ANTHROPIC_API_KEY` | Anthropic API key (`sk-ant-...`). |
-| `ANTHROPIC_MODEL` | Model to use (default: `claude-sonnet-4-20250514`). Other options: `claude-opus-4-20250514`, `claude-haiku-4-20250514`. |
+| Variable            | Description                                                                                                             |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | Anthropic API key (`sk-ant-...`).                                                                                       |
+| `ANTHROPIC_MODEL`   | Model to use (default: `claude-sonnet-4-20250514`). Other options: `claude-opus-4-20250514`, `claude-haiku-4-20250514`. |
 
 Get from: **console.anthropic.com → API Keys → Create Key**.
 
----
+______________________________________________________________________
 
 ### Slack (optional)
 
-| Variable | Description |
-|---|---|
-| `SLACK_BOT_TOKEN` | Bot OAuth token (`xoxb-...`) — for posting messages and reading channel events |
-| `SLACK_APP_TOKEN` | App-level token (`xapp-...`) — required for Socket Mode (real-time events without a public URL) |
-| `SLACK_SIGNING_SECRET` | Used to verify that incoming webhooks are from Slack |
+| Variable               | Description                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `SLACK_BOT_TOKEN`      | Bot OAuth token (`xoxb-...`) — for posting messages and reading channel events                  |
+| `SLACK_APP_TOKEN`      | App-level token (`xapp-...`) — required for Socket Mode (real-time events without a public URL) |
+| `SLACK_SIGNING_SECRET` | Used to verify that incoming webhooks are from Slack                                            |
 
 **How to create a Slack app:**
+
 1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App → From scratch**
-2. Under **OAuth & Permissions → Bot Token Scopes**, add:
+1. Under **OAuth & Permissions → Bot Token Scopes**, add:
    - `channels:history` — read messages in public channels
    - `channels:read` — list channels
    - `chat:write` — post messages as the bot
@@ -426,175 +435,184 @@ Get from: **console.anthropic.com → API Keys → Create Key**.
    - `im:write` — open DM conversations
    - `users:read` — look up user info (for @-mentioning)
    - `app_mentions:read` — receive `@Angie` mentions
-3. Under **Event Subscriptions**, enable and subscribe to:
+1. Under **Event Subscriptions**, enable and subscribe to:
    - `message.channels`, `message.im`, `app_mention`
-4. Under **Socket Mode**, enable Socket Mode and generate an **App-Level Token** with scope `connections:write` → this becomes `SLACK_APP_TOKEN`
-5. Install the app to your workspace → copy the **Bot User OAuth Token** → `SLACK_BOT_TOKEN`
-6. Under **Basic Information → Signing Secret** → `SLACK_SIGNING_SECRET`
+1. Under **Socket Mode**, enable Socket Mode and generate an **App-Level Token** with scope `connections:write` → this becomes `SLACK_APP_TOKEN`
+1. Install the app to your workspace → copy the **Bot User OAuth Token** → `SLACK_BOT_TOKEN`
+1. Under **Basic Information → Signing Secret** → `SLACK_SIGNING_SECRET`
 
----
+______________________________________________________________________
 
 ### Discord (optional)
 
-| Variable | Description |
-|---|---|
+| Variable            | Description                                 |
+| ------------------- | ------------------------------------------- |
 | `DISCORD_BOT_TOKEN` | Bot token from the Discord Developer Portal |
 
 **How to create a Discord bot:**
+
 1. Go to [discord.com/developers/applications](https://discord.com/developers/applications) → **New Application**
-2. Under **Bot**, click **Add Bot** → copy the **Token** → `DISCORD_BOT_TOKEN`
-3. Under **Bot → Privileged Gateway Intents**, enable:
+1. Under **Bot**, click **Add Bot** → copy the **Token** → `DISCORD_BOT_TOKEN`
+1. Under **Bot → Privileged Gateway Intents**, enable:
    - **Message Content Intent** — required to read message text
    - **Server Members Intent** — required to look up user info
    - **Presence Intent** — optional, for presence-aware responses
-4. Under **OAuth2 → URL Generator**, select scopes:
+1. Under **OAuth2 → URL Generator**, select scopes:
    - `bot` with permissions: `Send Messages`, `Read Message History`, `View Channels`, `Add Reactions`
-5. Use the generated URL to invite the bot to your server
+1. Use the generated URL to invite the bot to your server
 
----
+______________________________________________________________________
 
 ### iMessage via BlueBubbles (optional)
 
-| Variable | Description |
-|---|---|
-| `BLUEBUBBLES_URL` | URL of your BlueBubbles server (e.g. `https://your-server.ngrok.io`) |
-| `BLUEBUBBLES_PASSWORD` | BlueBubbles server password |
+| Variable               | Description                                                          |
+| ---------------------- | -------------------------------------------------------------------- |
+| `BLUEBUBBLES_URL`      | URL of your BlueBubbles server (e.g. `https://your-server.ngrok.io`) |
+| `BLUEBUBBLES_PASSWORD` | BlueBubbles server password                                          |
 
 **Requirements:**
+
 - A Mac that stays on with iMessage signed in
 - [BlueBubbles Server](https://bluebubbles.app/) installed and running on that Mac
 - A way to expose the server publicly (ngrok, Cloudflare Tunnel, or static IP)
 - No Apple credentials needed — BlueBubbles uses the Mac's existing iMessage session
 
----
+______________________________________________________________________
 
 ### Email — SMTP/IMAP (optional)
 
-| Variable | Description |
-|---|---|
-| `EMAIL_SMTP_HOST` | SMTP server hostname (e.g. `smtp.gmail.com`) |
-| `EMAIL_SMTP_PORT` | SMTP port (default: `587` for STARTTLS) |
-| `EMAIL_IMAP_HOST` | IMAP server hostname (e.g. `imap.gmail.com`) |
-| `EMAIL_IMAP_PORT` | IMAP port (default: `993` for SSL) |
-| `EMAIL_USERNAME` | Email address (e.g. `you@gmail.com`) |
-| `EMAIL_PASSWORD` | App password (not your regular password — see below) |
+| Variable          | Description                                          |
+| ----------------- | ---------------------------------------------------- |
+| `EMAIL_SMTP_HOST` | SMTP server hostname (e.g. `smtp.gmail.com`)         |
+| `EMAIL_SMTP_PORT` | SMTP port (default: `587` for STARTTLS)              |
+| `EMAIL_IMAP_HOST` | IMAP server hostname (e.g. `imap.gmail.com`)         |
+| `EMAIL_IMAP_PORT` | IMAP port (default: `993` for SSL)                   |
+| `EMAIL_USERNAME`  | Email address (e.g. `you@gmail.com`)                 |
+| `EMAIL_PASSWORD`  | App password (not your regular password — see below) |
 
 **Gmail setup:**
+
 1. Enable **2-Step Verification** on your Google account
-2. Go to **Google Account → Security → App passwords**
-3. Create an app password for "Mail" → use this as `EMAIL_PASSWORD`
-4. SMTP: `smtp.gmail.com:587`, IMAP: `imap.gmail.com:993`
+1. Go to **Google Account → Security → App passwords**
+1. Create an app password for "Mail" → use this as `EMAIL_PASSWORD`
+1. SMTP: `smtp.gmail.com:587`, IMAP: `imap.gmail.com:993`
 
 **Other providers:** Use standard SMTP/IMAP settings. For Office 365: SMTP `smtp.office365.com:587`, IMAP `outlook.office365.com:993`.
 
----
+______________________________________________________________________
 
 ### Google Calendar (optional)
 
-| Variable | Description |
-|---|---|
-| `GOOGLE_CREDENTIALS_FILE` | Path to your `credentials.json` from Google Cloud Console |
-| `GOOGLE_TOKEN_FILE` | Path where Angie stores the OAuth token (default: `token.json`) |
+| Variable                  | Description                                                     |
+| ------------------------- | --------------------------------------------------------------- |
+| `GOOGLE_CREDENTIALS_FILE` | Path to your `credentials.json` from Google Cloud Console       |
+| `GOOGLE_TOKEN_FILE`       | Path where Angie stores the OAuth token (default: `token.json`) |
 
 **Setup:**
+
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) → create a project
-2. Enable the **Google Calendar API**
-3. Under **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID** (Desktop app)
-4. Download the JSON → save as `credentials.json` → set `GOOGLE_CREDENTIALS_FILE`
-5. Required OAuth scopes:
+1. Enable the **Google Calendar API**
+1. Under **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID** (Desktop app)
+1. Download the JSON → save as `credentials.json` → set `GOOGLE_CREDENTIALS_FILE`
+1. Required OAuth scopes:
    - `https://www.googleapis.com/auth/calendar` — full read/write access to calendars
    - `https://www.googleapis.com/auth/calendar.events` — create/edit/delete events
-6. On first run, a browser window opens for authorization; the token is saved automatically
+1. On first run, a browser window opens for authorization; the token is saved automatically
 
----
+______________________________________________________________________
 
 ### Spotify (optional)
 
-| Variable | Description |
-|---|---|
-| `SPOTIFY_CLIENT_ID` | Spotify app client ID |
-| `SPOTIFY_CLIENT_SECRET` | Spotify app client secret |
-| `SPOTIFY_REDIRECT_URI` | OAuth callback URL (default: `http://localhost:8080/callback`) |
+| Variable                | Description                                                    |
+| ----------------------- | -------------------------------------------------------------- |
+| `SPOTIFY_CLIENT_ID`     | Spotify app client ID                                          |
+| `SPOTIFY_CLIENT_SECRET` | Spotify app client secret                                      |
+| `SPOTIFY_REDIRECT_URI`  | OAuth callback URL (default: `http://localhost:8080/callback`) |
 
 **Setup:**
+
 1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → **Create app**
-2. Set the Redirect URI to `http://localhost:8080/callback`
-3. Copy **Client ID** and **Client Secret**
-4. Required scopes (requested at runtime):
+1. Set the Redirect URI to `http://localhost:8080/callback`
+1. Copy **Client ID** and **Client Secret**
+1. Required scopes (requested at runtime):
    - `user-read-playback-state` — current track and device
    - `user-modify-playback-state` — play/pause/skip/volume
    - `user-read-currently-playing` — now-playing info
    - `playlist-read-private` — access private playlists
    - `playlist-modify-public`, `playlist-modify-private` — create/edit playlists
 
----
+______________________________________________________________________
 
 ### Philips Hue (optional)
 
-| Variable | Description |
-|---|---|
+| Variable        | Description                                                |
+| --------------- | ---------------------------------------------------------- |
 | `HUE_BRIDGE_IP` | Local IP address of your Hue Bridge (e.g. `192.168.1.100`) |
-| `HUE_USERNAME` | API username registered on the bridge |
+| `HUE_USERNAME`  | API username registered on the bridge                      |
 
 **Setup:**
-1. Find your bridge IP in the Hue app or at [discovery.meethue.com](https://discovery.meethue.com)
-2. Press the **link button** on the physical bridge
-3. Within 30 seconds, POST to `http://<bridge_ip>/api` with `{"devicetype":"angie"}` to get your username
-4. No cloud account or API key needed — this is a local LAN API
 
----
+1. Find your bridge IP in the Hue app or at [discovery.meethue.com](https://discovery.meethue.com)
+1. Press the **link button** on the physical bridge
+1. Within 30 seconds, POST to `http://<bridge_ip>/api` with `{"devicetype":"angie"}` to get your username
+1. No cloud account or API key needed — this is a local LAN API
+
+______________________________________________________________________
 
 ### Home Assistant (optional)
 
-| Variable | Description |
-|---|---|
-| `HOME_ASSISTANT_URL` | Base URL of your Home Assistant instance (e.g. `http://homeassistant.local:8123`) |
-| `HOME_ASSISTANT_TOKEN` | Long-lived access token |
+| Variable               | Description                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `HOME_ASSISTANT_URL`   | Base URL of your Home Assistant instance (e.g. `http://homeassistant.local:8123`) |
+| `HOME_ASSISTANT_TOKEN` | Long-lived access token                                                           |
 
 **Setup:**
-1. In Home Assistant, go to **Profile → Long-Lived Access Tokens → Create Token**
-2. Give it a name (e.g. "Angie") and copy the token
-3. The token inherits your user's permissions — use an account with access to the devices Angie should control
 
----
+1. In Home Assistant, go to **Profile → Long-Lived Access Tokens → Create Token**
+1. Give it a name (e.g. "Angie") and copy the token
+1. The token inherits your user's permissions — use an account with access to the devices Angie should control
+
+______________________________________________________________________
 
 ### UniFi / Ubiquiti (optional)
 
-| Variable | Description |
-|---|---|
-| `UNIFI_HOST` | UniFi Controller URL (e.g. `https://192.168.1.1` or `https://unifi.ui.com`) |
-| `UNIFI_USERNAME` | Controller admin username |
-| `UNIFI_PASSWORD` | Controller admin password |
+| Variable         | Description                                                                 |
+| ---------------- | --------------------------------------------------------------------------- |
+| `UNIFI_HOST`     | UniFi Controller URL (e.g. `https://192.168.1.1` or `https://unifi.ui.com`) |
+| `UNIFI_USERNAME` | Controller admin username                                                   |
+| `UNIFI_PASSWORD` | Controller admin password                                                   |
 
 **Requirements:**
+
 - A local UniFi Network Controller (self-hosted) or UniFi Cloud (unifi.ui.com)
 - Admin credentials — a read-only account works for monitoring; admin is needed for device management
 - For cloud access, use your Ubiquiti SSO credentials
 
----
+______________________________________________________________________
 
 ### GitHub Agent (optional — separate from Copilot token)
 
-| Variable | Description |
-|---|---|
+| Variable     | Description                                                            |
+| ------------ | ---------------------------------------------------------------------- |
 | `GITHUB_PAT` | Personal Access Token for the GitHub agent (repo queries, PRs, issues) |
 
 This is **separate** from `GITHUB_TOKEN` (which is for LLM). Create a fine-grained token at **GitHub → Settings → Developer Settings → Fine-grained tokens** with:
+
 - `Contents: Read` — read repository files
 - `Issues: Read and Write` — create/update issues
 - `Pull requests: Read and Write` — create/update PRs
 - `Metadata: Read` — required for all fine-grained tokens
 
----
+______________________________________________________________________
 
 ## CI/CD
 
-Two GitHub Actions workflows:
+Three GitHub Actions workflows:
 
-- **`ci.yml`** — runs on every push/PR: install → lint → format → test
-- **`release.yml`** — runs on `v*` tags: build PyInstaller binary → GitHub Release
+- **`ci.yml`** — runs on every push/PR: lint → format → markdown format → test → security → Docker build
+- **`deploy.yml`** — runs on `v*` tags: build PyInstaller binary → GitHub Release + publish to PyPI (OIDC trusted publishing)
 
----
+______________________________________________________________________
 
 ## License
 
