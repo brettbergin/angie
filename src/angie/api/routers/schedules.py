@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -113,6 +113,17 @@ async def create_schedule(
             status_code=422,
             detail="next_run_at is required for @once schedules",
         )
+    if is_once and body.next_run_at is not None:
+        # Normalise to UTC-aware for comparison regardless of whether the client
+        # sent a naive or tz-aware timestamp.
+        nra = body.next_run_at
+        if nra.tzinfo is None:
+            nra = nra.replace(tzinfo=UTC)
+        if nra <= datetime.now(UTC):
+            raise HTTPException(
+                status_code=422,
+                detail="next_run_at must be a future timestamp for @once schedules",
+            )
 
     job = ScheduledJob(
         user_id=user.id,
@@ -177,6 +188,17 @@ async def update_schedule(
                 status_code=422,
                 detail="next_run_at is required for @once schedules",
             )
+        # When next_run_at is being explicitly set (or already set), ensure it
+        # is in the future so the job won't be immediately disabled on registration.
+        if "next_run_at" in updates and effective_next_run is not None:
+            nra = effective_next_run
+            if nra.tzinfo is None:
+                nra = nra.replace(tzinfo=UTC)
+            if nra <= datetime.now(UTC):
+                raise HTTPException(
+                    status_code=422,
+                    detail="next_run_at must be a future timestamp for @once schedules",
+                )
 
     for k, v in updates.items():
         setattr(job, k, v)

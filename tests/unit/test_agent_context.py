@@ -127,8 +127,10 @@ async def test_get_conversation_history_returns_messages(mock_pm, mock_gs):
     mock_msg2.content = "world"
     mock_msg2.agent_slug = "weather"
 
+    # The query now uses DESC order so the DB returns newest-first.
+    # Simulate that here: mock_msg2 (assistant, newer) comes before mock_msg1 (user, older).
     mock_result = MagicMock()
-    mock_result.scalars.return_value.all.return_value = [mock_msg1, mock_msg2]
+    mock_result.scalars.return_value.all.return_value = [mock_msg2, mock_msg1]
 
     mock_session = AsyncMock()
     mock_session.execute = AsyncMock(return_value=mock_result)

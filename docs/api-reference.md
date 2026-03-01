@@ -217,10 +217,12 @@ Cron-based scheduled jobs. Users can only access their own schedules.
 | ----- | ---- | -------- | ----------- |
 | `name` | string | yes | Schedule name (max 255) |
 | `description` | string | no | Description |
-| `cron_expression` | string | yes (create) | Cron expression (max 50, validated) |
+| `cron_expression` | string | yes (create) | Cron expression (max 50, validated). Supports standard 5-field cron syntax or `@once` for a one-time run. |
+| `next_run_at` | datetime | yes (create, when `cron_expression` is `@once`) | First/only execution time for `@once` schedules (ISO 8601, UTC). Required when using `@once`. |
 | `agent_slug` | string | no | Agent to execute |
 | `task_payload` | dict | no | Task parameters |
 | `is_enabled` | bool | no | Default `true` |
+| `conversation_id` | string | no | Conversation to deliver results to (web chat). |
 
 ### Schedule response extras
 

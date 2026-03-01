@@ -412,7 +412,7 @@ def test_register_job_includes_conversation_id():
 
 @pytest.mark.asyncio
 async def test_register_job_conversation_id_in_event():
-    """Verify the _fire coroutine includes conversation_id and uses source_channel='web'."""
+    """Verify the _fire coroutine includes conversation_id and uses source_channel='cron'."""
     from angie.core.cron import CronEngine
 
     mock_job_record = MagicMock()
@@ -451,4 +451,4 @@ async def test_register_job_conversation_id_in_event():
         mock_router.dispatch.assert_called_once()
         event = mock_router.dispatch.call_args[0][0]
         assert event.payload["conversation_id"] == "conv-1"
-        assert event.source_channel == "web"
+        assert event.source_channel == "cron"

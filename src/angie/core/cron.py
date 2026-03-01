@@ -246,7 +246,7 @@ class CronEngine:
                 type=EventType.CRON,
                 user_id=user_id,
                 payload=payload,
-                source_channel="web",
+                source_channel="cron",
             )
             await router.dispatch(event)
             await self._update_last_run(job_id)
@@ -334,6 +334,12 @@ class CronEngine:
                 )
                 await session.commit()
             self._jobs.pop(job_id, None)
+            # Best-effort removal from APScheduler to keep scheduler state clean.
+            # DateTrigger jobs can linger with next_run_time=None otherwise.
+            try:
+                self.scheduler.remove_job(job_id)
+            except Exception:  # noqa: BLE001
+                pass  # Job may have already been removed by APScheduler
             logger.info("Disabled @once job %s after firing", job_id)
         except Exception:  # noqa: BLE001
             logger.exception("Failed to disable @once job %s", job_id)

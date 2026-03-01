@@ -192,10 +192,10 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
         or "Task complete."
     )
 
-    # Skip delivery for auto_notify tasks that returned empty/None summaries
+    # Skip delivery for auto_notify tasks that returned empty/None summaries.
+    # Note: task DB state was already persisted above (line with _update_task_in_db),
+    # so no second write is needed here.
     if is_auto_notify and (not summary or summary == "Task complete."):
-        if task_id:
-            await _update_task_in_db(task_id, "success", result, None)
         return {
             "status": "success",
             "result": result,

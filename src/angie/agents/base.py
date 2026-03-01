@@ -230,10 +230,12 @@ class BaseAgent(ABC):
                 result = await session.execute(
                     select(ChatMessage)
                     .where(ChatMessage.conversation_id == conversation_id)
-                    .order_by(ChatMessage.created_at.asc())
+                    .order_by(ChatMessage.created_at.desc())
                     .limit(limit)
                 )
-                messages = result.scalars().all()
+                # Fetch newest-first so LIMIT keeps recent messages,
+                # then reverse to return them in chronological (oldest→newest) order.
+                messages = list(reversed(result.scalars().all()))
                 return [
                     {
                         "role": msg.role.value,
