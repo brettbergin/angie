@@ -148,6 +148,15 @@ async def dispatch_task(
             except Exception as exc:
                 logger.warning("Failed to update task with celery ID: %s", exc)
 
+        # Auto-subscribe the agent to the conversation for future awareness
+        if conversation_id and resolved_agent:
+            try:
+                from angie.core.conv_subscriptions import subscribe_agent
+
+                await subscribe_agent(conversation_id, resolved_agent)
+            except Exception as exc:
+                logger.debug("Failed to auto-subscribe agent: %s", exc)
+
         return {
             "dispatched": True,
             "task_id": task_record_id or task.id,

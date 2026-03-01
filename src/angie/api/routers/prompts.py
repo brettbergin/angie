@@ -135,7 +135,7 @@ async def _seed_defaults(user_id: str, session: AsyncSession) -> list[Prompt]:
 
 
 @router.get("/definitions", response_model=list[PreferenceDefinition])
-async def get_definitions():
+async def get_definitions(_: User = Depends(get_current_user)):
     """Return the preference category definitions."""
     return PREFERENCE_DEFINITIONS
 

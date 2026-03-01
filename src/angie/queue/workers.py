@@ -160,6 +160,13 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
             await _update_task_in_db(task_id, "failure", {}, "No matching agent")
         return {"status": "no_agent", "error": msg}
 
+    # For auto_notify tasks, let the agent decide if it should respond
+    is_auto_notify = input_data.get("parameters", {}).get("auto_notify", False)
+    if is_auto_notify and not agent.should_respond(task_dict):
+        if task_id:
+            await _update_task_in_db(task_id, "success", {"skipped": True}, None)
+        return {"status": "skipped", "reason": "agent declined auto_notify"}
+
     result = await agent.execute(task_dict)
 
     if task_id:
@@ -172,6 +179,17 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
         or result.get("error")
         or "Task complete."
     )
+
+    # Skip delivery for auto_notify tasks that returned empty/None summaries
+    if is_auto_notify and (not summary or summary == "Task complete."):
+        if task_id:
+            await _update_task_in_db(task_id, "success", result, None)
+        return {
+            "status": "success",
+            "result": result,
+            "task_id": task_id,
+            "auto_notify_skipped": True,
+        }
 
     # Use FeedbackManager for task completion notifications
     from angie.core.feedback import get_feedback

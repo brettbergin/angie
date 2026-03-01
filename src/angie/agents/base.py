@@ -156,6 +156,83 @@ class BaseAgent(ABC):
             return None
 
     # ------------------------------------------------------------------
+    # Auto-notify / should_respond
+    # ------------------------------------------------------------------
+
+    def should_respond(self, task: dict[str, Any]) -> bool:
+        """Decide whether this agent should respond to an auto_notify task.
+
+        Default returns True for auto_notify tasks. Subclasses can override
+        to inspect conversation history and decide relevance.
+        """
+        params = task.get("input_data", {}).get("parameters", {})
+        return bool(params.get("auto_notify"))
+
+    # ------------------------------------------------------------------
+    # Conversation context
+    # ------------------------------------------------------------------
+
+    async def get_conversation_history(
+        self, conversation_id: str, limit: int = 20
+    ) -> list[dict[str, str]]:
+        """Query recent messages from a conversation for context.
+
+        Returns a list of dicts with ``role``, ``content``, and ``agent_slug`` keys,
+        ordered by creation time (oldest first).
+        """
+        try:
+            from sqlalchemy import select
+
+            from angie.db.session import get_session_factory
+            from angie.models.conversation import ChatMessage
+
+            factory = get_session_factory()
+            async with factory() as session:
+                result = await session.execute(
+                    select(ChatMessage)
+                    .where(ChatMessage.conversation_id == conversation_id)
+                    .order_by(ChatMessage.created_at.asc())
+                    .limit(limit)
+                )
+                messages = result.scalars().all()
+                return [
+                    {
+                        "role": msg.role.value,
+                        "content": msg.content,
+                        "agent_slug": msg.agent_slug or "",
+                    }
+                    for msg in messages
+                ]
+        except Exception as exc:
+            self.logger.warning("Failed to load conversation history: %s", exc)
+            return []
+
+    def _build_context_prompt(self, intent: str, history: list[dict[str, str]]) -> str:
+        """Format conversation history + intent into a context-enriched prompt.
+
+        If history is empty, returns the raw intent unchanged.
+        """
+        if not history:
+            return intent
+
+        lines = ["## Conversation Context"]
+        for msg in history:
+            role = msg.get("role", "user")
+            agent = msg.get("agent_slug", "")
+            if role == "user":
+                label = "USER"
+            elif agent:
+                label = agent
+            else:
+                label = "ASSISTANT"
+            lines.append(f"[{label}]: {msg['content']}")
+
+        lines.append("---")
+        lines.append("## Your Task")
+        lines.append(intent)
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 

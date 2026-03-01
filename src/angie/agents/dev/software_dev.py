@@ -532,6 +532,11 @@ class SoftwareDeveloperAgent(BaseAgent):
             else:
                 prompt = intent
 
+            conversation_id = task.get("input_data", {}).get("conversation_id")
+            if conversation_id:
+                history = await self.get_conversation_history(conversation_id)
+                prompt = self._build_context_prompt(prompt, history)
+
             result = await self._get_agent().run(prompt, model=get_llm_model(), deps=deps)
             summary = str(result.output)
 
