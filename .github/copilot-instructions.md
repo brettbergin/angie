@@ -15,21 +15,31 @@ make docker-up        # Start all services
 make docker-down      # Stop all services
 make docker-build     # Rebuild images
 make build            # Build angie CLI binary (PyInstaller)
+make md-check         # Check Markdown formatting (mdformat)
+make md-fix           # Auto-format Markdown files (mdformat)
+make dist             # Build sdist + wheel distributions
+make publish          # Publish to PyPI
+make publish-test     # Publish to TestPyPI
+make clean-dist       # Remove distribution artifacts
+make clean            # Remove all build artifacts
 ```
 
 > **Important:** `uv run pytest` picks up the system Python. Always use `.venv/bin/pytest` or `make test`.
 
 Run API locally (no Docker):
+
 ```bash
 uv run uvicorn angie.api.app:app --reload
 ```
 
 Run daemon locally:
+
 ```bash
 uv run python -m angie.main
 ```
 
 Run Celery worker:
+
 ```bash
 uv run celery -A angie.queue.celery_app worker --loglevel=info
 ```
@@ -39,6 +49,7 @@ uv run celery -A angie.queue.celery_app worker --loglevel=info
 Angie is an **event-driven, always-on daemon** that orchestrates a fleet of specialized agents.
 
 ### Event Flow
+
 ```
 Channel (Slack/Discord/iMessage/Email/Web)
   → AngieEvent
@@ -50,6 +61,7 @@ Channel (Slack/Discord/iMessage/Email/Web)
 ```
 
 ### Key Concepts
+
 - **AngieEvent** (`src/angie/core/events.py`): Everything entering the system is an event. Types: `USER_MESSAGE`, `CRON`, `WEBHOOK`, `TASK_COMPLETE`, `TASK_FAILED`, `SYSTEM`, `CHANNEL_MESSAGE`, `API_CALL`.
 - **AngieTask** (`src/angie/core/tasks.py`): A unit of work created from an event. Enqueued via Celery.
 - **BaseAgent** (`src/angie/agents/base.py`): All agents extend this. Must implement `execute(task)`. Declare `name`, `slug`, `description`, `capabilities` as `ClassVar`.
@@ -59,16 +71,18 @@ Channel (Slack/Discord/iMessage/Email/Web)
 - **Prompt Hierarchy**: `SYSTEM_PROMPT → ANGIE_PROMPT → AGENT_PROMPT` (agent tasks) or `SYSTEM_PROMPT → ANGIE_PROMPT → USER_PROMPTS` (user interactions). Managed by `PromptManager` (`src/angie/core/prompts.py`). Templates live in `prompts/`, user prompts in `prompts/user/{user_id}/*.md`.
 
 ### Services (Docker Compose)
-| Service | Port | Purpose |
-|---|---|---|
-| `api` | 8000 | FastAPI REST + WebSocket |
-| `worker` | — | Celery task workers |
-| `daemon` | — | Angie event loop |
-| `frontend` | 3000 | Next.js web UI |
-| `mysql` | 3306 | Primary database |
-| `redis` | 6379 | Cache + Celery broker |
+
+| Service    | Port | Purpose                  |
+| ---------- | ---- | ------------------------ |
+| `api`      | 8000 | FastAPI REST + WebSocket |
+| `worker`   | —    | Celery task workers      |
+| `daemon`   | —    | Angie event loop         |
+| `frontend` | 3000 | Next.js web UI           |
+| `mysql`    | 3306 | Primary database         |
+| `redis`    | 6379 | Cache + Celery broker    |
 
 ### Directory Layout
+
 ```
 src/angie/
 ├── main.py              # Daemon entry point
@@ -122,15 +136,18 @@ src/angie/
 ## Key Conventions
 
 ### Adding a New Agent
+
 1. Create `src/angie/agents/<category>/<slug>.py`
-2. Extend `BaseAgent`, declare `name`, `slug`, `description`, `capabilities` as `ClassVar[str]`/`ClassVar[list[str]]`
-3. Implement `async def execute(self, task: dict[str, Any]) -> dict[str, Any]`
-4. Add the module path to `AGENT_MODULES` in `src/angie/agents/registry.py`
+1. Extend `BaseAgent`, declare `name`, `slug`, `description`, `capabilities` as `ClassVar[str]`/`ClassVar[list[str]]`
+1. Implement `async def execute(self, task: dict[str, Any]) -> dict[str, Any]`
+1. Add the module path to `AGENT_MODULES` in `src/angie/agents/registry.py`
 
 ### Configuration
+
 All config is via environment variables / `.env` file using pydantic-settings. Never hardcode secrets. See `.env.example` for all options. Access via `from angie.config import get_settings; settings = get_settings()`.
 
 ### Database
+
 - All models live in `src/angie/models/`. Import from `angie.db.session.Base`.
 - Use `TimestampMixin` from `angie.models.base` for `created_at`/`updated_at`.
 - IDs are UUID strings: use `new_uuid` default.
@@ -138,20 +155,24 @@ All config is via environment variables / `.env` file using pydantic-settings. N
 - After changing models: `make migrate-new MSG="description"` then `make migrate`.
 
 ### API Patterns
+
 - All routes require JWT auth via `Depends(get_current_user)`.
 - Pydantic response models use `model_config = {"from_attributes": True}`.
 - Router prefix: `/api/v1/<resource>`.
 
 ### Prompt Hierarchy
+
 - `prompts/system.md` — global system rules (Angie's core identity)
 - `prompts/angie.md` — Angie's personality and behavior
 - `prompts/agents/<slug>.md` — per-agent context (optional)
 - `prompts/user/<user_id>/*.md` — generated during `angie setup`, user-specific context
 
 ### iMessage
+
 Uses [BlueBubbles](https://bluebubbles.app/) REST API. Requires BlueBubbles Server running on macOS. **Not containerized.** Configure with `angie config imessage`.
 
 ### Tech Stack
+
 - **Python 3.12+**, managed with `uv`
 - **pydantic-ai** — agent schemas, tools, structured LLM I/O
 - **github-copilot-sdk** — LLM engine (sessions, streaming, model selection)

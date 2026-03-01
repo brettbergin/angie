@@ -8,6 +8,16 @@ version = "0.1.0"
 description = "Angie — 24/7 personal AI assistant"
 readme = "README.md"
 license = { file = "LICENSE" }
+keywords = ["ai", "assistant", "agent", "automation", "pydantic-ai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 requires-python = ">=3.12,<3.14"
 dependencies = [
     # Core AI
@@ -66,12 +76,22 @@ dev = [
     "pytest-mock>=3.14.0",
     "httpx>=0.27.0",
     "ruff>=0.4.0",
+    "mdformat>=0.7.0",
+    "mdformat-gfm>=0.3.0",
+    "mdformat-frontmatter>=2.0.0",
+    "mdformat-footnote>=0.1.0",
     "mypy>=1.10.0",
     "pyinstaller>=6.6.0",
 ]
 
 [project.scripts]
 angie = "angie.cli.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/brettbergin/angie"
+Repository = "https://github.com/brettbergin/angie"
+Issues = "https://github.com/brettbergin/angie/issues"
+Changelog = "https://github.com/brettbergin/angie/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/angie"]
@@ -127,3 +147,7 @@ ignore_missing_imports = true
 [tool.bandit]
 exclude_dirs = ["tests", ".venv"]
 skips = ["B101", "B104"]
+
+[tool.mdformat]
+wrap = "no"
+number = false

@@ -32,6 +32,16 @@ jobs:
       - run: uv sync --dev --all-extras
       - run: .venv/bin/ruff format --check src/ tests/
 
+  markdown-format:
+    name: "Docs: Format (mdformat-check)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install 3.12
+      - run: uv sync --dev --all-extras
+      - run: .venv/bin/mdformat --check *.md .github/ prompts/
+
   # ── Python Tests ───────────────────────────────────────────────────
   python-test:
     name: "Python: Tests (${{ matrix.python-version }})"
@@ -225,6 +235,7 @@ jobs:
     needs:
       - python-lint
       - python-format
+      - markdown-format
       - python-test
       - python-security
       - frontend-lint

@@ -3,10 +3,12 @@ PYTHON       := .venv/bin/python
 UV           := uv
 PYTEST       := .venv/bin/pytest
 RUFF         := .venv/bin/ruff
+MDFORMAT     := .venv/bin/mdformat
 
-.PHONY: help install lint lint-fix format format-fix check fix test test-frontend test-backend test-single \
+.PHONY: help install lint lint-fix format format-fix md-check md-fix check fix test test-frontend test-backend test-single \
         lint-frontend lint-frontend-fix format-frontend format-frontend-fix \
-        build docker-build docker-up docker-down docker-restart docker-logs migrate clean \
+        build dist publish publish-test clean-dist clean \
+        docker-build docker-up docker-down docker-restart docker-logs migrate \
         docker-restart-api docker-restart-worker docker-restart-daemon docker-restart-frontend \
         docker-restart-mysql docker-restart-redis
 
@@ -29,6 +31,12 @@ format: ## Check Python formatting with ruff
 format-fix: ## Auto-format Python with ruff
 	$(RUFF) format src/ tests/
 
+md-check: ## Check Markdown formatting with mdformat
+	$(MDFORMAT) --check *.md .github/ prompts/
+
+md-fix: ## Auto-format Markdown with mdformat
+	$(MDFORMAT) *.md .github/ prompts/
+
 lint-frontend: ## Run ESLint on frontend
 	cd frontend && npx next lint
 
@@ -41,9 +49,9 @@ format-frontend: ## Check frontend formatting with Prettier
 format-frontend-fix: ## Auto-format frontend with Prettier
 	cd frontend && npx prettier --write "src/**/*.{ts,tsx,js,jsx,css,json}"
 
-check: lint format lint-frontend format-frontend ## Run all checks (lint + format)
+check: lint format md-check lint-frontend format-frontend ## Run all checks (lint + format)
 
-fix: lint-fix format-fix lint-frontend-fix format-frontend-fix ## Auto-fix all lint and format issues
+fix: lint-fix format-fix md-fix lint-frontend-fix format-frontend-fix ## Auto-fix all lint and format issues
 
 typecheck: ## Run mypy type checks
 	$(UV) run mypy src/
@@ -66,6 +74,22 @@ test-cov: ## Run tests with coverage report
 
 build: ## Build the angie CLI binary with PyInstaller
 	$(UV) run pyinstaller angie.spec
+
+dist: ## Build source and wheel distributions
+	$(UV) build
+
+publish: dist ## Publish to PyPI
+	$(UV) publish
+
+publish-test: dist ## Publish to TestPyPI
+	$(UV) publish --publish-url https://test.pypi.org/legacy/
+
+clean-dist: ## Remove built distribution artifacts
+	rm -rf dist/ build/ src/*.egg-info
+
+clean: clean-dist ## Remove all build artifacts
+	rm -rf .pytest_cache/ .mypy_cache/ .ruff_cache/ htmlcov/
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 migrate: ## Run Alembic database migrations
 	$(UV) run alembic upgrade head
