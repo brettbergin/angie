@@ -265,7 +265,7 @@ def _build_chat_agent(
         )
 
         if result.get("dispatched"):
-            dispatch_flag.append(True)
+            dispatch_flag.append(result.get("agent", ""))
             return (
                 f"Task dispatched successfully. Task ID: {result['task_id']}. "
                 f"The {result.get('agent', 'appropriate')} agent will handle this. "
@@ -380,8 +380,8 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
         except Exception as exc:
             logger.warning("Could not load conversation history: %s", exc)
 
-    # Mutable flag set by dispatch_task tool to signal task was dispatched
-    dispatch_flag: list[bool] = []
+    # Mutable flag set by dispatch_task tool — stores dispatched agent slugs
+    dispatch_flag: list[str] = []
     agent = None
     if is_llm_configured():
         agent = _build_chat_agent(system_prompt, user_id, conversation_id_ref, dispatch_flag)
@@ -503,14 +503,15 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
                 except Exception as exc:
                     logger.warning("Could not persist assistant message: %s", exc)
 
-            # Notify subscribed agents (those not explicitly @-mentioned)
+            # Notify subscribed agents (exclude @-mentioned AND dispatched agents)
             if conversation_id:
                 try:
+                    dispatched_slugs = {s for s in dispatch_flag if s and s != "auto-resolved"}
                     await _notify_subscribed_agents(
                         conversation_id=conversation_id,
                         user_id=user_id,
                         user_message=user_message,
-                        mentioned_slugs={slug for slug, _ in mentions},
+                        mentioned_slugs={slug for slug, _ in mentions} | dispatched_slugs,
                     )
                 except Exception as exc:
                     logger.debug("Subscription notification failed: %s", exc)

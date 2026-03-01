@@ -162,10 +162,15 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
 
     # For auto_notify tasks, let the agent decide if it should respond
     is_auto_notify = input_data.get("parameters", {}).get("auto_notify", False)
-    if is_auto_notify and not agent.should_respond(task_dict):
+    if is_auto_notify and not await agent.should_respond(task_dict):
         if task_id:
             await _update_task_in_db(task_id, "success", {"skipped": True}, None)
         return {"status": "skipped", "reason": "agent declined auto_notify"}
+
+    # Send acknowledgement so the user knows work has started
+    if conversation_id and user_id and not is_auto_notify:
+        ack_msg = f"On it — the **{agent.name}** agent is handling this now."
+        await _deliver_chat_result(conversation_id, user_id, ack_msg, agent_slug=agent.slug)
 
     result = await agent.execute(task_dict)
 
