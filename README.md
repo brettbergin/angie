@@ -202,16 +202,16 @@ Agents are pydantic-ai powered workers. Each declares:
 
 ### Built-in Agents
 
-| Slug               | Category     | Description                                                    |
-| ------------------ | ------------ | -------------------------------------------------------------- |
-| `cron`             | System       | Create, delete, and list cron scheduled tasks                  |
-| `task-manager`     | System       | List, cancel, and retry Angie tasks                            |
-| `workflow-manager` | System       | Manage and trigger Angie workflows                             |
-| `event-manager`    | System       | Query, filter, and manage Angie events                         |
-| `github`           | Dev          | GitHub repository and PR management                            |
-| `software-dev`     | Dev          | Turn GitHub issues into pull requests autonomously             |
-| `web`              | Productivity | Browse URLs, take screenshots, extract and summarize web pages |
-| `weather`          | Lifestyle    | Weather conditions, forecasts, and severe weather alerts       |
+| Slug               | Category (group) | Description                                                    |
+| ------------------ | ---------------- | -------------------------------------------------------------- |
+| `cron`             | System           | Create, delete, and list cron scheduled tasks                  |
+| `task-manager`     | System           | List, cancel, and retry Angie tasks                            |
+| `workflow-manager` | System           | Manage and trigger Angie workflows                             |
+| `event-manager`    | System           | Query, filter, and manage Angie events                         |
+| `github`           | Dev              | GitHub repository and PR management                            |
+| `software-dev`     | Dev              | Turn GitHub issues into pull requests autonomously             |
+| `web`              | Productivity     | Browse URLs, take screenshots, extract and summarize web pages |
+| `weather`          | Lifestyle        | Weather conditions, forecasts, and severe weather alerts       |
 
 More agents are planned — see the environment variables section below for services Angie will support.
 
