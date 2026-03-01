@@ -132,7 +132,7 @@ make migrate          # runs Alembic migrations
 ### 3. Run Angie
 
 ```bash
-# Start the daemon (background loop + Celery worker)
+# Start the Angie daemon (event loop only)
 angie daemon
 
 # Or start services individually:
