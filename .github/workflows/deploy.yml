@@ -22,13 +22,13 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --dev --all-extras
 
       - name: Run tests
-        run: uv run pytest tests/ -v
+        run: .venv/bin/pytest tests/ -v
 
       - name: Build CLI binary (PyInstaller)
-        run: uv run pyinstaller --onefile --name angie src/angie/cli/main.py
+        run: .venv/bin/pyinstaller --onefile --name angie src/angie/cli/main.py
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -47,9 +47,9 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --dev --all-extras
       - name: Run tests
-        run: uv run pytest tests/ -v
+        run: .venv/bin/pytest tests/ -v
       - name: Build distributions
         run: uv build
       - name: Publish to PyPI
