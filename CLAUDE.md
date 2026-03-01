@@ -52,7 +52,7 @@ Channel (Slack/Discord/iMessage/Email/WebSocket)
 `AgentRegistry.resolve(task)` uses a two-phase approach:
 
 1. **Confidence scoring** — each agent's `confidence(task)` returns 0.0–1.0 based on slug match and capability keywords
-2. **LLM fallback** — if no agent scores ≥0.5, the registry asks the LLM to pick from the roster
+1. **LLM fallback** — if no agent scores ≥0.5, the registry asks the LLM to pick from the roster
 
 ### Prompt Hierarchy
 
@@ -63,23 +63,23 @@ Three-tier composition via `PromptManager` (core/prompts.py) with Jinja2 templat
 
 ### Current Agents (AGENT_MODULES in agents/registry.py)
 
-| Slug | Category | Module |
-|------|----------|--------|
-| `cron` | System | `agents/system/cron.py` |
-| `task-manager` | System | `agents/system/task_manager.py` |
-| `workflow-manager` | System | `agents/system/workflow_manager.py` |
-| `event-manager` | System | `agents/system/event_manager.py` |
-| `github` | Dev | `agents/dev/github.py` |
-| `software-dev` | Dev | `agents/dev/software_dev.py` |
-| `web` | Productivity | `agents/productivity/web.py` |
-| `weather` | Lifestyle | `agents/lifestyle/weather.py` |
+| Slug               | Category     | Module                              |
+| ------------------ | ------------ | ----------------------------------- |
+| `cron`             | System       | `agents/system/cron.py`             |
+| `task-manager`     | System       | `agents/system/task_manager.py`     |
+| `workflow-manager` | System       | `agents/system/workflow_manager.py` |
+| `event-manager`    | System       | `agents/system/event_manager.py`    |
+| `github`           | Dev          | `agents/dev/github.py`              |
+| `software-dev`     | Dev          | `agents/dev/software_dev.py`        |
+| `web`              | Productivity | `agents/productivity/web.py`        |
+| `weather`          | Lifestyle    | `agents/lifestyle/weather.py`       |
 
 ### Adding a New Agent
 
 1. Create `src/angie/agents/<category>/<slug>.py`
-2. Extend `BaseAgent`, declare ClassVars: `name`, `slug`, `description`, `capabilities`, `category`, `instructions`
-3. Implement `build_pydantic_agent()` (register `@agent.tool` functions) and `async execute(self, task: dict) -> dict`
-4. Add module path to `AGENT_MODULES` in `src/angie/agents/registry.py`
+1. Extend `BaseAgent`, declare ClassVars: `name`, `slug`, `description`, `capabilities`, `category`, `instructions`
+1. Implement `build_pydantic_agent()` (register `@agent.tool` functions) and `async execute(self, task: dict) -> dict`
+1. Add module path to `AGENT_MODULES` in `src/angie/agents/registry.py`
 
 LLM model is injected at runtime via `get_llm_model()` — never stored on the agent. Credentials loaded via `self.get_credentials(user_id, service_type)` with env var fallback.
 
@@ -97,6 +97,7 @@ LLM model is injected at runtime via `get_llm_model()` — never stored on the a
 ## CI/CD
 
 Individual workflow files in `.github/workflows/`:
+
 - Backend: lint, format, test (3.12 + 3.13 matrix), security (bandit)
 - Frontend: lint, format, typecheck, test, build, security (npm audit)
 - Docs: mdformat
