@@ -15,7 +15,7 @@ RUN uv sync --no-dev --no-editable && \
     rm -rf /root/.cache/uv /tmp/*
 
 # Test runners the software-dev agent needs when validating changes in cloned repos
-RUN .venv/bin/pip install --no-cache-dir pytest pytest-asyncio pytest-cov
+RUN uv pip install --no-cache-dir pytest pytest-asyncio pytest-cov
 
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime — start from a clean filesystem so Playwright's ~362 MB
