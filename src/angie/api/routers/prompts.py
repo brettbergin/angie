@@ -135,7 +135,7 @@ async def _seed_defaults(user_id: str, session: AsyncSession) -> list[Prompt]:
 
 
 @router.get("/definitions", response_model=list[PreferenceDefinition])
-async def get_definitions():
+async def get_definitions(current_user: User = Depends(get_current_user)):
     """Return the preference category definitions."""
     return PREFERENCE_DEFINITIONS
 
@@ -277,3 +277,4 @@ async def reset_prompts(
     await session.commit()
     await _seed_defaults(current_user.id, session)
     return {"detail": "Prompts reset to defaults"}
+
