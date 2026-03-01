@@ -15,7 +15,7 @@ make md-check                   # check markdown formatting (mdformat)
 make md-fix                     # auto-format markdown
 make migrate                    # alembic upgrade head
 make migrate-new MSG="desc"     # generate new migration
-make docker-up / docker-down    # start/stop MySQL + Redis
+make docker-up / docker-down    # start/stop all services
 make build                      # PyInstaller binary → dist/angie
 make dist                       # sdist + wheel → dist/
 ```

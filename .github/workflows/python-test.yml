@@ -56,6 +56,7 @@ jobs:
           DB_PASSWORD: testpassword
           REDIS_HOST: localhost
         run: |
+          set -o pipefail
           .venv/bin/pytest tests/ \
             --cov=src/angie \
             --cov-report=xml:coverage.xml \
@@ -64,7 +65,7 @@ jobs:
             -v | tee pytest-coverage.txt
       - name: Coverage PR comment
         if: matrix.python-version == '3.12' && github.event_name == 'pull_request'
-        uses: MishaKav/pytest-coverage-comment@main
+        uses: MishaKav/pytest-coverage-comment@v1.5.0
         with:
           pytest-coverage-path: pytest-coverage.txt
           pytest-xml-coverage-path: coverage.xml
