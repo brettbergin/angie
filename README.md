@@ -480,7 +480,6 @@ ______________________________________________________________________
 - A way to expose the server publicly (ngrok, Cloudflare Tunnel, or static IP)
 - No Apple credentials needed — BlueBubbles uses the Mac's existing iMessage session
 
-
 ______________________________________________________________________
 
 ### GitHub Agent (optional — separate from Copilot API token)
