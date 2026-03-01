@@ -1,0 +1,19 @@
+name: "Docker: Build (docker-build)"
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  docker-build:
+    name: "Docker: Build (docker-build)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f docker/Dockerfile.api -t angie-api:ci .
+      - run: docker build -f docker/Dockerfile.worker -t angie-worker:ci .
+      - run: docker build -f docker/Dockerfile.daemon -t angie-daemon:ci .
+      - run: docker build -f docker/Dockerfile.frontend -t angie-frontend:ci frontend/
