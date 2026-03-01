@@ -119,6 +119,7 @@ class BaseAgent(ABC):
         title: str,
         intent: str,
         agent_slug: str | None = None,
+        conversation_id: str | None = None,
     ) -> str | None:
         """Schedule a follow-up task to run after a delay.
 
@@ -146,6 +147,7 @@ class BaseAgent(ABC):
                     task_payload={"intent": intent, "title": title},
                     is_enabled=True,
                     next_run_at=run_at,
+                    conversation_id=conversation_id,
                 )
                 session.add(job)
                 await session.commit()

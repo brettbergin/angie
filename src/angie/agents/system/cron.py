@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy.exc import IntegrityError
@@ -20,9 +21,9 @@ class CronAgent(BaseAgent):
     description: ClassVar[str] = "Create, delete, and list cron scheduled tasks."
     capabilities: ClassVar[list[str]] = ["cron", "schedule", "recurring", "scheduled task"]
     instructions: ClassVar[str] = (
-        "You manage recurring scheduled tasks using cron expressions.\n\n"
+        "You manage recurring and one-time scheduled tasks using cron expressions.\n\n"
         "Available tools:\n"
-        "- create_scheduled_task: Create a recurring task. Convert natural language\n"
+        "- create_scheduled_task: Create a scheduled task. Convert natural language\n"
         "  schedules to 5-part cron expressions (minute hour day month weekday).\n"
         "  Examples:\n"
         "    'every day at midnight' → '0 0 * * *'\n"
@@ -30,19 +31,24 @@ class CronAgent(BaseAgent):
         "    'every 5 minutes'      → '*/5 * * * *'\n"
         "    'every Sunday at 3 PM' → '0 15 * * 0'\n"
         "    'first of every month' → '0 0 1 * *'\n"
+        "  For one-time tasks, use '@once' as the expression and provide run_at\n"
+        "  (ISO 8601 datetime in UTC) for when it should fire.\n"
+        "  Example: 'remind me tomorrow at 9 AM' → expression='@once',\n"
+        "    run_at='2026-03-02T09:00:00Z'\n"
         "  All times are in UTC.\n"
         "  Minimum interval: 1 minute. Do not schedule more frequently.\n"
         "- delete_scheduled_task: Remove a scheduled task by its job ID.\n"
         "- list_scheduled_tasks: List all currently scheduled tasks.\n\n"
         "When the user describes a schedule in natural language, convert it to a\n"
-        "5-part cron expression and create the task."
+        "5-part cron expression (or '@once' for one-time tasks) and create the task."
     )
 
-    def build_pydantic_agent(self, user_id: str = "") -> Agent:
+    def build_pydantic_agent(self, user_id: str = "", conversation_id: str = "") -> Agent:
         from pydantic_ai import Agent
 
         agent: Agent[None, str] = Agent(system_prompt=self.get_system_prompt())
         _user_id = user_id
+        _conversation_id = conversation_id
 
         @agent.tool_plain
         async def create_scheduled_task(
@@ -50,10 +56,11 @@ class CronAgent(BaseAgent):
             task_name: str,
             description: str = "",
             agent_slug: str = "",
+            run_at: str = "",
         ) -> dict:
-            """Create a recurring scheduled task using a 5-part cron expression."""
+            """Create a scheduled task using a 5-part cron expression or '@once' with run_at."""
             if not expression:
-                return {"error": "expression is required (5-part cron: '* * * * *')"}
+                return {"error": "expression is required (5-part cron or '@once')"}
             if not _user_id:
                 return {"error": "user_id not available in task context"}
             if not task_name or not task_name.strip():
@@ -65,6 +72,21 @@ class CronAgent(BaseAgent):
             if not valid:
                 return {"error": err}
 
+            next_run_at = None
+            if expression.strip() == "@once":
+                if not run_at:
+                    return {"error": "run_at is required for @once expressions"}
+                from datetime import UTC, datetime
+
+                try:
+                    next_run_at = datetime.fromisoformat(run_at.replace("Z", "+00:00"))
+                except ValueError:
+                    return {"error": f"Invalid run_at datetime: {run_at}"}
+                if next_run_at.tzinfo is None:
+                    next_run_at = next_run_at.replace(tzinfo=UTC)
+                if next_run_at <= datetime.now(UTC):
+                    return {"error": "run_at must be in the future"}
+
             job_id = str(uuid.uuid4())
             try:
                 return await _create_job_in_db(
@@ -73,7 +95,9 @@ class CronAgent(BaseAgent):
                     name=task_name.strip(),
                     description=description,
                     cron_expression=expression,
-                    agent_slug=agent_slug or None,
+                    agent_slug=agent_slug or "cron",
+                    next_run_at=next_run_at,
+                    conversation_id=_conversation_id or None,
                 )
             except Exception as exc:  # noqa: BLE001
                 return {"error": str(exc)}
@@ -105,10 +129,11 @@ class CronAgent(BaseAgent):
 
         intent = self._extract_intent(task, fallback="list scheduled tasks")
         user_id = task.get("user_id", "")
+        conversation_id = task.get("input_data", {}).get("conversation_id", "")
         self.logger.info("CronAgent intent=%r user_id=%s", intent, user_id)
         try:
             # Build a fresh agent with user_id baked into tool closures
-            agent = self.build_pydantic_agent(user_id=user_id)
+            agent = self.build_pydantic_agent(user_id=user_id, conversation_id=conversation_id)
             result = await agent.run(intent, model=get_llm_model())
             return {"result": str(result.output)}
         except Exception as exc:  # noqa: BLE001
@@ -129,6 +154,8 @@ async def _create_job_in_db(
     description: str,
     cron_expression: str,
     agent_slug: str | None,
+    next_run_at: datetime | None = None,
+    conversation_id: str | None = None,
 ) -> dict:
     from angie.core.cron import cron_to_human
     from angie.db.session import get_session_factory
@@ -143,6 +170,8 @@ async def _create_job_in_db(
         agent_slug=agent_slug,
         task_payload={},
         is_enabled=True,
+        next_run_at=next_run_at,
+        conversation_id=conversation_id,
     )
     try:
         async with get_session_factory()() as session:

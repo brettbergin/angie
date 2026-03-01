@@ -31,6 +31,8 @@ class ScheduleCreate(BaseModel):
     agent_slug: str | None = None
     task_payload: dict | None = None
     is_enabled: bool = True
+    next_run_at: datetime | None = None
+    conversation_id: str | None = None
 
 
 class ScheduleUpdate(BaseModel):
@@ -40,6 +42,7 @@ class ScheduleUpdate(BaseModel):
     agent_slug: str | None = None
     task_payload: dict | None = None
     is_enabled: bool | None = None
+    next_run_at: datetime | None = None
 
 
 class ScheduleOut(BaseModel):
@@ -104,6 +107,13 @@ async def create_schedule(
     if not valid:
         raise HTTPException(status_code=422, detail=err)
 
+    is_once = body.cron_expression.strip() == "@once"
+    if is_once and body.next_run_at is None:
+        raise HTTPException(
+            status_code=422,
+            detail="next_run_at is required for @once schedules",
+        )
+
     job = ScheduledJob(
         user_id=user.id,
         name=body.name,
@@ -112,6 +122,8 @@ async def create_schedule(
         agent_slug=body.agent_slug,
         task_payload=body.task_payload or {},
         is_enabled=body.is_enabled,
+        next_run_at=body.next_run_at if is_once else None,
+        conversation_id=body.conversation_id,
     )
     session.add(job)
     try:
@@ -154,6 +166,17 @@ async def update_schedule(
         valid, err = validate_cron_expression(updates["cron_expression"])
         if not valid:
             raise HTTPException(status_code=422, detail=err)
+
+    # Determine the effective cron expression after applying updates
+    effective_expr = updates.get("cron_expression", job.cron_expression)
+    if effective_expr.strip() == "@once":
+        # next_run_at must be provided either in this update or already on the job
+        effective_next_run = updates.get("next_run_at", job.next_run_at)
+        if effective_next_run is None:
+            raise HTTPException(
+                status_code=422,
+                detail="next_run_at is required for @once schedules",
+            )
 
     for k, v in updates.items():
         setattr(job, k, v)

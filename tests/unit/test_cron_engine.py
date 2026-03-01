@@ -1,5 +1,6 @@
 """Tests for angie.core.cron (CronEngine)."""
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -272,3 +273,182 @@ async def test_sync_from_db_updates_changed_jobs():
             await engine.sync_from_db()
 
         engine._register_job.assert_called_once_with(mock_job_record)
+
+
+# ------------------------------------------------------------------
+# @once support
+# ------------------------------------------------------------------
+
+
+def test_validate_cron_expression_once():
+    from angie.core.cron import validate_cron_expression
+
+    valid, err = validate_cron_expression("@once")
+    assert valid is True
+    assert err == ""
+
+
+def test_cron_to_human_once():
+    from angie.core.cron import cron_to_human
+
+    assert cron_to_human("@once") == "One-time"
+
+
+def test_register_job_once():
+    """@once job with future next_run_at uses DateTrigger."""
+    from angie.core.cron import CronEngine
+
+    future = datetime.now(UTC) + timedelta(hours=1)
+
+    mock_job_record = MagicMock()
+    mock_job_record.id = "once-1"
+    mock_job_record.cron_expression = "@once"
+    mock_job_record.next_run_at = future
+    mock_job_record.user_id = "user-1"
+    mock_job_record.agent_slug = "test-agent"
+    mock_job_record.name = "One-time task"
+    mock_job_record.task_payload = {}
+
+    with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
+        mock_sched = MagicMock()
+        mock_job = MagicMock()
+        mock_job.next_run_time = future
+        mock_sched.add_job.return_value = mock_job
+        mock_sched_cls.return_value = mock_sched
+
+        with (
+            patch("angie.core.cron.DateTrigger") as mock_date_trigger,
+            patch("asyncio.create_task"),
+        ):
+            mock_trigger = MagicMock()
+            mock_date_trigger.return_value = mock_trigger
+
+            engine = CronEngine()
+            engine._register_job(mock_job_record)
+
+            mock_date_trigger.assert_called_once_with(run_date=future, timezone="UTC")
+            mock_sched.add_job.assert_called_once()
+            assert "once-1" in engine._jobs
+
+
+def test_register_job_once_no_next_run():
+    """@once job with next_run_at=None is skipped."""
+    from angie.core.cron import CronEngine
+
+    mock_job_record = MagicMock()
+    mock_job_record.id = "once-2"
+    mock_job_record.cron_expression = "@once"
+    mock_job_record.next_run_at = None
+
+    with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
+        mock_sched = MagicMock()
+        mock_sched_cls.return_value = mock_sched
+
+        engine = CronEngine()
+        engine._register_job(mock_job_record)
+
+        mock_sched.add_job.assert_not_called()
+        assert "once-2" not in engine._jobs
+
+
+def test_register_job_once_past_due():
+    """@once job with past next_run_at triggers _disable_once_job."""
+    from angie.core.cron import CronEngine
+
+    past = datetime.now(UTC) - timedelta(hours=1)
+
+    mock_job_record = MagicMock()
+    mock_job_record.id = "once-3"
+    mock_job_record.cron_expression = "@once"
+    mock_job_record.next_run_at = past
+
+    with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
+        mock_sched = MagicMock()
+        mock_sched_cls.return_value = mock_sched
+
+        engine = CronEngine()
+        with patch("asyncio.create_task") as mock_create_task:
+            engine._register_job(mock_job_record)
+            mock_create_task.assert_called_once()
+
+        mock_sched.add_job.assert_not_called()
+        assert "once-3" not in engine._jobs
+
+
+def test_register_job_includes_conversation_id():
+    """conversation_id from job_record appears in the fired event payload."""
+    from angie.core.cron import CronEngine
+
+    mock_job_record = MagicMock()
+    mock_job_record.id = "conv-job-1"
+    mock_job_record.cron_expression = "0 * * * *"
+    mock_job_record.user_id = "user-1"
+    mock_job_record.agent_slug = "test-agent"
+    mock_job_record.name = "Test with convo"
+    mock_job_record.task_payload = {}
+    mock_job_record.conversation_id = "conv-1"
+
+    captured_fire = []
+
+    with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
+        mock_sched = MagicMock()
+        mock_job = MagicMock()
+        mock_job.next_run_time = None
+
+        def capture_add_job(fn, trigger, id, replace_existing):
+            captured_fire.append(fn)
+            return mock_job
+
+        mock_sched.add_job.side_effect = capture_add_job
+        mock_sched_cls.return_value = mock_sched
+
+        with patch("angie.core.cron.CronTrigger"):
+            engine = CronEngine()
+            engine._register_job(mock_job_record)
+
+    assert len(captured_fire) == 1
+    assert "conv-job-1" in engine._jobs
+
+
+@pytest.mark.asyncio
+async def test_register_job_conversation_id_in_event():
+    """Verify the _fire coroutine includes conversation_id and uses source_channel='web'."""
+    from angie.core.cron import CronEngine
+
+    mock_job_record = MagicMock()
+    mock_job_record.id = "conv-job-2"
+    mock_job_record.cron_expression = "0 * * * *"
+    mock_job_record.user_id = "user-1"
+    mock_job_record.agent_slug = "test-agent"
+    mock_job_record.name = "Test event convo"
+    mock_job_record.task_payload = {}
+    mock_job_record.conversation_id = "conv-1"
+
+    captured_fire = []
+
+    with patch("angie.core.cron.AsyncIOScheduler") as mock_sched_cls:
+        mock_sched = MagicMock()
+        mock_job = MagicMock()
+        mock_job.next_run_time = None
+
+        def capture_add_job(fn, trigger, id, replace_existing):
+            captured_fire.append(fn)
+            return mock_job
+
+        mock_sched.add_job.side_effect = capture_add_job
+        mock_sched_cls.return_value = mock_sched
+
+        with patch("angie.core.cron.CronTrigger"):
+            engine = CronEngine()
+            engine._register_job(mock_job_record)
+
+    assert len(captured_fire) == 1
+
+    with patch("angie.core.cron.router") as mock_router:
+        mock_router.dispatch = AsyncMock()
+        engine._update_last_run = AsyncMock()
+        await captured_fire[0]()
+        mock_router.dispatch.assert_called_once()
+        event = mock_router.dispatch.call_args[0][0]
+        assert event.payload["conversation_id"] == "conv-1"
+        assert event.source_channel == "web"

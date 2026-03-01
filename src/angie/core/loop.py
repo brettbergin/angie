@@ -79,9 +79,13 @@ class AngieLoop:
             if event.type not in dispatchable:
                 return
             # Use message text as task title for channel messages
+            agent_slug = None
             if event.type == EventType.CHANNEL_MESSAGE:
                 text = event.payload.get("text", "")[:120]
                 title = text if text else "Channel message"
+            elif event.type == EventType.CRON:
+                title = event.payload.get("task_name") or "Cron task"
+                agent_slug = event.payload.get("agent_slug")
             else:
                 title = f"Task from {event.type.value} event"
             from angie.core.tasks import AngieTask
@@ -90,6 +94,7 @@ class AngieLoop:
                 title=title,
                 user_id=event.user_id or "system",
                 input_data=event.payload,
+                agent_slug=agent_slug,
                 source_event_id=event.id,
                 source_channel=event.source_channel,
             )

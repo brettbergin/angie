@@ -35,6 +35,9 @@ class ScheduledJob(Base, TimestampMixin):
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    conversation_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True
+    )
 
     user: Mapped[User] = relationship(back_populates="scheduled_jobs")  # noqa: F821
 

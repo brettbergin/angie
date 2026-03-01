@@ -64,6 +64,16 @@ async def _deliver_chat_result(
     try:
         factory = get_session_factory()
         async with factory() as session:
+            convo = await session.get(Conversation, conversation_id)
+            if convo is None:
+                # Original conversation was deleted — create a new one
+                convo = Conversation(
+                    user_id=user_id,
+                    title=f"Scheduled: {text[:50]}",
+                )
+                session.add(convo)
+                await session.flush()
+                conversation_id = convo.id
             msg = ChatMessage(
                 conversation_id=conversation_id,
                 role=MessageRole.ASSISTANT,
@@ -71,10 +81,7 @@ async def _deliver_chat_result(
                 agent_slug=agent_slug,
             )
             session.add(msg)
-            # Touch conversation updated_at
-            convo = await session.get(Conversation, conversation_id)
-            if convo:
-                convo.updated_at = func.now()
+            convo.updated_at = func.now()
             await session.commit()
     except Exception as exc:
         logger.warning("Failed to persist chat result to conversation: %s", exc)
