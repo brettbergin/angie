@@ -1,4 +1,4 @@
-name: "Python: Format (ruff-format-check)"
+name: "Backend: Format (ruff-format-check)"
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   python-format:
-    name: "Python: Format (ruff-format-check)"
+    name: "Backend: Format (ruff-format-check)"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

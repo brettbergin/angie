@@ -1,4 +1,4 @@
-name: "Python: Lint (ruff-check)"
+name: "Backend: Lint (ruff-check)"
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   python-lint:
-    name: "Python: Lint (ruff-check)"
+    name: "Backend: Lint (ruff-check)"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

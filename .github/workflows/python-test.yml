@@ -1,4 +1,4 @@
-name: "Python: Tests"
+name: "Backend: Tests"
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   python-test:
-    name: "Python: Tests (${{ matrix.python-version }})"
+    name: "Backend: Tests (${{ matrix.python-version }})"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
