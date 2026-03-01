@@ -487,7 +487,7 @@ async def test_run_task_no_agent_graceful():
         )
 
     assert result["status"] == "no_agent"
-    assert "mock" in result["error"]
+    assert "couldn't find a suitable agent" in result["error"]
     mock_reply.assert_called_once()
 
 
