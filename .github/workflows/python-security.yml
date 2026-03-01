@@ -1,0 +1,26 @@
+name: "Backend: Security (bandit-run)"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  python-security:
+    name: "Backend: Security (bandit-run)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install 3.12
+      - run: uv venv
+      - run: uv pip install bandit[toml]
+      - name: Run Bandit
+        run: .venv/bin/bandit -r src/ -c pyproject.toml -ll -f json -o bandit-report.json
+      - name: Display results
+        if: always()
+        run: .venv/bin/bandit -r src/ -c pyproject.toml -ll

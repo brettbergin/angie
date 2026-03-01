@@ -1,0 +1,21 @@
+name: "Backend: Lint (ruff-check)"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  python-lint:
+    name: "Backend: Lint (ruff-check)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install 3.12
+      - run: uv sync --dev --all-extras
+      - run: .venv/bin/ruff check src/ tests/

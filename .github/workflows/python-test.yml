@@ -1,0 +1,85 @@
+name: "Backend: Tests"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  python-test:
+    name: "Backend: Tests (${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpassword
+          MYSQL_DATABASE: angie_test
+          MYSQL_USER: angie
+          MYSQL_PASSWORD: testpassword
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -u root -ptestpassword"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv python install ${{ matrix.python-version }}
+      - run: uv sync --dev --all-extras
+      - name: Run tests
+        env:
+          SECRET_KEY: ci-test-secret-key
+          DB_HOST: localhost
+          DB_NAME: angie_test
+          DB_USER: angie
+          DB_PASSWORD: testpassword
+          REDIS_HOST: localhost
+        run: |
+          set -o pipefail
+          .venv/bin/pytest tests/ \
+            --cov=src/angie \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing:skip-covered \
+            --junitxml=pytest.xml \
+            -v | tee pytest-coverage.txt
+      - name: Coverage PR comment
+        if: matrix.python-version == '3.12' && github.event_name == 'pull_request'
+        uses: MishaKav/pytest-coverage-comment@v1.5.0
+        with:
+          pytest-coverage-path: pytest-coverage.txt
+          pytest-xml-coverage-path: coverage.xml
+          junitxml-path: pytest.xml
+          title: "Test Coverage Report"
+          badge-title: "Coverage"
+          hide-badge: false
+          hide-report: false
+          create-new-comment: false
+          hide-comment: false
+          report-only-changed-files: false
+      - name: Upload coverage
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+        continue-on-error: true
