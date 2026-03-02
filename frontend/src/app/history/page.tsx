@@ -29,7 +29,7 @@ function computeStats(tasks: Task[]): Stats {
   );
 }
 
-export default function DashboardPage() {
+export default function HistoryPage() {
   const { token } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<Event[]>([]);

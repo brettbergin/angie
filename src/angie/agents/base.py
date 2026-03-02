@@ -74,6 +74,43 @@ class BaseAgent(ABC):
         return self._pydantic_agent
 
     # ------------------------------------------------------------------
+    # Run with token tracking
+    # ------------------------------------------------------------------
+
+    async def _run_with_tracking(
+        self,
+        prompt: str,
+        *,
+        model: Any = None,
+        deps: Any = None,
+        user_id: str | None = None,
+        task_id: str | None = None,
+        conversation_id: str | None = None,
+    ) -> Any:
+        """Run the pydantic-ai agent and record token usage.
+
+        Returns the full AgentRunResult so callers can extract ``.output``.
+        """
+        from angie.core.token_usage import record_usage_fire_and_forget
+
+        kwargs: dict[str, Any] = {"model": model}
+        if deps is not None:
+            kwargs["deps"] = deps
+
+        result = await self._get_agent().run(prompt, **kwargs)
+
+        record_usage_fire_and_forget(
+            user_id=user_id,
+            agent_slug=self.slug,
+            usage=result.usage(),
+            source="agent_execute",
+            task_id=task_id,
+            conversation_id=conversation_id,
+        )
+
+        return result
+
+    # ------------------------------------------------------------------
     # Confidence scoring (for smart routing)
     # ------------------------------------------------------------------
 
@@ -317,9 +354,17 @@ class BaseAgent(ABC):
             system = self.get_system_prompt()
 
         try:
+            from angie.core.token_usage import record_usage_fire_and_forget
+
             model = get_llm_model()
             agent = Agent(system_prompt=system)
             result = await agent.run(prompt, model=model)
+            record_usage_fire_and_forget(
+                user_id=user_id,
+                agent_slug=self.slug,
+                usage=result.usage(),
+                source="ask_llm",
+            )
             return str(result.output)
         except Exception as exc:
             self.logger.error("LLM call failed: %s", exc)

@@ -185,6 +185,52 @@ export type TestResult = {
   status: ConnectionStatus;
 };
 
+export type UsageRecord = {
+  id: string;
+  user_id: string | null;
+  agent_slug: string | null;
+  provider: string | null;
+  model: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  request_count: number;
+  tool_call_count: number;
+  estimated_cost_usd: number;
+  source: string;
+  task_id: string | null;
+  conversation_id: string | null;
+  created_at: string;
+};
+
+export type UsageSummary = {
+  agent_slug: string | null;
+  provider: string | null;
+  model: string | null;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  request_count: number;
+};
+
+export type DailyUsage = {
+  date: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  request_count: number;
+};
+
+export type UsageTotals = {
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  total_requests: number;
+};
+
 export const api = {
   auth: {
     login: (username: string, password: string) => {
@@ -460,5 +506,71 @@ export const api = {
         method: "POST",
         token,
       }),
+  },
+
+  usage: {
+    list: (
+      token: string,
+      params?: {
+        agent_slug?: string;
+        start_date?: string;
+        end_date?: string;
+        limit?: number;
+        offset?: number;
+      }
+    ) => {
+      const q = new URLSearchParams();
+      if (params?.agent_slug) q.set("agent_slug", params.agent_slug);
+      if (params?.start_date) q.set("start_date", params.start_date);
+      if (params?.end_date) q.set("end_date", params.end_date);
+      if (params?.limit) q.set("limit", String(params.limit));
+      if (params?.offset) q.set("offset", String(params.offset));
+      const qs = q.toString();
+      return request<UsageRecord[]>(`/api/v1/usage/${qs ? `?${qs}` : ""}`, {
+        token,
+      });
+    },
+    summary: (
+      token: string,
+      params?: { start_date?: string; end_date?: string }
+    ) => {
+      const q = new URLSearchParams();
+      if (params?.start_date) q.set("start_date", params.start_date);
+      if (params?.end_date) q.set("end_date", params.end_date);
+      const qs = q.toString();
+      return request<UsageSummary[]>(
+        `/api/v1/usage/summary${qs ? `?${qs}` : ""}`,
+        { token }
+      );
+    },
+    daily: (
+      token: string,
+      params?: {
+        start_date?: string;
+        end_date?: string;
+        granularity?: string;
+      }
+    ) => {
+      const q = new URLSearchParams();
+      if (params?.start_date) q.set("start_date", params.start_date);
+      if (params?.end_date) q.set("end_date", params.end_date);
+      if (params?.granularity) q.set("granularity", params.granularity);
+      const qs = q.toString();
+      return request<DailyUsage[]>(`/api/v1/usage/daily${qs ? `?${qs}` : ""}`, {
+        token,
+      });
+    },
+    totals: (
+      token: string,
+      params?: { start_date?: string; end_date?: string }
+    ) => {
+      const q = new URLSearchParams();
+      if (params?.start_date) q.set("start_date", params.start_date);
+      if (params?.end_date) q.set("end_date", params.end_date);
+      const qs = q.toString();
+      return request<UsageTotals>(`/api/v1/usage/totals${qs ? `?${qs}` : ""}`, {
+        token,
+      });
+    },
   },
 };

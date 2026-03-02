@@ -537,7 +537,14 @@ class SoftwareDeveloperAgent(BaseAgent):
                 history = await self.get_conversation_history(conversation_id)
                 prompt = self._build_context_prompt(prompt, history)
 
-            result = await self._get_agent().run(prompt, model=get_llm_model(), deps=deps)
+            result = await self._run_with_tracking(
+                prompt,
+                model=get_llm_model(),
+                deps=deps,
+                user_id=user_id,
+                task_id=task.get("task_id"),
+                conversation_id=conversation_id,
+            )
             summary = str(result.output)
 
             # Schedule CI follow-up if a PR was opened

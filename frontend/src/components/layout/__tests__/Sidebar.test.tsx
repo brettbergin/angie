@@ -36,7 +36,7 @@ describe("Sidebar", () => {
     render(<Sidebar />);
     const links = screen.getAllByRole("link");
     const hrefs = links.map((l) => l.getAttribute("href"));
-    expect(hrefs).toContain("/dashboard");
+    expect(hrefs).toContain("/history");
     expect(hrefs).toContain("/chat");
     expect(hrefs).toContain("/agents");
     expect(hrefs).toContain("/teams");

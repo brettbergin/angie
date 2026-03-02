@@ -21,7 +21,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(form.username, form.password);
-      router.replace("/dashboard");
+      router.replace("/chat");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

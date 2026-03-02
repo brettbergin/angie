@@ -1653,3 +1653,124 @@ def test_cron_to_human_common_patterns():
     assert cron_to_human("0 0 * * *") == "Every day at 0:00 UTC"
     assert cron_to_human("0 9 * * 1-5") == "Weekdays at 9:00 UTC"
     assert cron_to_human("0 0 1 * *") == "1st of every month at 0:00 UTC"
+
+
+# ── Usage router ──────────────────────────────────────────────────────────────
+
+
+def test_list_usage_endpoint():
+    app, user, session = _make_app_with_overrides()
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/usage/")
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_usage_totals_endpoint():
+    app, user, session = _make_app_with_overrides()
+
+    mock_row = MagicMock()
+    mock_row.total_input_tokens = 1000
+    mock_row.total_output_tokens = 500
+    mock_row.total_tokens = 1500
+    mock_row.total_cost_usd = 0.05
+    mock_row.total_requests = 3
+
+    mock_result = MagicMock()
+    mock_result.one.return_value = mock_row
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/usage/totals")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_tokens"] == 1500
+    assert data["total_cost_usd"] == 0.05
+    assert data["total_requests"] == 3
+
+
+def test_usage_summary_endpoint():
+    app, user, session = _make_app_with_overrides()
+
+    mock_row = MagicMock()
+    mock_row.agent_slug = "weather"
+    mock_row.provider = "openai"
+    mock_row.model = "gpt-4o"
+    mock_row.total_input_tokens = 2000
+    mock_row.total_output_tokens = 1000
+    mock_row.total_tokens = 3000
+    mock_row.total_cost_usd = 0.015
+    mock_row.request_count = 5
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = [mock_row]
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/usage/summary")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["agent_slug"] == "weather"
+    assert data[0]["total_tokens"] == 3000
+
+
+def test_daily_usage_endpoint():
+    app, user, session = _make_app_with_overrides()
+
+    mock_row = MagicMock()
+    mock_row.date = "2026-03-01"
+    mock_row.input_tokens = 500
+    mock_row.output_tokens = 250
+    mock_row.total_tokens = 750
+    mock_row.total_cost_usd = 0.003
+    mock_row.request_count = 2
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = [mock_row]
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/usage/daily")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["date"] == "2026-03-01"
+    assert data[0]["total_tokens"] == 750
+
+
+def test_daily_usage_with_hourly_granularity():
+    app, user, session = _make_app_with_overrides()
+
+    mock_row = MagicMock()
+    mock_row.date = "2026-03-01 14:00:00"
+    mock_row.input_tokens = 200
+    mock_row.output_tokens = 100
+    mock_row.total_tokens = 300
+    mock_row.total_cost_usd = 0.001
+    mock_row.request_count = 1
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = [mock_row]
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/usage/daily?granularity=1h")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["date"] == "2026-03-01 14:00:00"
+    assert data[0]["total_tokens"] == 300
+
+
+def test_daily_usage_invalid_granularity():
+    app, user, session = _make_app_with_overrides()
+
+    with TestClient(app) as client:
+        resp = client.get("/api/v1/usage/daily?granularity=bogus")
+    assert resp.status_code == 422

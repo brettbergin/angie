@@ -470,6 +470,8 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
                 reply = "⚠️ No LLM configured. Set GITHUB_TOKEN or OPENAI_API_KEY in your .env."
             else:
                 try:
+                    from angie.core.token_usage import record_usage
+
                     dispatch_flag.clear()
                     result = await agent.run(
                         llm_message,
@@ -478,6 +480,15 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
                     reply = str(result.output)
                     message_history = result.all_messages()
                     task_dispatched = bool(dispatch_flag)
+                    asyncio.create_task(
+                        record_usage(
+                            user_id=user_id,
+                            agent_slug=None,
+                            usage=result.usage(),
+                            source="chat_ws",
+                            conversation_id=conversation_id,
+                        )
+                    )
                 except Exception as exc:
                     logger.error("LLM error in chat: %s", exc)
                     reply = f"⚠️ Sorry, I ran into an error: {exc}"
