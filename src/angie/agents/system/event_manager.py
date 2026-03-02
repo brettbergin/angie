@@ -70,7 +70,12 @@ class EventManagerAgent(BaseAgent):
         intent = self._extract_intent(task, fallback="list events")
         self.logger.info("EventManagerAgent intent=%r", intent)
         try:
-            result = await self._get_agent().run(intent, model=get_llm_model())
+            result = await self._run_with_tracking(
+                intent,
+                model=get_llm_model(),
+                user_id=task.get("user_id"),
+                task_id=task.get("task_id"),
+            )
             return {"result": str(result.output)}
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("EventManagerAgent error")

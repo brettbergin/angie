@@ -10,6 +10,7 @@ from angie.models.reminder import Reminder, ReminderStatus
 from angie.models.schedule import ScheduledJob
 from angie.models.task import Task, TaskStatus
 from angie.models.team import Team, TeamAgent
+from angie.models.token_usage import TokenUsage
 from angie.models.user import User
 from angie.models.workflow import Workflow, WorkflowStep
 
@@ -35,4 +36,5 @@ __all__ = [
     "Conversation",
     "ChatMessage",
     "MessageRole",
+    "TokenUsage",
 ]

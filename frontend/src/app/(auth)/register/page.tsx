@@ -28,7 +28,7 @@ export default function RegisterPage() {
     try {
       await api.auth.register(form);
       await login(form.username, form.password);
-      router.replace("/dashboard");
+      router.replace("/chat");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

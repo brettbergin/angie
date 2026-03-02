@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
         schedules,
         tasks,
         teams,
+        usage,
         users,
         workflows,
     )
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(conversations.router, prefix="/api/v1/conversations", tags=["conversations"])
     app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
     app.include_router(media.router, prefix="/api/v1/media", tags=["media"])
+    app.include_router(usage.router, prefix="/api/v1/usage", tags=["usage"])
     app.include_router(health.router, tags=["health"])
 
     @app.exception_handler(Exception)

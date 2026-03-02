@@ -280,7 +280,14 @@ class WebAgent(BaseAgent):
                 prompt = self._build_context_prompt(intent, history)
             else:
                 prompt = intent
-            result = await self._get_agent().run(prompt, model=get_llm_model(), deps={})
+            result = await self._run_with_tracking(
+                prompt,
+                model=get_llm_model(),
+                deps={},
+                user_id=task.get("user_id"),
+                task_id=task.get("task_id"),
+                conversation_id=conversation_id,
+            )
             return {"summary": str(result.output)}
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("WebAgent error")

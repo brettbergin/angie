@@ -6,7 +6,7 @@ import {
   Bot,
   Clock,
   GitBranch,
-  LayoutDashboard,
+  History,
   LogOut,
   MessageSquare,
   Plug,
@@ -14,6 +14,7 @@ import {
   Users,
   Zap,
   Activity,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -40,7 +41,8 @@ const navSections = [
     label: "Configure",
     items: [
       { href: "/connections", label: "Connections", icon: Plug },
-      { href: "/dashboard", label: "History", icon: LayoutDashboard },
+      { href: "/usage", label: "Usage", icon: BarChart3 },
+      { href: "/history", label: "History", icon: History },
       { href: "/settings", label: "Settings", icon: Settings },
     ],
   },
