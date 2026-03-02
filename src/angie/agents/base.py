@@ -91,7 +91,7 @@ class BaseAgent(ABC):
 
         Returns the full AgentRunResult so callers can extract ``.output``.
         """
-        from angie.core.token_usage import record_usage_fire_and_forget
+        from angie.core.token_usage import record_usage
 
         kwargs: dict[str, Any] = {"model": model}
         if deps is not None:
@@ -99,7 +99,7 @@ class BaseAgent(ABC):
 
         result = await self._get_agent().run(prompt, **kwargs)
 
-        record_usage_fire_and_forget(
+        await record_usage(
             user_id=user_id,
             agent_slug=self.slug,
             usage=result.usage(),

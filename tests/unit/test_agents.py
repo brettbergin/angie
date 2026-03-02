@@ -124,7 +124,7 @@ async def test_run_with_tracking():
     mock_pa.run = AsyncMock(return_value=mock_result)
     agent._pydantic_agent = mock_pa
 
-    with patch("angie.core.token_usage.record_usage_fire_and_forget") as mock_fire:
+    with patch("angie.core.token_usage.record_usage", new_callable=AsyncMock) as mock_record:
         result = await agent._run_with_tracking(
             "test prompt",
             model="test-model",
@@ -134,8 +134,8 @@ async def test_run_with_tracking():
         )
 
     assert result is mock_result
-    mock_fire.assert_called_once()
-    call_kwargs = mock_fire.call_args[1]
+    mock_record.assert_called_once()
+    call_kwargs = mock_record.call_args[1]
     assert call_kwargs["user_id"] == "u1"
     assert call_kwargs["agent_slug"] == "mock"
     assert call_kwargs["source"] == "agent_execute"

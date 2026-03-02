@@ -294,8 +294,8 @@ export default function UsagePage() {
                       return v.split(" ")[1].slice(0, 5);
                     }
                     // Daily: "2026-03-01" → "3/1"
-                    const d = new Date(v);
-                    return `${d.getMonth() + 1}/${d.getDate()}`;
+                    const [, m, d] = v.split("-");
+                    return `${+m}/${+d}`;
                   }}
                 />
                 <YAxis

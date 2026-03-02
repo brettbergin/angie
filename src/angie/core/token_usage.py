@@ -50,23 +50,46 @@ def estimate_cost(provider: str, model: str, input_tokens: int, output_tokens: i
         input_price, output_price = MODEL_PRICING[key]
         return (input_tokens * input_price + output_tokens * output_price) / 1_000_000
 
-    # Prefix match: e.g. "gpt-4o-2024-08-06" matches "gpt-4o"
-    for (p, m), (input_price, output_price) in MODEL_PRICING.items():
+    # Prefix match: e.g. "gpt-4o-2024-08-06" matches "gpt-4o".
+    # When multiple prefixes match (e.g. "gpt-4o" and "gpt-4o-mini"),
+    # choose the most specific one (longest matching prefix).
+    candidates: list[tuple[tuple[str, str], tuple[float, float]]] = []
+    for key, prices in MODEL_PRICING.items():
+        p, m = key
         if p == provider and model.startswith(m):
-            return (input_tokens * input_price + output_tokens * output_price) / 1_000_000
+            candidates.append((key, prices))
+
+    if candidates:
+        (_, _), (input_price, output_price) = max(
+            candidates,
+            key=lambda item: len(item[0][1]),
+        )
+        return (input_tokens * input_price + output_tokens * output_price) / 1_000_000
 
     return 0.0
 
 
 def _get_provider_and_model() -> tuple[str, str]:
-    """Read current provider and model from settings."""
+    """Read current provider and model from settings.
+
+    Normalizes model names for pricing, e.g. strips an ``openai/`` prefix
+    when using the native OpenAI provider so that a setting like
+    ``"openai/gpt-4o"`` resolves to ``"gpt-4o"`` for MODEL_PRICING lookup.
+    """
     from angie.config import get_settings
 
     settings = get_settings()
     provider = settings.llm_provider
     if provider == "anthropic":
         return provider, settings.anthropic_model
-    return provider, settings.copilot_model
+
+    model = settings.copilot_model
+    # When using the native OpenAI provider, normalize GitHub-style model
+    # names like "openai/gpt-4o" to "gpt-4o" so they match MODEL_PRICING.
+    if provider == "openai" and model.startswith("openai/"):
+        model = model.split("/", 1)[1]
+
+    return provider, model
 
 
 async def record_usage(
