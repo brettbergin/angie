@@ -86,6 +86,9 @@ def _build_agents_catalog(team_map: dict[str, list[str]] | None = None) -> str:
         "When a message contains a team @-mention, use that team's slug as the "
         "`team_slug` parameter in `dispatch_task`. "
         "Strip the @-mention from the intent text.\n\n"
+        "A message may contain **multiple** @-mentions. When it does, dispatch a separate "
+        "task for each mentioned agent/team, each with its own intent extracted from the "
+        "message.\n\n"
         "**IMPORTANT:** Always preserve any URLs from the user's message verbatim in the "
         "`intent` parameter. Do NOT rephrase or omit URLs — pass them exactly as written."
     )
@@ -111,12 +114,14 @@ def _build_agents_catalog(team_map: dict[str, list[str]] | None = None) -> str:
 _MENTION_PATTERN = re.compile(r"(?:^|(?<=\s))@([a-z][a-z0-9_-]*)", re.IGNORECASE)
 
 
-def _extract_mention(
+def _extract_mentions(
     message: str, team_slugs: set[str] | None = None
-) -> tuple[str | None, str | None, str]:
-    """Extract @mention from message.
+) -> tuple[list[tuple[str, str]], str]:
+    """Extract all @mentions from a message.
 
-    Returns (slug, kind, cleaned_message) where kind is "agent", "team", or None.
+    Returns ([(slug, kind), ...], cleaned_message) where kind is "agent" or "team".
+    Processes matches in reverse order to preserve string offsets during removal.
+    Deduplicates slugs (same agent mentioned twice -> one entry).
     """
     from angie.agents.registry import get_registry
 
@@ -124,15 +129,86 @@ def _extract_mention(
     agent_slugs = {a.slug for a in registry.list_all()}
     _team_slugs = team_slugs or set()
 
-    match = _MENTION_PATTERN.search(message)
-    if match:
+    matches = list(_MENTION_PATTERN.finditer(message))
+    if not matches:
+        return [], message
+
+    mentions: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    cleaned = message
+
+    # Process in reverse order so earlier indices stay valid after removal
+    for match in reversed(matches):
         slug = match.group(1).lower()
-        cleaned = (message[: match.start()] + message[match.end() :]).strip()
+        kind: str | None = None
         if slug in agent_slugs:
-            return slug, "agent", cleaned
-        if slug in _team_slugs:
-            return slug, "team", cleaned
+            kind = "agent"
+        elif slug in _team_slugs:
+            kind = "team"
+
+        if kind and slug not in seen:
+            # Insert at front since we're iterating in reverse
+            mentions.insert(0, (slug, kind))
+            seen.add(slug)
+
+        if kind:
+            cleaned = cleaned[: match.start()] + cleaned[match.end() :]
+
+    return mentions, cleaned.strip()
+
+
+def _extract_mention(
+    message: str, team_slugs: set[str] | None = None
+) -> tuple[str | None, str | None, str]:
+    """Extract first @mention from message (backward-compat wrapper).
+
+    Returns (slug, kind, cleaned_message) where kind is "agent", "team", or None.
+    """
+    mentions, cleaned = _extract_mentions(message, team_slugs)
+    if mentions:
+        slug, kind = mentions[0]
+        return slug, kind, cleaned
     return None, None, message
+
+
+async def _notify_subscribed_agents(
+    *,
+    conversation_id: str,
+    user_id: str,
+    user_message: str,
+    mentioned_slugs: set[str],
+) -> None:
+    """Dispatch lightweight auto_notify tasks to subscribed agents.
+
+    Only agents NOT already @-mentioned are notified. Each agent is checked
+    for cooldown to prevent rapid-fire responses.
+    """
+    from angie.core.conv_subscriptions import (
+        check_cooldown,
+        get_subscribed_agents,
+        set_cooldown,
+    )
+    from angie.core.intent import dispatch_task
+
+    subscribed = await get_subscribed_agents(conversation_id)
+    # Exclude agents that were explicitly @-mentioned (they get direct tasks)
+    candidates = subscribed - mentioned_slugs
+    if not candidates:
+        return
+
+    for agent_slug in candidates:
+        if await check_cooldown(conversation_id, agent_slug):
+            continue
+
+        await set_cooldown(conversation_id, agent_slug)
+        await dispatch_task(
+            title=f"Auto-notify {agent_slug}",
+            intent=user_message,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            agent_slug=agent_slug,
+            parameters={"auto_notify": True},
+        )
 
 
 def _build_chat_agent(
@@ -189,7 +265,7 @@ def _build_chat_agent(
         )
 
         if result.get("dispatched"):
-            dispatch_flag.append(True)
+            dispatch_flag.append(result.get("agent", ""))
             return (
                 f"Task dispatched successfully. Task ID: {result['task_id']}. "
                 f"The {result.get('agent', 'appropriate')} agent will handle this. "
@@ -304,8 +380,8 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
         except Exception as exc:
             logger.warning("Could not load conversation history: %s", exc)
 
-    # Mutable flag set by dispatch_task tool to signal task was dispatched
-    dispatch_flag: list[bool] = []
+    # Mutable flag set by dispatch_task tool — stores dispatched agent slugs
+    dispatch_flag: list[str] = []
     agent = None
     if is_llm_configured():
         agent = _build_chat_agent(system_prompt, user_id, conversation_id_ref, dispatch_flag)
@@ -367,21 +443,27 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
                 except Exception as exc:
                     logger.warning("Could not persist user message: %s", exc)
 
-            # Extract @-mention if present (agent or team)
-            mentioned_slug, mention_kind, cleaned_message = _extract_mention(
-                user_message, team_slug_set
-            )
+            # Extract @-mentions if present (agents or teams)
+            mentions, cleaned_message = _extract_mentions(user_message, team_slug_set)
             llm_message = user_message
-            if mentioned_slug and mention_kind == "agent":
-                llm_message = (
-                    f"[The user @-mentioned the `{mentioned_slug}` agent. "
-                    f"Use agent_slug='{mentioned_slug}' when dispatching.]\n\n{cleaned_message}"
-                )
-            elif mentioned_slug and mention_kind == "team":
-                llm_message = (
-                    f"[The user @-mentioned the `{mentioned_slug}` team. "
-                    f"Use team_slug='{mentioned_slug}' when dispatching.]\n\n{cleaned_message}"
-                )
+            if mentions:
+                annotation_lines = ["[The user @-mentioned the following:"]
+                for slug, kind in mentions:
+                    if kind == "agent":
+                        annotation_lines.append(
+                            f"- `@{slug}` (agent): Use agent_slug='{slug}' when dispatching."
+                        )
+                    elif kind == "team":
+                        annotation_lines.append(
+                            f"- `@{slug}` (team): Use team_slug='{slug}' when dispatching."
+                        )
+                if len(mentions) > 1:
+                    annotation_lines.append(
+                        "Dispatch a separate task for each mention with the appropriate slug.]"
+                    )
+                else:
+                    annotation_lines.append("]")
+                llm_message = "\n".join(annotation_lines) + f"\n\n{cleaned_message}"
 
             task_dispatched = False
             if agent is None:
@@ -420,6 +502,19 @@ async def chat_ws(websocket: WebSocket, token: str, conversation_id: str | None 
                         await session.commit()
                 except Exception as exc:
                     logger.warning("Could not persist assistant message: %s", exc)
+
+            # Notify subscribed agents (exclude @-mentioned AND dispatched agents)
+            if conversation_id:
+                try:
+                    dispatched_slugs = {s for s in dispatch_flag if s and s != "auto-resolved"}
+                    await _notify_subscribed_agents(
+                        conversation_id=conversation_id,
+                        user_id=user_id,
+                        user_message=user_message,
+                        mentioned_slugs={slug for slug, _ in mentions} | dispatched_slugs,
+                    )
+                except Exception as exc:
+                    logger.debug("Subscription notification failed: %s", exc)
 
             response = {"content": reply, "role": "assistant"}
             if conversation_id:

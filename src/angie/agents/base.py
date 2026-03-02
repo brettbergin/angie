@@ -119,6 +119,7 @@ class BaseAgent(ABC):
         title: str,
         intent: str,
         agent_slug: str | None = None,
+        conversation_id: str | None = None,
     ) -> str | None:
         """Schedule a follow-up task to run after a delay.
 
@@ -146,6 +147,7 @@ class BaseAgent(ABC):
                     task_payload={"intent": intent, "title": title},
                     is_enabled=True,
                     next_run_at=run_at,
+                    conversation_id=conversation_id,
                 )
                 session.add(job)
                 await session.commit()
@@ -154,6 +156,122 @@ class BaseAgent(ABC):
         except Exception as exc:
             self.logger.warning("Failed to schedule follow-up: %s", exc)
             return None
+
+    # ------------------------------------------------------------------
+    # Auto-notify / should_respond
+    # ------------------------------------------------------------------
+
+    async def should_respond(self, task: dict[str, Any]) -> bool:
+        """Decide whether this agent should respond to an auto_notify task.
+
+        Evaluates relevance by checking if the user's latest message
+        contains keywords that match this agent's ``capabilities``.
+        Returns False if the message is unrelated to this agent's domain.
+
+        Subclasses can override for custom relevance logic.
+        """
+        params = task.get("input_data", {}).get("parameters", {})
+        if not params.get("auto_notify"):
+            return False
+
+        if not self.capabilities:
+            return False
+
+        # Extract the user message text to evaluate relevance
+        intent = self._extract_intent(task)
+        if not intent:
+            return False
+
+        text = intent.lower()
+
+        # Check if any capability keyword appears in the message
+        for cap in self.capabilities:
+            if cap.lower() in text:
+                return True
+
+        # Check conversation history for recent context relevance
+        conversation_id = task.get("input_data", {}).get("conversation_id")
+        if conversation_id:
+            history = await self.get_conversation_history(conversation_id, limit=5)
+            # Check the last few USER messages for capability relevance
+            recent_user_msgs = [
+                m["content"].lower()
+                for m in history
+                if m.get("role") == "USER" or m.get("role") == "user"
+            ]
+            # Only check the 2 most recent user messages
+            for msg_text in recent_user_msgs[-2:]:
+                for cap in self.capabilities:
+                    if cap.lower() in msg_text:
+                        return True
+
+        return False
+
+    # ------------------------------------------------------------------
+    # Conversation context
+    # ------------------------------------------------------------------
+
+    async def get_conversation_history(
+        self, conversation_id: str, limit: int = 20
+    ) -> list[dict[str, str]]:
+        """Query recent messages from a conversation for context.
+
+        Returns a list of dicts with ``role``, ``content``, and ``agent_slug`` keys,
+        ordered by creation time (oldest first).
+        """
+        try:
+            from sqlalchemy import select
+
+            from angie.db.session import get_session_factory
+            from angie.models.conversation import ChatMessage
+
+            factory = get_session_factory()
+            async with factory() as session:
+                result = await session.execute(
+                    select(ChatMessage)
+                    .where(ChatMessage.conversation_id == conversation_id)
+                    .order_by(ChatMessage.created_at.desc())
+                    .limit(limit)
+                )
+                # Fetch newest-first so LIMIT keeps recent messages,
+                # then reverse to return them in chronological (oldest→newest) order.
+                messages = list(reversed(result.scalars().all()))
+                return [
+                    {
+                        "role": msg.role.value,
+                        "content": msg.content,
+                        "agent_slug": msg.agent_slug or "",
+                    }
+                    for msg in messages
+                ]
+        except Exception as exc:
+            self.logger.warning("Failed to load conversation history: %s", exc)
+            return []
+
+    def _build_context_prompt(self, intent: str, history: list[dict[str, str]]) -> str:
+        """Format conversation history + intent into a context-enriched prompt.
+
+        If history is empty, returns the raw intent unchanged.
+        """
+        if not history:
+            return intent
+
+        lines = ["## Conversation Context"]
+        for msg in history:
+            role = msg.get("role", "user")
+            agent = msg.get("agent_slug", "")
+            if role == "user":
+                label = "USER"
+            elif agent:
+                label = agent
+            else:
+                label = "ASSISTANT"
+            lines.append(f"[{label}]: {msg['content']}")
+
+        lines.append("---")
+        lines.append("## Your Task")
+        lines.append(intent)
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------
     # Helpers

@@ -64,6 +64,16 @@ async def _deliver_chat_result(
     try:
         factory = get_session_factory()
         async with factory() as session:
+            convo = await session.get(Conversation, conversation_id)
+            if convo is None:
+                # Original conversation was deleted — create a new one
+                convo = Conversation(
+                    user_id=user_id,
+                    title=f"Scheduled: {text[:50]}",
+                )
+                session.add(convo)
+                await session.flush()
+                conversation_id = convo.id
             msg = ChatMessage(
                 conversation_id=conversation_id,
                 role=MessageRole.ASSISTANT,
@@ -71,10 +81,7 @@ async def _deliver_chat_result(
                 agent_slug=agent_slug,
             )
             session.add(msg)
-            # Touch conversation updated_at
-            convo = await session.get(Conversation, conversation_id)
-            if convo:
-                convo.updated_at = func.now()
+            convo.updated_at = func.now()
             await session.commit()
     except Exception as exc:
         logger.warning("Failed to persist chat result to conversation: %s", exc)
@@ -160,6 +167,18 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
             await _update_task_in_db(task_id, "failure", {}, "No matching agent")
         return {"status": "no_agent", "error": msg}
 
+    # For auto_notify tasks, let the agent decide if it should respond
+    is_auto_notify = input_data.get("parameters", {}).get("auto_notify", False)
+    if is_auto_notify and not await agent.should_respond(task_dict):
+        if task_id:
+            await _update_task_in_db(task_id, "success", {"skipped": True}, None)
+        return {"status": "skipped", "reason": "agent declined auto_notify"}
+
+    # Send acknowledgement so the user knows work has started
+    if conversation_id and user_id and not is_auto_notify:
+        ack_msg = f"On it — the **{agent.name}** agent is handling this now."
+        await _deliver_chat_result(conversation_id, user_id, ack_msg, agent_slug=agent.slug)
+
     result = await agent.execute(task_dict)
 
     if task_id:
@@ -172,6 +191,17 @@ async def _run_task(task_dict: dict[str, Any]) -> dict[str, Any]:
         or result.get("error")
         or "Task complete."
     )
+
+    # Skip delivery for auto_notify tasks that returned empty/None summaries.
+    # Note: task DB state was already persisted above (line with _update_task_in_db),
+    # so no second write is needed here.
+    if is_auto_notify and (not summary or summary == "Task complete."):
+        return {
+            "status": "success",
+            "result": result,
+            "task_id": task_id,
+            "auto_notify_skipped": True,
+        }
 
     # Use FeedbackManager for task completion notifications
     from angie.core.feedback import get_feedback

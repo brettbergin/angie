@@ -266,8 +266,14 @@ class WeatherAgent(BaseAgent):
             from angie.llm import get_llm_model
 
             intent = self._extract_intent(task, fallback="what's the weather like?")
+            conversation_id = task.get("input_data", {}).get("conversation_id")
+            if conversation_id:
+                history = await self.get_conversation_history(conversation_id)
+                prompt = self._build_context_prompt(intent, history)
+            else:
+                prompt = intent
             deps: dict[str, Any] = {"api_key": api_key}
-            result = await self._get_agent().run(intent, model=get_llm_model(), deps=deps)
+            result = await self._get_agent().run(prompt, model=get_llm_model(), deps=deps)
             return {"summary": str(result.output)}
 
         except Exception as exc:  # noqa: BLE001

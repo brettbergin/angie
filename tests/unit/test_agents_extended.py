@@ -824,3 +824,71 @@ async def test_list_jobs_from_db():
     assert len(result["schedules"]) == 1
     assert result["schedules"][0]["id"] == "j1"
     assert result["schedules"][0]["name"] == "Nightly"
+
+
+@pytest.mark.asyncio
+async def test_cron_agent_execute_fired_job():
+    """When job_id is present in input_data, intent should be prefixed with cron-fired context."""
+    from angie.agents.system.cron import CronAgent
+
+    a = CronAgent()
+    mock_result = MagicMock(output="Reminder acknowledged")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+
+    task = {
+        "title": "Check the weather",
+        "user_id": "u1",
+        "input_data": {
+            "intent": "Check the weather",
+            "job_id": "job-abc-123",
+            "task_name": "Morning weather check",
+        },
+    }
+
+    with (
+        patch.object(a, "build_pydantic_agent", return_value=mock_pai),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+    ):
+        result = await a.execute(task)
+
+    assert result == {"result": "Reminder acknowledged"}
+    # Verify the intent passed to agent.run was prefixed with cron-fired context
+    call_args = mock_pai.run.call_args
+    actual_intent = call_args[0][0]
+    assert "A scheduled cron job just fired" in actual_intent
+    assert "job-abc-123" in actual_intent
+    assert "Morning weather check" in actual_intent
+    assert "Check the weather" in actual_intent
+
+
+@pytest.mark.asyncio
+async def test_cron_agent_execute_user_chat_no_prefix():
+    """When no job_id is in input_data, intent should pass through unmodified."""
+    from angie.agents.system.cron import CronAgent
+
+    a = CronAgent()
+    mock_result = MagicMock(output="Here are your schedules")
+    mock_pai = MagicMock()
+    mock_pai.run = AsyncMock(return_value=mock_result)
+
+    task = {
+        "title": "List all scheduled tasks",
+        "user_id": "u1",
+        "input_data": {
+            "intent": "List all scheduled tasks",
+        },
+    }
+
+    with (
+        patch.object(a, "build_pydantic_agent", return_value=mock_pai),
+        patch("angie.llm.get_llm_model", return_value=MagicMock()),
+    ):
+        result = await a.execute(task)
+
+    assert result == {"result": "Here are your schedules"}
+    # Verify the intent was NOT prefixed
+    call_args = mock_pai.run.call_args
+    actual_intent = call_args[0][0]
+    assert actual_intent == "List all scheduled tasks"
+    assert "cron job just fired" not in actual_intent

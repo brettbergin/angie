@@ -9,6 +9,7 @@ from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 
 from angie.core.events import AngieEvent, router
 from angie.models.event import EventType
@@ -20,7 +21,9 @@ _FIELD_NAMES = ("minute", "hour", "day-of-month", "month", "day-of-week")
 
 
 def validate_cron_expression(expression: str) -> tuple[bool, str]:
-    """Validate a 5-part cron expression. Returns (is_valid, error_message)."""
+    """Validate a 5-part cron expression or '@once'. Returns (is_valid, error_message)."""
+    if expression.strip() == "@once":
+        return True, ""
     parts = expression.strip().split()
     if len(parts) != 5:
         return False, f"Expected 5 fields (minute hour day month weekday), got {len(parts)}"
@@ -40,6 +43,8 @@ def validate_cron_expression(expression: str) -> tuple[bool, str]:
 
 def cron_to_human(expression: str) -> str:
     """Convert a 5-part cron expression to a human-readable description."""
+    if expression.strip() == "@once":
+        return "One-time"
     parts = expression.strip().split()
     if len(parts) != 5:
         return expression
@@ -177,42 +182,64 @@ class CronEngine:
 
     def _register_job(self, job_record: Any) -> None:
         """Register a single ScheduledJob with APScheduler."""
-        parts = job_record.cron_expression.split()
-        if len(parts) != 5:
-            logger.warning(
-                "Invalid cron expression for job %s: %s", job_record.id, job_record.cron_expression
-            )
-            return
-
-        minute, hour, day, month, day_of_week = parts
-
         job_id = job_record.id
-        try:
-            trigger = CronTrigger(
-                minute=minute,
-                hour=hour,
-                day=day,
-                month=month,
-                day_of_week=day_of_week,
-                timezone="UTC",
-            )
-        except (ValueError, KeyError):
-            logger.exception(
-                "Invalid cron trigger for job %s (%s): %s",
-                job_record.name,
-                job_id,
-                job_record.cron_expression,
-            )
-            return
+        is_once = job_record.cron_expression.strip() == "@once"
+
+        if is_once:
+            run_at = job_record.next_run_at
+            if run_at is None:
+                logger.warning("@once job %s has no next_run_at, skipping", job_id)
+                return
+            # Skip if the fire time has already passed
+            now = datetime.now(UTC)
+            if run_at.tzinfo is None:
+                run_at = run_at.replace(tzinfo=UTC)
+            if run_at <= now:
+                logger.info("@once job %s fire time already passed, disabling", job_id)
+                asyncio.create_task(self._disable_once_job(job_id))
+                return
+            trigger = DateTrigger(run_date=run_at, timezone="UTC")
+        else:
+            parts = job_record.cron_expression.split()
+            if len(parts) != 5:
+                logger.warning(
+                    "Invalid cron expression for job %s: %s",
+                    job_record.id,
+                    job_record.cron_expression,
+                )
+                return
+
+            minute, hour, day, month, day_of_week = parts
+            try:
+                trigger = CronTrigger(
+                    minute=minute,
+                    hour=hour,
+                    day=day,
+                    month=month,
+                    day_of_week=day_of_week,
+                    timezone="UTC",
+                )
+            except (ValueError, KeyError):
+                logger.exception(
+                    "Invalid cron trigger for job %s (%s): %s",
+                    job_record.name,
+                    job_id,
+                    job_record.cron_expression,
+                )
+                return
 
         user_id = job_record.user_id
         agent_slug = job_record.agent_slug
+        conversation_id = job_record.conversation_id
         payload = {
             "task_name": job_record.name,
             "job_id": job_id,
             "agent_slug": agent_slug,
+            "intent": job_record.description or job_record.name,
             **(job_record.task_payload or {}),
         }
+        if conversation_id:
+            payload["conversation_id"] = conversation_id
 
         async def _fire() -> None:
             event = AngieEvent(
@@ -223,6 +250,8 @@ class CronEngine:
             )
             await router.dispatch(event)
             await self._update_last_run(job_id)
+            if is_once:
+                await self._disable_once_job(job_id)
 
         job = self.scheduler.add_job(
             _fire,
@@ -290,6 +319,30 @@ class CronEngine:
                 await session.commit()
         except Exception:  # noqa: BLE001
             logger.exception("Failed to update last_run_at for job %s", job_id)
+
+    async def _disable_once_job(self, job_id: str) -> None:
+        """Disable a @once job after it fires (or if its time has passed)."""
+        from sqlalchemy import update
+
+        from angie.db.session import get_session_factory
+        from angie.models.schedule import ScheduledJob
+
+        try:
+            async with get_session_factory()() as session:
+                await session.execute(
+                    update(ScheduledJob).where(ScheduledJob.id == job_id).values(is_enabled=False)
+                )
+                await session.commit()
+            self._jobs.pop(job_id, None)
+            # Best-effort removal from APScheduler to keep scheduler state clean.
+            # DateTrigger jobs can linger with next_run_time=None otherwise.
+            try:
+                self.scheduler.remove_job(job_id)
+            except Exception:  # noqa: BLE001
+                pass  # Job may have already been removed by APScheduler
+            logger.info("Disabled @once job %s after firing", job_id)
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to disable @once job %s", job_id)
 
     # ------------------------------------------------------------------
     # Direct management (used by daemon loop event handler)

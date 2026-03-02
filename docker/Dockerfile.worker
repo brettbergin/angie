@@ -14,6 +14,13 @@ COPY prompts/ ./prompts/
 RUN uv sync --no-dev --no-editable && \
     rm -rf /root/.cache/uv /tmp/*
 
+# Test runners the software-dev agent needs when validating changes in cloned repos.
+# Versions are pinned to match uv.lock to avoid supply-chain drift.
+RUN uv pip install --no-cache-dir \
+    "pytest==9.0.2" \
+    "pytest-asyncio==1.3.0" \
+    "pytest-cov==7.0.0"
+
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime — start from a clean filesystem so Playwright's ~362 MB
 # of system packages can be installed without hitting layer disk limits.

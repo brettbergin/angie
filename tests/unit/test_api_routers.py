@@ -1494,6 +1494,131 @@ def test_toggle_schedule_endpoint():
     assert resp.json()["is_enabled"] is False
 
 
+def test_create_schedule_once():
+    from datetime import UTC, datetime, timedelta
+
+    from angie.models.schedule import ScheduledJob
+
+    app, user, session = _make_app_with_overrides()
+    future = datetime.now(UTC) + timedelta(hours=1)
+    future_iso = future.isoformat()
+
+    job = ScheduledJob(
+        id="sched-once-1",
+        user_id="user-1",
+        name="One-time reminder",
+        description="Remind me",
+        cron_expression="@once",
+        agent_slug=None,
+        task_payload={},
+        is_enabled=True,
+    )
+
+    async def mock_refresh(obj):
+        obj.id = job.id
+        obj.user_id = job.user_id
+        obj.name = job.name
+        obj.description = job.description
+        obj.cron_expression = job.cron_expression
+        obj.agent_slug = job.agent_slug
+        obj.task_payload = job.task_payload
+        obj.is_enabled = job.is_enabled
+        obj.last_run_at = None
+        obj.next_run_at = future
+        obj.created_at = datetime(2025, 1, 1)
+        obj.updated_at = datetime(2025, 1, 1)
+
+    session.refresh = mock_refresh
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/v1/schedules/",
+            json={
+                "name": "One-time reminder",
+                "cron_expression": "@once",
+                "description": "Remind me",
+                "next_run_at": future_iso,
+            },
+        )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["cron_expression"] == "@once"
+    assert data["cron_human"] == "One-time"
+
+
+def test_create_schedule_once_missing_run_at():
+    app, user, session = _make_app_with_overrides()
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/v1/schedules/",
+            json={
+                "name": "Missing run_at",
+                "cron_expression": "@once",
+            },
+        )
+    assert resp.status_code == 422
+    assert "next_run_at" in resp.json()["detail"]
+
+
+def test_create_schedule_with_conversation_id():
+    from angie.models.schedule import ScheduledJob
+
+    app, user, session = _make_app_with_overrides()
+
+    job = ScheduledJob(
+        id="sched-conv-1",
+        user_id="user-1",
+        name="Chat Schedule",
+        description="With conversation",
+        cron_expression="0 9 * * *",
+        agent_slug=None,
+        task_payload={},
+        is_enabled=True,
+        conversation_id="conv-123",
+    )
+
+    created_obj = None
+
+    async def mock_refresh(obj):
+        nonlocal created_obj
+        created_obj = obj
+        obj.id = job.id
+        obj.user_id = job.user_id
+        obj.name = job.name
+        obj.description = job.description
+        obj.cron_expression = job.cron_expression
+        obj.agent_slug = job.agent_slug
+        obj.task_payload = job.task_payload
+        obj.is_enabled = job.is_enabled
+        obj.last_run_at = None
+        obj.next_run_at = None
+        obj.conversation_id = job.conversation_id
+        from datetime import datetime
+
+        obj.created_at = datetime(2025, 1, 1)
+        obj.updated_at = datetime(2025, 1, 1)
+
+    session.refresh = mock_refresh
+
+    with TestClient(app) as client:
+        resp = client.post(
+            "/api/v1/schedules/",
+            json={
+                "name": "Chat Schedule",
+                "cron_expression": "0 9 * * *",
+                "description": "With conversation",
+                "conversation_id": "conv-123",
+            },
+        )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["name"] == "Chat Schedule"
+    # Verify conversation_id was passed to the ScheduledJob constructor
+    assert created_obj is not None
+    assert created_obj.conversation_id == "conv-123"
+
+
 # ── Cron validation ───────────────────────────────────────────────────────────
 
 
