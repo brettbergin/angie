@@ -118,6 +118,16 @@ class AgentRegistry:
             )
             result = await agent.run(prompt, model=get_llm_model())
             slug = str(result.output).strip().lower()
+
+            from angie.core.token_usage import record_usage_fire_and_forget
+
+            record_usage_fire_and_forget(
+                user_id=None,
+                agent_slug=None,
+                usage=result.usage(),
+                source="agent_routing",
+            )
+
             return self._agents.get(slug)
         except Exception:
             logger.debug("LLM route failed", exc_info=True)

@@ -145,9 +145,19 @@ class CronAgent(BaseAgent):
             )
         self.logger.info("CronAgent intent=%r user_id=%s", intent, user_id)
         try:
+            from angie.core.token_usage import record_usage_fire_and_forget
+
             # Build a fresh agent with user_id baked into tool closures
             agent = self.build_pydantic_agent(user_id=user_id, conversation_id=conversation_id)
             result = await agent.run(intent, model=get_llm_model())
+            record_usage_fire_and_forget(
+                user_id=user_id,
+                agent_slug=self.slug,
+                usage=result.usage(),
+                source="agent_execute",
+                task_id=task.get("task_id"),
+                conversation_id=conversation_id,
+            )
             return {"result": str(result.output)}
         except Exception as exc:  # noqa: BLE001
             self.logger.exception("CronAgent error")
