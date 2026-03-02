@@ -1774,3 +1774,77 @@ def test_daily_usage_invalid_granularity():
     with TestClient(app) as client:
         resp = client.get("/api/v1/usage/daily?granularity=bogus")
     assert resp.status_code == 422
+
+
+def test_list_usage_with_filters():
+    """Exercise agent_slug, start_date, and end_date filter branches."""
+    app, user, session = _make_app_with_overrides()
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get(
+            "/api/v1/usage/?agent_slug=weather"
+            "&start_date=2026-01-01T00:00:00"
+            "&end_date=2026-03-01T23:59:59"
+        )
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_usage_summary_with_date_filters():
+    """Exercise start_date and end_date filter branches on summary."""
+    app, user, session = _make_app_with_overrides()
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = []
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get(
+            "/api/v1/usage/summary?start_date=2026-01-01T00:00:00&end_date=2026-03-01T23:59:59"
+        )
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_daily_usage_with_date_filters():
+    """Exercise start_date and end_date filter branches on daily."""
+    app, user, session = _make_app_with_overrides()
+
+    mock_result = MagicMock()
+    mock_result.all.return_value = []
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get(
+            "/api/v1/usage/daily?start_date=2026-01-01T00:00:00&end_date=2026-03-01T23:59:59"
+        )
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_usage_totals_with_date_filters():
+    """Exercise start_date and end_date filter branches on totals."""
+    app, user, session = _make_app_with_overrides()
+
+    mock_row = MagicMock()
+    mock_row.total_input_tokens = 0
+    mock_row.total_output_tokens = 0
+    mock_row.total_tokens = 0
+    mock_row.total_cost_usd = 0
+    mock_row.total_requests = 0
+
+    mock_result = MagicMock()
+    mock_result.one.return_value = mock_row
+    session.execute = AsyncMock(return_value=mock_result)
+
+    with TestClient(app) as client:
+        resp = client.get(
+            "/api/v1/usage/totals?start_date=2026-01-01T00:00:00&end_date=2026-03-01T23:59:59"
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_tokens"] == 0

@@ -172,3 +172,113 @@ def test_token_usage_model_with_values():
     assert record.request_count == 1
     assert record.tool_call_count == 0
     assert record.estimated_cost_usd == 0.001
+
+
+# ── _get_provider_and_model ─────────────────────────────────────────────────
+
+
+def test_get_provider_and_model_anthropic():
+    """Covers the anthropic branch in _get_provider_and_model."""
+    from angie.core.token_usage import _get_provider_and_model
+
+    mock_settings = MagicMock()
+    mock_settings.llm_provider = "anthropic"
+    mock_settings.anthropic_model = "claude-sonnet-4-20250514"
+
+    with patch("angie.config.get_settings", return_value=mock_settings):
+        provider, model = _get_provider_and_model()
+    assert provider == "anthropic"
+    assert model == "claude-sonnet-4-20250514"
+
+
+def test_get_provider_and_model_non_anthropic():
+    """Covers the default (non-anthropic) branch in _get_provider_and_model."""
+    from angie.core.token_usage import _get_provider_and_model
+
+    mock_settings = MagicMock()
+    mock_settings.llm_provider = "github"
+    mock_settings.copilot_model = "openai/gpt-4o"
+
+    with patch("angie.config.get_settings", return_value=mock_settings):
+        provider, model = _get_provider_and_model()
+    assert provider == "github"
+    assert model == "openai/gpt-4o"
+
+
+# ── record_usage_fire_and_forget ─────────────────────────────────────────────
+
+
+def test_record_usage_fire_and_forget_with_running_loop():
+    """Covers the asyncio.create_task() branch."""
+    import asyncio
+
+    from angie.core.token_usage import record_usage_fire_and_forget
+
+    mock_usage = MagicMock()
+    mock_usage.input_tokens = 10
+    mock_usage.output_tokens = 5
+    mock_usage.total_tokens = 15
+    mock_usage.requests = 1
+
+    with patch("angie.core.token_usage.record_usage", new_callable=AsyncMock) as mock_record:
+        mock_record.return_value = None
+
+        async def _run():
+            record_usage_fire_and_forget(
+                user_id="u1",
+                agent_slug="test",
+                usage=mock_usage,
+                source="test",
+            )
+            # Let the event loop process the created task
+            await asyncio.sleep(0.05)
+
+        asyncio.run(_run())
+
+    mock_record.assert_called_once()
+
+
+def test_record_usage_fire_and_forget_no_loop():
+    """Covers the sync fallback branch (no running event loop)."""
+    from angie.core.token_usage import record_usage_fire_and_forget
+
+    mock_usage = MagicMock()
+    mock_usage.input_tokens = 10
+    mock_usage.output_tokens = 5
+    mock_usage.total_tokens = 15
+    mock_usage.requests = 1
+
+    with patch("angie.core.token_usage.record_usage", new_callable=AsyncMock) as mock_record:
+        mock_record.return_value = None
+        record_usage_fire_and_forget(
+            user_id="u1",
+            agent_slug="test",
+            usage=mock_usage,
+            source="test",
+        )
+
+    mock_record.assert_called_once()
+
+
+def test_record_usage_fire_and_forget_sync_fallback_failure():
+    """Covers the exception handler in the sync fallback path."""
+    from angie.core.token_usage import record_usage_fire_and_forget
+
+    mock_usage = MagicMock()
+    mock_usage.input_tokens = 10
+    mock_usage.output_tokens = 5
+    mock_usage.total_tokens = 15
+    mock_usage.requests = 1
+
+    with patch(
+        "angie.core.token_usage.record_usage",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("DB down"),
+    ):
+        # Should not raise
+        record_usage_fire_and_forget(
+            user_id="u1",
+            agent_slug="test",
+            usage=mock_usage,
+            source="test",
+        )
